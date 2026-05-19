@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Redirect /jogar/<id> to game.php
+RewriteRule ^jogar/([0-9]+)$ game.php?id=$1 [L,QSA]
+
+# Front controller
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^(.*)$ index.php [L,QSA]

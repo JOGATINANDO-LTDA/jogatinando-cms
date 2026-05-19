@@ -1,0 +1,25 @@
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Docker files (needed for build)
+# docker/
+
+# Data (will be mounted as volume)
+data/*.db
+
+# Uploads (will be mounted as volume)
+uploads/*
+!uploads/.gitkeep

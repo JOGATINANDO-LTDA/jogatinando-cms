@@ -1,0 +1,28 @@
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: jogatinando-cms
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    volumes:
+      # Live reload — código do projeto (alterações refletem instantaneamente)
+      - ..:/var/www/html
+      # Persistent data (SQLite DB + uploads) — sobrescrevem o bind mount nestes subdirs
+      - cms-data:/var/www/html/data
+      - cms-uploads:/var/www/html/uploads
+    environment:
+      - SITE_URL=http://localhost:8080
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:80"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  cms-data:
+    driver: local
+  cms-uploads:
+    driver: local

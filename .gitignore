@@ -1,0 +1,46 @@
+# === Database ===
+data/*.db
+data/*.db-journal
+data/*.db-wal
+
+# === Uploads (managed by Docker volumes) ===
+uploads/*
+!uploads/.gitkeep
+
+# === PHP ===
+*.log
+*.cache
+*.phar
+*.bak
+*.swp
+*.swo
+*~
+
+# === OS ===
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# === Editor ===
+.vscode/
+.idea/
+*.sublime-*
+*.project
+*.settings/
+
+# === Environment ===
+.env
+.env.local
+.env.*.local
+
+# === Docker ===
+docker-compose.override.yml
+
+# === Temporary ===
+tmp/
+temp/
+*.tmp
+
+# === Composer (if ever added) ===
+vendor/
+composer.lock
