@@ -20,7 +20,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$games = dbQuery("SELECT id, title, engine, game_path, active FROM games WHERE game_path IS NOT NULL AND game_path != '' ORDER BY title");
+$games = dbQuery("SELECT id, title, engine, game_path, optimized_at, active FROM games WHERE game_path IS NOT NULL AND game_path != '' ORDER BY title");
 $html5Games = [];
 $totalSize = 0;
 foreach ($games as $g) {
