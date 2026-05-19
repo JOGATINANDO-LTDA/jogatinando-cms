@@ -1049,14 +1049,16 @@ input, textarea, select { font-family: inherit; }
 
 /* === Team === */
 .team-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 24px;
     position: relative;
     z-index: 1;
 }
 
 .team-card {
+    width: 240px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -1330,7 +1332,8 @@ input, textarea, select { font-family: inherit; }
     /* Grids */
     .blog-grid { grid-template-columns: 1fr; }
     .testimonials-grid { grid-template-columns: 1fr; }
-    .team-grid { grid-template-columns: repeat(2, 1fr); gap: 16px; }
+    .team-grid { gap: 16px; }
+    .team-card { width: 220px; }
 
     /* Games ring — buttons overlay cards */
     .games-ring-wrapper { gap: 0; }
@@ -1390,7 +1393,8 @@ input, textarea, select { font-family: inherit; }
     .section-title h2 { font-size: clamp(20px, 5.5vw, 28px); }
 
     /* Grids */
-    .team-grid { grid-template-columns: 1fr; }
+    .team-grid { gap: 16px; }
+    .team-card { width: 200px; }
 
     /* Games ring — compact, buttons overlay */
     .games-ring-wrapper { gap: 0; padding: 12px 0; }

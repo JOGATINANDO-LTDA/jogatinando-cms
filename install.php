@@ -62,6 +62,7 @@ function seedDefaultData() {
         ['title' => 'Aventura Medieval', 'engine' => 'RPG Maker', 'description' => 'RPG clássico com exploração, batalhas por turno e uma história épica.', 'thumbnail_url' => '', 'zip_filename' => '', 'featured' => 1, 'sort_order' => 2, 'active' => 1],
         ['title' => 'Space Defender', 'engine' => 'GDevelop', 'description' => 'Shooter espacial com ondas de inimigos, power-ups e boss fights.', 'thumbnail_url' => '', 'zip_filename' => '', 'featured' => 0, 'sort_order' => 3, 'active' => 1],
         ['title' => 'Platform Quest', 'engine' => 'Godot', 'description' => 'Plataforma 2D com física precisa, level design desafiador e pixel art.', 'thumbnail_url' => '', 'zip_filename' => '', 'featured' => 0, 'sort_order' => 4, 'active' => 1],
+        ['title' => 'Neon Drift', 'engine' => 'Unity', 'description' => 'Corrida arcade futurista com trilha sonora synthwave e pistas neon.', 'thumbnail_url' => '', 'zip_filename' => '', 'featured' => 0, 'sort_order' => 5, 'active' => 1],
     ];
 
     $stmt = $db->prepare("INSERT INTO games (title, engine, description, thumbnail_url, zip_filename, featured, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
