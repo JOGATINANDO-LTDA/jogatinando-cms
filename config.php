@@ -29,8 +29,8 @@ define('ADMIN_URL', SITE_URL . '/admin');
 define('UPLOAD_URL', SITE_URL . '/uploads');
 
 // Upload limits
-define('MAX_UPLOAD_SIZE', 100 * 1024 * 1024); // 100MB for game zips
-define('ALLOWED_GAME_EXTENSIONS', ['zip']);
+define('MAX_UPLOAD_SIZE', 100 * 1024 * 1024); // 100MB for game archives
+define('ALLOWED_GAME_EXTENSIONS', ['zip', 'rar']);
 define('ALLOWED_IMAGE_EXTENSIONS', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
 
 // Admin credentials (change after first login!)

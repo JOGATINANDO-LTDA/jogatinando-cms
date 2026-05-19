@@ -195,7 +195,7 @@ function engineBadgeStyle($engine) {
                 </button>
                 <div class="games-ring">
                     <?php foreach ($games as $i => $game): ?>
-                    <a href="/jogar/<?= $game['id'] ?>" class="game-card" data-index="<?= $i ?>">
+                    <a href="/<?= strtolower(preg_replace('/[^a-zA-Z]/', '', $game['engine'])) ?>/<?= e($game['slug']) ?>" class="game-card" data-index="<?= $i ?>">
                         <div class="game-thumb">
                             <?php if ($game['thumbnail_url']): ?>
                             <img src="<?= e($game['thumbnail_url']) ?>" alt="<?= e($game['title']) ?>">

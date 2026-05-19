@@ -1,50 +1,35 @@
 <?php
 require_once 'config.php';
 
-$id = (int)($_GET['id'] ?? 0);
-$game = dbQueryOne("SELECT * FROM games WHERE id = ? AND active = 1", [$id]);
+$engine = $_GET['engine'] ?? '';
+$slug = $_GET['slug'] ?? '';
 
-if (!$game || !$game['zip_filename']) {
+if (!$engine || !$slug) {
     http_response_code(404);
     die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Jogo não encontrado</h1>');
 }
 
-$zipPath = UPLOAD_PATH . '/games/' . $game['zip_filename'];
-$extractPath = UPLOAD_PATH . '/games/' . pathinfo($game['zip_filename'], PATHINFO_FILENAME);
-$indexHtml = $extractPath . '/index.html';
-
-// Extract zip if not already done
-if (!file_exists($indexHtml) && file_exists($zipPath)) {
-    if (!is_dir($extractPath)) {
-        mkdir($extractPath, 0755, true);
-    }
-    $zip = new ZipArchive();
-    if ($zip->open($zipPath) === true) {
-        $zip->extractTo($extractPath);
-        $zip->close();
-    }
+try {
+    $game = dbQueryOne("SELECT * FROM games WHERE LOWER(engine) = LOWER(?) AND slug = ? AND active = 1", [$engine, $slug]);
+} catch (Exception $ex) {
+    die('DB Error: ' . $ex->getMessage());
 }
 
-// Find the index.html (might be in a subfolder)
-if (!file_exists($indexHtml)) {
-    // Look for index.html in subdirectories
-    $files = glob($extractPath . '/*/index.html');
-    if (!empty($files)) {
-        $indexHtml = $files[0];
-    }
-}
-
-if (!file_exists($indexHtml)) {
+if (!$game || !$game['game_path']) {
     http_response_code(404);
-    die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Arquivo do jogo não encontrado. O ZIP deve conter um index.html.</h1>');
+    die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Jogo não encontrado</h1>');
 }
 
-$gameUrl = UPLOAD_URL . '/games/' . pathinfo($game['zip_filename'], PATHINFO_FILENAME) . '/';
-// Adjust if index.html is in a subfolder
-if (dirname($indexHtml) !== $extractPath) {
-    $subDir = basename(dirname($indexHtml));
-    $gameUrl .= $subDir . '/';
+$gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
+$gameUrl = UPLOAD_URL . '/games/' . $game['game_path'] . '/';
+
+if (!file_exists($gameDir . '/index.html')) {
+    http_response_code(404);
+    die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Arquivo do jogo não encontrado.</h1>');
 }
+
+$engineSlug = generateSlug($game['engine']);
+$orientation = $game['orientation'] ?? 'auto';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -52,26 +37,228 @@ if (dirname($indexHtml) !== $extractPath) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($game['title']) ?> — <?= e(getSetting('site_name', 'Jogatinando')) ?></title>
-    <style>
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { background: oklch(8% 0.02 260); color: oklch(96% 0.003 250); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; min-height: 100vh; display: flex; flex-direction: column; }
-        .game-header { padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; background: oklch(10% 0.025 260); border-bottom: 1px solid oklch(55% 0.12 85); }
-        .game-header h1 { font-size: 16px; font-weight: 600; }
-        .game-header h1 span { color: oklch(75% 0.15 85); }
-        .game-header a { color: oklch(75% 0.15 85); font-size: 14px; text-decoration: none; }
-        .game-header a:hover { color: oklch(85% 0.13 85); }
-        .game-frame { flex: 1; width: 100%; border: none; background: #000; }
-        .game-footer { padding: 8px 24px; text-align: center; font-size: 12px; color: oklch(55% 0.015 250); background: oklch(10% 0.025 260); border-top: 1px solid oklch(25% 0.03 260); }
-    </style>
+    <meta name="description" content="<?= e(truncateText($game['description'], 160)) ?>">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/style.css">
+    <?php if ($orientation === 'landscape'): ?>
+    <meta name="screen-orientation" content="landscape">
+    <?php elseif ($orientation === 'portrait'): ?>
+    <meta name="screen-orientation" content="portrait">
+    <?php endif; ?>
 </head>
 <body>
-    <header class="game-header">
-        <h1><span>🎮</span> <?= e($game['title']) ?> <span style="font-size:12px;color:oklch(60% 0.012 250);font-weight:400">— <?= e($game['engine']) ?></span></h1>
-        <a href="admin/index.php">← Voltar ao site</a>
-    </header>
-    <iframe class="game-frame" src="<?= e($gameUrl) ?>" allowfullscreen></iframe>
-    <footer class="game-footer">
-        <?= e(getSetting('site_name', 'Jogatinando')) ?> — <?= e(getSetting('site_tagline', '')) ?>
+    <div class="cosmic-bg"></div>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container navbar-inner">
+            <a href="/" class="navbar-brand">
+                <div class="logo-shield">
+                    <svg viewBox="0 0 36 36" fill="none">
+                        <path d="M18 2L32 8V20C32 28 26 33 18 35C10 33 4 28 4 20V8L18 2Z" fill="oklch(75% 0.15 85 / 0.15)" stroke="oklch(75% 0.15 85)" stroke-width="1.5"/>
+                        <path d="M18 6L28 10V20C28 26 24 30 18 32C12 30 8 26 8 20V10L18 6Z" fill="oklch(75% 0.15 85 / 0.1)" stroke="oklch(75% 0.15 85 / 0.5)" stroke-width="1"/>
+                        <text x="18" y="19" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-size="7" font-weight="800" fill="oklch(75% 0.15 85)">JTN</text>
+                    </svg>
+                </div>
+                <?= e(getSetting('site_name', 'Jogatinando')) ?>
+            </a>
+            <a href="/" class="btn btn-outline btn-sm theater-back">← Voltar ao site</a>
+        </div>
+    </nav>
+
+    <!-- Theater Mode Player -->
+    <section class="theater-section">
+        <div class="theater-container">
+            <div class="theater-player" id="theaterPlayer">
+                <div class="theater-loader" id="theaterLoader">
+                    <div class="loader-spinner"></div>
+                    <span class="loader-text">Carregando jogo...</span>
+                </div>
+                <div class="theater-overlay" id="theaterOverlay">
+                    <div class="theater-overlay-content">
+                        <svg class="theater-play-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+                        <span class="theater-overlay-text">Clique para jogar</span>
+                    </div>
+                </div>
+                <iframe class="theater-iframe" id="theaterIframe" src="about:blank" data-src="<?= e($gameUrl) ?>" allowfullscreen allow="autoplay; fullscreen; gamepad"></iframe>
+                <button class="theater-fs-btn" id="theaterFsBtn" title="Tela cheia">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="15 3 21 3 21 9"></polyline>
+                        <polyline points="9 21 3 21 3 15"></polyline>
+                        <line x1="21" y1="3" x2="14" y2="10"></line>
+                        <line x1="3" y1="21" x2="10" y2="14"></line>
+                    </svg>
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Game Info -->
+    <section class="game-info-section">
+        <div class="container">
+            <div class="game-info-grid">
+                <!-- Main Info -->
+                <div class="game-info-main">
+                    <div class="game-info-header">
+                        <div class="game-info-badges">
+                            <span class="game-engine-badge engine-<?= $engineSlug ?>"><?= e($game['engine']) ?></span>
+                            <?php if ($game['featured']): ?><span class="game-badge-featured">Destaque</span><?php endif; ?>
+                        </div>
+                        <h1><?= e($game['title']) ?></h1>
+                    </div>
+
+                    <?php if ($game['description']): ?>
+                    <div class="game-info-description">
+                        <h3>Sobre o Jogo</h3>
+                        <p><?= nl2br(e($game['description'])) ?></p>
+                    </div>
+                    <?php endif; ?>
+
+                    <!-- Controls -->
+                    <div class="game-info-controls">
+                        <h3>Controles</h3>
+                        <div class="controls-grid">
+                            <div class="control-item">
+                                <kbd>Mouse</kbd>
+                                <span>Interação principal</span>
+                            </div>
+                            <div class="control-item">
+                                <kbd>F11</kbd>
+                                <span>Tela cheia</span>
+                            </div>
+                            <div class="control-item">
+                                <kbd>Esc</kbd>
+                                <span>Sair do jogo</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tags -->
+                    <div class="game-info-tags">
+                        <h3>Categorias</h3>
+                        <div class="tags-list">
+                            <span class="tag"><?= e($game['engine']) ?></span>
+                            <span class="tag">Navegador</span>
+                            <span class="tag">HTML5</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Sidebar -->
+                <aside class="game-info-sidebar">
+                    <div class="sidebar-card">
+                        <h3>Informações</h3>
+                        <dl class="info-list">
+                            <div class="info-item">
+                                <dt>Engine</dt>
+                                <dd><?= e($game['engine']) ?></dd>
+                            </div>
+                            <div class="info-item">
+                                <dt>Plataforma</dt>
+                                <dd>Navegador (HTML5)</dd>
+                            </div>
+                            <div class="info-item">
+                                <dt>Orientação</dt>
+                                <dd><?= $orientation === 'landscape' ? 'Paisagem' : ($orientation === 'portrait' ? 'Retrato' : 'Automático') ?></dd>
+                            </div>
+                            <div class="info-item">
+                                <dt>Adicionado</dt>
+                                <dd><?= date('d/m/Y', strtotime($game['created_at'])) ?></dd>
+                            </div>
+                        </dl>
+                    </div>
+
+                    <?php if ($game['thumbnail_url']): ?>
+                    <div class="sidebar-card">
+                        <h3>Thumbnail</h3>
+                        <img src="<?= e($game['thumbnail_url']) ?>" alt="<?= e($game['title']) ?>" class="sidebar-thumb">
+                    </div>
+                    <?php endif; ?>
+
+                    <a href="/" class="btn btn-gold btn-block">← Voltar ao Portfólio</a>
+                </aside>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-bottom">
+                <p>&copy; <?= date('Y') ?> <?= e(getSetting('site_name', 'Jogatinando')) ?>. Todos os direitos reservados.</p>
+            </div>
+        </div>
     </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const overlay = document.getElementById('theaterOverlay');
+            const iframe = document.getElementById('theaterIframe');
+            const loader = document.getElementById('theaterLoader');
+            const player = document.getElementById('theaterPlayer');
+            const fsBtn = document.getElementById('theaterFsBtn');
+            const gameUrl = iframe.dataset.src;
+            const orientation = '<?= $orientation ?>';
+            let gameLoaded = false;
+
+            iframe.addEventListener('load', () => {
+                loader.style.display = 'none';
+                gameLoaded = true;
+            });
+
+            overlay.addEventListener('click', () => {
+                overlay.style.opacity = '0';
+                overlay.style.pointerEvents = 'none';
+                loader.style.display = 'flex';
+                iframe.src = gameUrl;
+            });
+
+            function lockOrientation(type) {
+                if (screen.orientation && screen.orientation.lock) {
+                    screen.orientation.lock(type).catch(() => {});
+                }
+            }
+
+            function unlockOrientation() {
+                if (screen.orientation && screen.orientation.unlock) {
+                    screen.orientation.unlock();
+                }
+            }
+
+            function enterFullscreen() {
+                const el = player;
+                if (el.requestFullscreen) el.requestFullscreen();
+                else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+                else if (el.msRequestFullscreen) el.msRequestFullscreen();
+
+                if (orientation === 'landscape') lockOrientation('landscape');
+                else if (orientation === 'portrait') lockOrientation('portrait');
+            }
+
+            function exitFullscreen() {
+                if (document.exitFullscreen) document.exitFullscreen();
+                else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+                else if (document.msExitFullscreen) document.msExitFullscreen();
+                unlockOrientation();
+            }
+
+            fsBtn.addEventListener('click', () => {
+                if (document.fullscreenElement) exitFullscreen();
+                else enterFullscreen();
+            });
+
+            document.addEventListener('fullscreenchange', () => {
+                if (document.fullscreenElement) {
+                    fsBtn.classList.add('fs-active');
+                    fsBtn.querySelector('svg').innerHTML = '<polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
+                } else {
+                    fsBtn.classList.remove('fs-active');
+                    fsBtn.querySelector('svg').innerHTML = '<polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
+                }
+            });
+        });
+    </script>
 </body>
 </html>

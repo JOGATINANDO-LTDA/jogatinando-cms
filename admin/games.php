@@ -1,4 +1,5 @@
 <?php
+ob_start();
 $pageTitle = 'Jogos';
 require_once __DIR__ . '/../includes/header.php';
 
@@ -8,9 +9,31 @@ $id = (int)($_GET['id'] ?? 0);
 $engines = ['GDevelop', 'Godot', 'RPG Maker', 'Unity', 'Unreal Engine', 'Construct', 'Defold', 'Game Maker', 'Ren\'py', 'Pixel Game Maker MV', 'RPG Paper Maker', 'Outra'];
 
 // Handle form submissions
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Detect oversized upload (POST empty due to exceeding post_max_size)
+    if (empty($_POST) && empty($_FILES)) {
+        flashMessage('error', 'Arquivo muito grande. O tamanho máximo é 100MB.');
+        ob_end_clean();
+        header('Location: games.php');
+        exit;
+    }
+
+    // Check for upload errors before processing
+    if (isset($_FILES['game_archive']) && $_FILES['game_archive']['error'] !== UPLOAD_ERR_OK && $_FILES['game_archive']['error'] !== UPLOAD_ERR_NO_FILE) {
+        $err = $_FILES['game_archive']['error'];
+        if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
+            flashMessage('error', 'Arquivo muito grande. Máximo: 100MB.');
+        } else {
+            flashMessage('error', 'Erro no upload do arquivo.');
+        }
+        ob_end_clean();
+        header('Location: games.php');
+        exit;
+    }
+
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
+        ob_end_clean();
         header('Location: games.php');
         exit;
     }
@@ -20,10 +43,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $engine = trim($_POST['engine']);
         $description = trim($_POST['description']);
         $featured = isset($_POST['featured']) ? 1 : 0;
+        $orientation = in_array($_POST['orientation'] ?? '', ['auto', 'landscape', 'portrait']) ? $_POST['orientation'] : 'auto';
         $sort_order = (int)($_POST['sort_order'] ?? 0);
         $active = isset($_POST['active']) ? 1 : 0;
         $thumbnail_url = '';
-        $zip_filename = '';
+        $game_path = '';
+        $slug = generateSlug($title);
 
         // Handle thumbnail upload
         if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
@@ -37,13 +62,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
 
-        // Handle game zip upload
-        if (isset($_FILES['game_zip']) && $_FILES['game_zip']['error'] === UPLOAD_ERR_OK) {
-            $result = uploadFile($_FILES['game_zip'], 'games', ['zip']);
+        // Handle game archive upload (zip/rar)
+        if (isset($_FILES['game_archive']) && $_FILES['game_archive']['error'] === UPLOAD_ERR_OK) {
+            $ext = strtolower(pathinfo($_FILES['game_archive']['name'], PATHINFO_EXTENSION));
+            if ($ext === 'rar' && !canExtractRar()) {
+                flashMessage('error', 'RAR não é suportado neste servidor. Use ZIP.');
+                ob_end_clean();
+                header('Location: games.php?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                exit;
+            }
+            $result = uploadAndExtractGame($_FILES['game_archive'], $engine, $title);
             if ($result['success']) {
-                $zip_filename = $result['filename'];
+                $game_path = $result['game_path'];
             } else {
                 flashMessage('error', $result['message']);
+                ob_end_clean();
                 header('Location: games.php?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
@@ -51,30 +84,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         if (empty($title)) {
             flashMessage('error', 'Título é obrigatório.');
+            ob_end_clean();
             header('Location: games.php?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
             exit;
         }
 
-        if ($id > 0) {
-            // Get existing zip filename if not uploading new one
-            if (!$zip_filename) {
-                $existing = dbQueryOne("SELECT zip_filename FROM games WHERE id = ?", [$id]);
-                $zip_filename = $existing['zip_filename'];
-            }
-            // Get existing thumbnail if not uploading new one
-            if (!$thumbnail_url) {
-                $existing = dbQueryOne("SELECT thumbnail_url FROM games WHERE id = ?", [$id]);
-                $thumbnail_url = $existing['thumbnail_url'];
-            }
+        try {
+            if ($id > 0) {
+                // Get existing game_path if not uploading new one
+                if (!$game_path) {
+                    $existing = dbQueryOne("SELECT game_path FROM games WHERE id = ?", [$id]);
+                    $game_path = $existing['game_path'] ?? '';
+                }
+                // Get existing thumbnail if not uploading new one
+                if (!$thumbnail_url) {
+                    $existing = dbQueryOne("SELECT thumbnail_url FROM games WHERE id = ?", [$id]);
+                    $thumbnail_url = $existing['thumbnail_url'] ?? '';
+                }
 
-            dbExec("UPDATE games SET title=?, engine=?, description=?, thumbnail_url=?, zip_filename=?, featured=?, sort_order=?, active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                [$title, $engine, $description, $thumbnail_url, $zip_filename, $featured, $sort_order, $active, $id]);
-            flashMessage('success', 'Jogo atualizado com sucesso!');
-        } else {
-            dbExec("INSERT INTO games (title, engine, description, thumbnail_url, zip_filename, featured, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-                [$title, $engine, $description, $thumbnail_url, $zip_filename, $featured, $sort_order, $active]);
-            flashMessage('success', 'Jogo criado com sucesso!');
+                dbExec("UPDATE games SET title=?, slug=?, engine=?, description=?, thumbnail_url=?, game_path=?, featured=?, orientation=?, sort_order=?, active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $featured, $orientation, $sort_order, $active, $id]);
+                flashMessage('success', 'Jogo atualizado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
+            } else {
+                dbExec("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $featured, $orientation, $sort_order, $active]);
+                flashMessage('success', 'Jogo criado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
+            }
+        } catch (Exception $ex) {
+            flashMessage('error', 'Erro ao salvar: ' . $ex->getMessage());
         }
+        ob_end_clean();
         header('Location: games.php');
         exit;
     }
@@ -82,13 +121,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'delete') {
         $game = dbQueryOne("SELECT * FROM games WHERE id = ?", [$id]);
         if ($game) {
-            // Delete zip file if exists
-            if ($game['zip_filename']) {
-                deleteFile(UPLOAD_PATH . '/games/' . $game['zip_filename']);
+            if ($game['game_path']) {
+                deleteGameDir($game['game_path']);
             }
             dbDelete('games', $id);
             flashMessage('success', 'Jogo excluído.');
         }
+        ob_end_clean();
         header('Location: games.php');
         exit;
     }
@@ -98,6 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($game) {
             dbExec("UPDATE games SET active = ? WHERE id = ?", [1 - $game['active'], $id]);
         }
+        ob_end_clean();
         header('Location: games.php');
         exit;
     }
@@ -117,10 +157,33 @@ if ($action === 'new' || $action === 'edit') {
             <a href="games.php" class="btn btn-outline btn-sm">← Voltar</a>
         </div>
         <div class="card-body">
-        <form method="POST" enctype="multipart/form-data">
+        <!-- Server capabilities -->
+        <div class="server-status">
+            <span class="status-item <?= class_exists('ZipArchive') ? 'ok' : 'fail' ?>">
+                <?= class_exists('ZipArchive') ? '✅' : '❌' ?> ZIP
+            </span>
+            <span class="status-item <?= canExtractRar() ? 'ok' : 'warn' ?>">
+                <?= canExtractRar() ? '✅' : '⚠️' ?> RAR
+            </span>
+            <span class="status-item <?= ini_get('post_max_size') >= 104857600 ? 'ok' : 'warn' ?>">
+                <?= ini_get('post_max_size') >= 104857600 ? '✅' : '⚠️' ?> Limite: <?= ini_get('post_max_size') ?>
+            </span>
+        </div>
+
+        <form method="POST" enctype="multipart/form-data" id="gameForm">
             <input type="hidden" name="action" value="save">
+            <input type="hidden" name="MAX_FILE_SIZE" value="<?= MAX_UPLOAD_SIZE ?>">
             <?php if ($id > 0): ?><input type="hidden" name="id" value="<?= $id ?>"><?php endif; ?>
             <?= csrfField() ?>
+
+            <!-- Upload progress overlay -->
+            <div class="upload-progress-overlay" id="uploadProgress">
+                <div class="upload-progress-content">
+                    <div class="upload-spinner"></div>
+                    <h3>Processando jogo...</h3>
+                    <p id="uploadStatus">Enviando arquivo...</p>
+                </div>
+            </div>
 
             <h3 class="form-section-title">Informações Básicas</h3>
 
@@ -163,17 +226,26 @@ if ($action === 'new' || $action === 'edit') {
                     <?php endif; ?>
                 </div>
                 <div class="form-group">
-                    <label>Arquivo do Jogo (ZIP)</label>
-                    <div class="file-upload">
-                        <input type="file" name="game_zip" accept=".zip">
+                    <label>Arquivo do Jogo</label>
+                    <?php $rarSupport = canExtractRar(); ?>
+                    <div class="file-upload" id="gameArchiveDrop">
+                        <input type="file" name="game_archive" accept="<?= $rarSupport ? '.zip,.rar' : '.zip' ?>" id="gameArchiveInput">
                         <div class="upload-icon">
                             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </div>
-                        <div class="upload-text">Upload do ZIP do jogo</div>
-                        <div class="upload-hint">HTML exportado em ZIP — máx 100MB</div>
+                        <div class="upload-text">Upload do arquivo do jogo</div>
+                        <div class="upload-hint">ZIP<?= $rarSupport ? ' ou RAR' : '' ?> — HTML exportado — máx 100MB</div>
                     </div>
-                    <?php if (!empty($game['zip_filename'])): ?>
-                        <p style="margin-top:8px;font-size:13px;color:var(--muted)">📎 <?= e($game['zip_filename']) ?> (envie outro para substituir)</p>
+                    <?php if (!$rarSupport): ?>
+                        <p style="margin-top:8px;font-size:12px;color:var(--warn)">⚠️ Este servidor não suporta extração de RAR. Use ZIP.</p>
+                    <?php endif; ?>
+                    <div class="file-selected" id="gameArchiveInfo" style="display:none">
+                        <span class="file-name" id="gameArchiveName"></span>
+                        <span class="file-size" id="gameArchiveSize"></span>
+                        <button type="button" class="file-remove" id="gameArchiveRemove">✕</button>
+                    </div>
+                    <?php if (!empty($game['game_path'])): ?>
+                        <p style="margin-top:8px;font-size:13px;color:var(--muted)">📎 <?= e($game['game_path']) ?> (envie outro para substituir)</p>
                     <?php endif; ?>
                 </div>
             </div>
@@ -185,6 +257,17 @@ if ($action === 'new' || $action === 'edit') {
                     <label for="sort_order">Ordem</label>
                     <input type="number" id="sort_order" name="sort_order" value="<?= (int)($game['sort_order'] ?? 0) ?>">
                 </div>
+                <div class="form-group">
+                    <label for="orientation">Orientação Mobile</label>
+                    <select id="orientation" name="orientation">
+                        <option value="auto" <?= ($game['orientation'] ?? 'auto') === 'auto' ? 'selected' : '' ?>>Automático</option>
+                        <option value="landscape" <?= ($game['orientation'] ?? '') === 'landscape' ? 'selected' : '' ?>>Paisagem (Landscape)</option>
+                        <option value="portrait" <?= ($game['orientation'] ?? '') === 'portrait' ? 'selected' : '' ?>>Retrato (Portrait)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
                 <div class="form-group">
                     <div class="toggle-group" style="margin-top:28px">
                         <input type="checkbox" id="featured" name="featured" <?= ($game['featured'] ?? 0) ? 'checked' : '' ?>>
@@ -201,12 +284,92 @@ if ($action === 'new' || $action === 'edit') {
             </div>
 
             <div class="form-actions">
-                <button type="submit" class="btn btn-gold">Salvar Jogo</button>
+                <button type="submit" class="btn btn-gold" id="submitBtn">Salvar Jogo</button>
                 <a href="games.php" class="btn btn-outline">Cancelar</a>
             </div>
         </form>
         </div>
     </div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('gameForm');
+        const input = document.getElementById('gameArchiveInput');
+        const info = document.getElementById('gameArchiveInfo');
+        const nameEl = document.getElementById('gameArchiveName');
+        const sizeEl = document.getElementById('gameArchiveSize');
+        const removeBtn = document.getElementById('gameArchiveRemove');
+        const dropZone = document.getElementById('gameArchiveDrop');
+        const progress = document.getElementById('uploadProgress');
+        const submitBtn = document.getElementById('submitBtn');
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function showFileInfo(file) {
+            nameEl.textContent = file.name;
+            sizeEl.textContent = formatSize(file.size);
+            info.style.display = 'flex';
+            dropZone.style.display = 'none';
+        }
+
+        function clearFile() {
+            input.value = '';
+            info.style.display = 'none';
+            dropZone.style.display = '';
+        }
+
+        input.addEventListener('change', () => {
+            if (input.files.length > 0) showFileInfo(input.files[0]);
+        });
+
+        removeBtn.addEventListener('click', clearFile);
+
+        // Drag and drop
+        if (dropZone) {
+            ['dragenter', 'dragover'].forEach(evt => {
+                dropZone.addEventListener(evt, e => {
+                    e.preventDefault();
+                    dropZone.style.borderColor = 'var(--gold)';
+                    dropZone.style.background = 'var(--gold-subtle)';
+                });
+            });
+            ['dragleave', 'drop'].forEach(evt => {
+                dropZone.addEventListener(evt, e => {
+                    e.preventDefault();
+                    dropZone.style.borderColor = '';
+                    dropZone.style.background = '';
+                });
+            });
+            dropZone.addEventListener('drop', e => {
+                const files = e.dataTransfer.files;
+                if (files.length > 0) {
+                    input.files = files;
+                    showFileInfo(files[0]);
+                }
+            });
+        }
+
+        // Submit with progress overlay
+        form.addEventListener('submit', () => {
+            if (input.files.length > 0) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Enviando...';
+                progress.style.display = 'flex';
+                // Fallback: if still loading after 30s, show timeout warning
+                setTimeout(() => {
+                    const statusEl = document.getElementById('uploadStatus');
+                    if (statusEl && progress.style.display === 'flex') {
+                        statusEl.textContent = 'Processando arquivo grande... aguarde';
+                    }
+                }, 15000);
+            }
+        });
+    });
+    </script>
     <?php
 } else {
     $games = dbQuery("SELECT * FROM games ORDER BY sort_order ASC, id DESC");
@@ -243,7 +406,7 @@ if ($action === 'new' || $action === 'edit') {
                         <tr>
                             <td><strong style="color:var(--fg)"><?= e($g['title']) ?></strong></td>
                             <td><?= e($g['engine']) ?></td>
-                            <td><?= $g['zip_filename'] ? '📦 Sim' : '—' ?></td>
+                            <td><?= $g['game_path'] ? '📦 ' . e($g['game_path']) : '—' ?></td>
                             <td>
                                 <?php if ($g['active']): ?>
                                     <span class="badge badge-active">Ativo</span>

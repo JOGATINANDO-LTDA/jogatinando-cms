@@ -14,8 +14,25 @@ function getDB() {
         $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
         $db->exec('PRAGMA journal_mode=WAL');
         $db->exec('PRAGMA foreign_keys=ON');
+        dbMigrate($db);
     }
     return $db;
+}
+
+function dbMigrate($db) {
+    // Add slug and game_path columns to games table if they don't exist
+    $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+    if (!in_array('slug', $cols)) {
+        $db->exec("ALTER TABLE games ADD COLUMN slug TEXT DEFAULT ''");
+    }
+    if (!in_array('game_path', $cols)) {
+        $db->exec("ALTER TABLE games ADD COLUMN game_path TEXT DEFAULT ''");
+    }
+    if (!in_array('orientation', $cols)) {
+        $db->exec("ALTER TABLE games ADD COLUMN orientation TEXT DEFAULT 'auto'");
+    }
+    // Backfill slug from title for existing records
+    $db->exec("UPDATE games SET slug = LOWER(REPLACE(REPLACE(REPLACE(title, ' ', '-'), ':', ''), '''', '')) WHERE slug = '' OR slug IS NULL");
 }
 
 function dbInit() {
@@ -51,10 +68,12 @@ function dbInit() {
     $db->exec("CREATE TABLE IF NOT EXISTS games (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         title TEXT NOT NULL,
+        slug TEXT DEFAULT '',
         engine TEXT NOT NULL,
         description TEXT DEFAULT '',
         thumbnail_url TEXT DEFAULT '',
         zip_filename TEXT DEFAULT '',
+        game_path TEXT DEFAULT '',
         featured INTEGER DEFAULT 0,
         sort_order INTEGER DEFAULT 0,
         active INTEGER DEFAULT 1,
