@@ -13,8 +13,18 @@ define('DATA_PATH', ROOT_PATH . '/data');
 define('UPLOAD_PATH', ROOT_PATH . '/uploads');
 define('DB_PATH', DATA_PATH . '/jogatinando.db');
 
-// URLs
-define('SITE_URL', rtrim($_ENV['SITE_URL'] ?? 'http://localhost', '/'));
+// URLs — prioridade: constante definida antes do config > env var > detecção automática
+if (defined('SITE_URL')) {
+    // já definido externamente
+} elseif (!empty($_ENV['SITE_URL'])) {
+    define('SITE_URL', rtrim($_ENV['SITE_URL'], '/'));
+} elseif (php_sapi_name() !== 'cli') {
+    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] == 443) ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    define('SITE_URL', $proto . '://' . $host);
+} else {
+    define('SITE_URL', 'http://localhost');
+}
 define('ADMIN_URL', SITE_URL . '/admin');
 define('UPLOAD_URL', SITE_URL . '/uploads');
 
