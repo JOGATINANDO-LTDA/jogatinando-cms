@@ -1192,6 +1192,10 @@ tbody tr:last-child td { border-bottom: none; }
     color: var(--success);
 }
 
+.report-saved.report-already {
+    color: oklch(70% 0.15 150);
+}
+
 .report-details {
     display: flex;
     flex-wrap: wrap;

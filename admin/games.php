@@ -74,6 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $result = uploadAndExtractGame($_FILES['game_archive'], $engine, $title);
             if ($result['success']) {
                 $game_path = $result['game_path'];
+                // Clear optimization status on re-upload
+                if ($id > 0) {
+                    dbExec("UPDATE games SET optimized_at = NULL WHERE id = ?", [$id]);
+                }
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
@@ -420,21 +424,8 @@ if ($action === 'new' || $action === 'edit') {
                             </td>
                             <td>
                                 <?php if ($g['game_path']): ?>
-                                    <?php
-                                    $gameDir = UPLOAD_PATH . '/games/' . $g['game_path'];
-                                    $hasGz = false;
-                                    if (is_dir($gameDir)) {
-                                        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($gameDir, RecursiveDirectoryIterator::SKIP_DOTS));
-                                        foreach ($files as $f) {
-                                            if (substr($f->getFilename(), -3) === '.gz') {
-                                                $hasGz = true;
-                                                break;
-                                            }
-                                        }
-                                    }
-                                    ?>
-                                    <?php if ($hasGz): ?>
-                                        <span class="badge badge-optimized">✅ Otimizado</span>
+                                    <?php if (!empty($g['optimized_at'])): ?>
+                                        <span class="badge badge-optimized">✅ <?= date('d/m/Y', strtotime($g['optimized_at'])) ?></span>
                                     <?php else: ?>
                                         <span class="badge badge-pending">⏳ Pendente</span>
                                     <?php endif; ?>

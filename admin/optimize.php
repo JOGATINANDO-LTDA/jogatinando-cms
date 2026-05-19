@@ -30,14 +30,6 @@ foreach ($games as $g) {
         $totalSize += $size;
         $isHtml5 = isHtml5Game($gameDir);
         $fileCount = count(scanGameFiles($gameDir));
-        $hasGz = false;
-        $files = scanGameFiles($gameDir);
-        foreach ($files as $f) {
-            if (substr($f, -3) === '.gz') {
-                $hasGz = true;
-                break;
-            }
-        }
         $html5Games[] = [
             'id' => $g['id'],
             'title' => $g['title'],
@@ -46,7 +38,7 @@ foreach ($games as $g) {
             'is_html5' => $isHtml5,
             'size' => $size,
             'file_count' => $fileCount,
-            'has_gz' => $hasGz,
+            'optimized_at' => $g['optimized_at'] ?? null,
         ];
     }
 }
@@ -70,7 +62,7 @@ require_once __DIR__ . '/../includes/header.php';
                 <span class="summary-label">Tamanho Total</span>
             </div>
             <div class="summary-card">
-                <span class="summary-value"><?= count(array_filter($html5Games, fn($g) => $g['has_gz'])) ?></span>
+                <span class="summary-value"><?= count(array_filter($html5Games, fn($g) => !empty($g['optimized_at']))) ?></span>
                 <span class="summary-label">Otimizados</span>
             </div>
         </div>
@@ -83,9 +75,15 @@ require_once __DIR__ . '/../includes/header.php';
             <div class="report-game">
                 <div class="report-header">
                     <strong><?= e($report['game']) ?></strong>
+                    <?php if ($report['total_saved'] > 0): ?>
                     <span class="report-saved">
                         -<?= formatBytes($report['total_saved']) ?> economizado
                     </span>
+                    <?php else: ?>
+                    <span class="report-saved report-already">
+                        ✅ Já otimizado
+                    </span>
+                    <?php endif; ?>
                 </div>
                 <div class="report-details">
                     <?php if (!empty($report['bloat_removed'])): ?>
@@ -93,14 +91,14 @@ require_once __DIR__ . '/../includes/header.php';
                         <span class="report-badge badge-bloat"><?= count($report['bloat_removed']) ?> arquivos removidos</span>
                     </div>
                     <?php endif; ?>
+                    <?php if (!empty($report['gz_cleaned'])): ?>
+                    <div class="report-item">
+                        <span class="report-badge badge-gz"><?= count($report['gz_cleaned']) ?> .gz limpos</span>
+                    </div>
+                    <?php endif; ?>
                     <?php if (!empty($report['images_compressed'])): ?>
                     <div class="report-item">
                         <span class="report-badge badge-img"><?= count($report['images_compressed']) ?> imagens comprimidas</span>
-                    </div>
-                    <?php endif; ?>
-                    <?php if (!empty($report['gz_generated'])): ?>
-                    <div class="report-item">
-                        <span class="report-badge badge-gz"><?= count($report['gz_generated']) ?> arquivos .gz gerados</span>
                     </div>
                     <?php endif; ?>
                     <div class="report-sizes">
@@ -126,7 +124,7 @@ require_once __DIR__ . '/../includes/header.php';
                     Otimizar Todos os Jogos
                 </button>
             </form>
-            <p class="optimizer-hint">Remove arquivos desnecessários, comprime imagens e gera versões .gz para entrega rápida. JS/CSS/HTML não são modificados para preservar compatibilidade com engines de jogo.</p>
+            <p class="optimizer-hint">Remove arquivos desnecessários, limpa .gz antigos e comprime imagens. JS/CSS/HTML não são tocados para garantir compatibilidade total.</p>
         </div>
 
         <h3 class="games-list-title">Jogos Detectados</h3>
@@ -141,8 +139,8 @@ require_once __DIR__ . '/../includes/header.php';
                 <div class="game-meta">
                     <span class="meta-size"><?= formatBytes($game['size']) ?></span>
                     <span class="meta-files"><?= $game['file_count'] ?> arquivos</span>
-                    <?php if ($game['has_gz']): ?>
-                    <span class="meta-optimized">✅ Otimizado</span>
+                    <?php if ($game['optimized_at']): ?>
+                    <span class="meta-optimized">✅ <?= date('d/m/Y', strtotime($game['optimized_at'])) ?></span>
                     <?php else: ?>
                     <span class="meta-pending">⏳ Pendente</span>
                     <?php endif; ?>

@@ -75,50 +75,6 @@ function deleteDirRecursive($path) {
     }
 }
 
-function minifyJs($content) {
-    // Remove single-line comments (not URLs)
-    $content = preg_replace('#(?<!:)//[^\n]*#', '', $content);
-    // Remove multi-line comments
-    $content = preg_replace('#/\*.*?\*/#s', '', $content);
-    // Remove leading/trailing whitespace per line
-    $content = preg_replace('/^[ \t]+/m', '', $content);
-    $content = preg_replace('/[ \t]+$/m', '', $content);
-    // Remove empty lines
-    $content = preg_replace('/^\s*\n/m', '', $content);
-    // Collapse multiple spaces (not in strings)
-    $content = preg_replace('/  +/', ' ', $content);
-    return trim($content);
-}
-
-function minifyCss($content) {
-    // Remove comments
-    $content = preg_replace('#/\*.*?\*/#s', '', $content);
-    // Remove whitespace around symbols
-    $content = preg_replace('/\s*([{}:;,>+~])\s*/', '$1', $content);
-    // Remove trailing semicolons before }
-    $content = preg_replace('/;}/', '}', $content);
-    // Remove leading zeros
-    $content = preg_replace('/(:|\s)0\.(\d)/', '$1.$2', $content);
-    // Remove units for zero values
-    $content = preg_replace('/(:|\s)0(px|em|rem|%|vh|vw|deg)/', '$10', $content);
-    // Collapse multiple spaces
-    $content = preg_replace('/  +/', ' ', $content);
-    return trim($content);
-}
-
-function minifyHtml($content) {
-    // Remove HTML comments (not IE conditionals)
-    $content = preg_replace('/<!--(?!\[)(?:(?!-->).)*-->/s', '', $content);
-    // Remove whitespace between tags
-    $content = preg_replace('/>\s+</s', '><', $content);
-    // Remove leading/trailing whitespace per line
-    $content = preg_replace('/^[ \t]+/m', '', $content);
-    $content = preg_replace('/[ \t]+$/m', '', $content);
-    // Remove empty lines
-    $content = preg_replace('/^\s*\n/m', '', $content);
-    return trim($content);
-}
-
 function compressImage($filePath) {
     $ext = strtolower(pathinfo($filePath, PATHINFO_EXTENSION));
     $originalSize = filesize($filePath);
@@ -165,17 +121,6 @@ function compressImage($filePath) {
     return 0;
 }
 
-function generateGz($filePath) {
-    $content = file_get_contents($filePath);
-    if ($content === false) return false;
-    $gzPath = $filePath . '.gz';
-    $compressed = gzencode($content, 9);
-    if (file_put_contents($gzPath, $compressed) !== false) {
-        return strlen($content) - strlen($compressed);
-    }
-    return false;
-}
-
 function optimizeGame($gamePath) {
     $gameDir = UPLOAD_PATH . '/games/' . $gamePath;
     if (!is_dir($gameDir)) {
@@ -189,8 +134,8 @@ function optimizeGame($gamePath) {
         'success' => true,
         'game' => $gamePath,
         'bloat_removed' => [],
+        'gz_cleaned' => [],
         'images_compressed' => [],
-        'gz_generated' => [],
         'total_saved' => 0,
         'original_size' => 0,
         'final_size' => 0,
@@ -205,14 +150,21 @@ function optimizeGame($gamePath) {
     // 1. Remove bloat
     $report['bloat_removed'] = removeBloatFiles($gameDir);
 
-    // 2. Compress images + generate .gz (NO JS/CSS/HTML minification — game engines break)
+    // 2. Clean up old .gz files (no longer used)
+    $files = scanGameFiles($gameDir);
+    foreach ($files as $file) {
+        if (substr($file, -3) === '.gz') {
+            if (@unlink($file)) {
+                $report['gz_cleaned'][] = str_replace($gameDir . '/', '', $file);
+            }
+        }
+    }
+
+    // 3. Compress images only (safe optimization)
     $files = scanGameFiles($gameDir);
     foreach ($files as $file) {
         $ext = strtolower(pathinfo($file, PATHINFO_EXTENSION));
-        $content = @file_get_contents($file);
-        if ($content === false) continue;
 
-        // Compress images
         if (in_array($ext, ['png', 'jpg', 'jpeg', 'webp'])) {
             $saved = compressImage($file);
             if ($saved > 0) {
@@ -223,15 +175,6 @@ function optimizeGame($gamePath) {
                 $report['total_saved'] += $saved;
             }
         }
-
-        // Generate .gz for text-based assets (skip binary files)
-        if (in_array($ext, ['js', 'css', 'html', 'htm', 'json', 'xml', 'svg', 'wasm', 'ttf', 'woff', 'woff2'])) {
-            $saved = generateGz($file);
-            if ($saved !== false && $saved > 0) {
-                $report['gz_generated'][] = str_replace($gameDir . '/', '', $file) . '.gz';
-                $report['total_saved'] += $saved;
-            }
-        }
     }
 
     // Calculate final size
@@ -239,6 +182,9 @@ function optimizeGame($gamePath) {
     foreach ($files as $f) {
         $report['final_size'] += filesize($f);
     }
+
+    // Mark game as optimized in DB (always, even if 0B saved)
+    dbExec("UPDATE games SET optimized_at = CURRENT_TIMESTAMP WHERE game_path = ?", [$gamePath]);
 
     return $report;
 }

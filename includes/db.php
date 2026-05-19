@@ -31,6 +31,9 @@ function dbMigrate($db) {
     if (!in_array('orientation', $cols)) {
         $db->exec("ALTER TABLE games ADD COLUMN orientation TEXT DEFAULT 'auto'");
     }
+    if (!in_array('optimized_at', $cols)) {
+        $db->exec("ALTER TABLE games ADD COLUMN optimized_at TEXT DEFAULT NULL");
+    }
     // Backfill slug from title for existing records
     $db->exec("UPDATE games SET slug = LOWER(REPLACE(REPLACE(REPLACE(title, ' ', '-'), ':', ''), '''', '')) WHERE slug = '' OR slug IS NULL");
 }
@@ -75,6 +78,8 @@ function dbInit() {
         zip_filename TEXT DEFAULT '',
         game_path TEXT DEFAULT '',
         featured INTEGER DEFAULT 0,
+        orientation TEXT DEFAULT 'auto',
+        optimized_at TEXT DEFAULT NULL,
         sort_order INTEGER DEFAULT 0,
         active INTEGER DEFAULT 1,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
