@@ -397,6 +397,7 @@ if ($action === 'new' || $action === 'edit') {
                             <th>Engine</th>
                             <th>ZIP</th>
                             <th>Status</th>
+                            <th>Otimização</th>
                             <th>Criado</th>
                             <th>Ações</th>
                         </tr>
@@ -415,6 +416,30 @@ if ($action === 'new' || $action === 'edit') {
                                 <?php endif; ?>
                                 <?php if ($g['featured']): ?>
                                     <span class="badge badge-featured">Destaque</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <?php if ($g['game_path']): ?>
+                                    <?php
+                                    $gameDir = UPLOAD_PATH . '/games/' . $g['game_path'];
+                                    $hasGz = false;
+                                    if (is_dir($gameDir)) {
+                                        $files = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($gameDir, RecursiveDirectoryIterator::SKIP_DOTS));
+                                        foreach ($files as $f) {
+                                            if (substr($f->getFilename(), -3) === '.gz') {
+                                                $hasGz = true;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    ?>
+                                    <?php if ($hasGz): ?>
+                                        <span class="badge badge-optimized">✅ Otimizado</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-pending">⏳ Pendente</span>
+                                    <?php endif; ?>
+                                <?php else: ?>
+                                    —
                                 <?php endif; ?>
                             </td>
                             <td><?= timeAgo($g['created_at']) ?></td>
