@@ -30,5 +30,12 @@ RUN mkdir -p /var/www/html/data /var/www/html/uploads && \
     chown -R www-data:www-data /var/www/html/data /var/www/html/uploads && \
     chmod -R 755 /var/www/html/data /var/www/html/uploads
 
+# PHP upload limits for game archives (100MB)
+RUN echo "post_max_size = 110M" >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo "upload_max_filesize = 100M" >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo "memory_limit = 256M" >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo "max_execution_time = 300" >> /usr/local/etc/php/conf.d/uploads.ini && \
+    echo "max_input_time = 300" >> /usr/local/etc/php/conf.d/uploads.ini
+
 # Expose port
 EXPOSE 80

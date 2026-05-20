@@ -58,15 +58,16 @@ function seedDefaultData() {
 
     // Seed games
     $games = [
-        ['title' => 'Acacia: O Prólogo do Desespero', 'engine' => 'Ren\'py', 'description' => 'Uma visual novel sombria sobre escolhas impossíveis e consequências inevitáveis.', 'thumbnail_url' => '', 'zip_filename' => '', 'featured' => 1, 'sort_order' => 1, 'active' => 1],
-        ['title' => 'Aventura Medieval', 'engine' => 'RPG Maker', 'description' => 'RPG clássico com exploração, batalhas por turno e uma história épica.', 'thumbnail_url' => '', 'zip_filename' => '', 'featured' => 1, 'sort_order' => 2, 'active' => 1],
-        ['title' => 'Space Defender', 'engine' => 'GDevelop', 'description' => 'Shooter espacial com ondas de inimigos, power-ups e boss fights.', 'thumbnail_url' => '', 'zip_filename' => '', 'featured' => 0, 'sort_order' => 3, 'active' => 1],
-        ['title' => 'Platform Quest', 'engine' => 'Godot', 'description' => 'Plataforma 2D com física precisa, level design desafiador e pixel art.', 'thumbnail_url' => '', 'zip_filename' => '', 'featured' => 0, 'sort_order' => 4, 'active' => 1],
+        ['title' => 'Acacia: O Prólogo do Desespero', 'slug' => 'acacia-o-prologo-do-desespero', 'engine' => 'Ren\'py', 'description' => 'Uma visual novel sombria sobre escolhas impossíveis e consequências inevitáveis.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'portrait', 'sort_order' => 1, 'active' => 1],
+        ['title' => 'Aventura Medieval', 'slug' => 'aventura-medieval', 'engine' => 'RPG Maker', 'description' => 'RPG clássico com exploração, batalhas por turno e uma história épica.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 2, 'active' => 1],
+        ['title' => 'Space Defender', 'slug' => 'space-defender', 'engine' => 'GDevelop', 'description' => 'Shooter espacial com ondas de inimigos, power-ups e boss fights.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 3, 'active' => 1],
+        ['title' => 'Platform Quest', 'slug' => 'platform-quest', 'engine' => 'Godot', 'description' => 'Plataforma 2D com física precisa, level design desafiador e pixel art.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 4, 'active' => 1],
+        ['title' => 'Neon Drift', 'slug' => 'neon-drift', 'engine' => 'Unity', 'description' => 'Corrida arcade futurista com trilha sonora synthwave e pistas neon.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 5, 'active' => 1],
     ];
 
-    $stmt = $db->prepare("INSERT INTO games (title, engine, description, thumbnail_url, zip_filename, featured, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO games (title, slug, engine, description, thumbnail_url, zip_filename, game_path, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     foreach ($games as $g) {
-        $stmt->execute([$g['title'], $g['engine'], $g['description'], $g['thumbnail_url'], $g['zip_filename'], $g['featured'], $g['sort_order'], $g['active']]);
+        $stmt->execute([$g['title'], $g['slug'], $g['engine'], $g['description'], $g['thumbnail_url'], $g['zip_filename'], $g['game_path'], $g['featured'], $g['orientation'], $g['sort_order'], $g['active']]);
     }
 
     // Seed testimonials
@@ -97,7 +98,7 @@ function seedDefaultData() {
 
     // Seed team
     $team = [
-        ['name' => 'Victor', 'role' => 'Fundador & Lead Developer', 'bio' => 'Criador da Jogatinando, apaixonado por desenvolvimento de jogos e educação. Ensina criação de games no YouTube e faz lives na Twitch.', 'avatar_url' => '', 'social_youtube' => 'https://youtube.com/@jogatinandodevs', 'social_twitch' => 'https://www.twitch.tv/jogatinandolive', 'social_linkedin' => '', 'sort_order' => 1, 'active' => 1],
+        ['name' => 'Sulivan', 'role' => 'Fundador & Lead Developer', 'bio' => 'Criador da Jogatinando, apaixonado por desenvolvimento de jogos e educação. Ensina criação de games no YouTube e faz lives na Twitch.', 'avatar_url' => '', 'social_youtube' => 'https://youtube.com/@jogatinandodevs', 'social_twitch' => 'https://www.twitch.tv/jogatinandolive', 'social_linkedin' => '', 'sort_order' => 1, 'active' => 1],
     ];
 
     $stmt = $db->prepare("INSERT INTO team_members (name, role, bio, avatar_url, social_youtube, social_twitch, social_linkedin, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");

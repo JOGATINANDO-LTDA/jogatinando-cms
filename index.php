@@ -8,7 +8,7 @@ if (!file_exists(DB_PATH)) {
 
 $banners = dbQuery("SELECT * FROM banners WHERE active = 1 ORDER BY sort_order ASC");
 $games = dbQuery("SELECT * FROM games WHERE active = 1 ORDER BY featured DESC, sort_order ASC");
-$blogPosts = dbQuery("SELECT * FROM blog_posts WHERE active = 1 ORDER BY published_at DESC LIMIT 6");
+$blogPosts = dbQuery("SELECT * FROM blog_posts WHERE active = 1 ORDER BY published_at DESC LIMIT 3");
 $testimonials = dbQuery("SELECT * FROM testimonials WHERE active = 1 ORDER BY sort_order ASC");
 $faqItems = dbQuery("SELECT * FROM faq_items WHERE active = 1 ORDER BY sort_order ASC");
 $teamMembers = dbQuery("SELECT * FROM team_members WHERE active = 1 ORDER BY sort_order ASC");
@@ -53,6 +53,7 @@ function engineBadgeStyle($engine) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($siteName) ?> — <?= e($siteTagline) ?></title>
     <meta name="description" content="<?= e($footerDescription) ?>">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36' fill='none'><path d='M18 2L32 8V20C32 28 26 33 18 35C10 33 4 28 4 20V8L18 2Z' fill='oklch(75%25 0.15 85 / 0.15)' stroke='oklch(75%25 0.15 85)' stroke-width='1.5'/><path d='M18 6L28 10V20C28 26 24 30 18 32C12 30 8 26 8 20V10L18 6Z' fill='oklch(75%25 0.15 85 / 0.1)' stroke='oklch(75%25 0.15 85 / 0.5)' stroke-width='1'/><text x='18' y='19' text-anchor='middle' dominant-baseline='central' font-family='Cinzel, serif' font-size='7' font-weight='800' fill='oklch(75%25 0.15 85)'>JTN</text></svg>" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -70,7 +71,7 @@ function engineBadgeStyle($engine) {
                     <svg viewBox="0 0 36 36" fill="none">
                         <path d="M18 2L32 8V20C32 28 26 33 18 35C10 33 4 28 4 20V8L18 2Z" fill="oklch(75% 0.15 85 / 0.15)" stroke="oklch(75% 0.15 85)" stroke-width="1.5"/>
                         <path d="M18 6L28 10V20C28 26 24 30 18 32C12 30 8 26 8 20V10L18 6Z" fill="oklch(75% 0.15 85 / 0.1)" stroke="oklch(75% 0.15 85 / 0.5)" stroke-width="1"/>
-                        <text x="19" y="19" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-size="7" font-weight="800" fill="oklch(75% 0.15 85)">JTN</text>
+                        <text x="18" y="19" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-size="7" font-weight="800" fill="oklch(75% 0.15 85)">JTN</text>
                     </svg>
                 </div>
                 <?= e($siteName) ?>
@@ -194,7 +195,7 @@ function engineBadgeStyle($engine) {
                 </button>
                 <div class="games-ring">
                     <?php foreach ($games as $i => $game): ?>
-                    <a href="/jogar/<?= $game['id'] ?>" class="game-card" data-index="<?= $i ?>">
+                    <a href="/<?= strtolower(preg_replace('/[^a-zA-Z]/', '', $game['engine'])) ?>/<?= e($game['slug']) ?>" class="game-card" data-index="<?= $i ?>">
                         <div class="game-thumb">
                             <?php if ($game['thumbnail_url']): ?>
                             <img src="<?= e($game['thumbnail_url']) ?>" alt="<?= e($game['title']) ?>">
@@ -261,7 +262,7 @@ function engineBadgeStyle($engine) {
             </div>
             <?php if ($blogUrl): ?>
             <div class="section-footer">
-                <a href="<?= e($blogUrl) ?>" class="btn btn-outline" target="_blank" rel="noopener">Ver Blog Completo</a>
+                <a href="<?= e($blogUrl) ?>" class="btn btn-outline" target="_blank" rel="noopener">Ver Blog Completo →</a>
             </div>
             <?php endif; ?>
         </div>

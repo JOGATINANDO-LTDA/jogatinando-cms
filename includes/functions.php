@@ -144,3 +144,199 @@ function getEngineColor($engine) {
     ];
     return $colors[$engine] ?? 'oklch(68% 0.16 220)';
 }
+
+/**
+ * Upload and extract game archive to uploads/{engine-slug}/{game-slug}/
+ * Handles nested folder structures automatically.
+ */
+function uploadAndExtractGame($file, $engine, $gameTitle) {
+    if (!isset($file['error']) || is_array($file['error'])) {
+        return ['success' => false, 'message' => 'Upload inválido.'];
+    }
+
+    if ($file['error'] !== UPLOAD_ERR_OK) {
+        $messages = [
+            UPLOAD_ERR_INI_SIZE => 'Arquivo excede o limite do servidor (100MB).',
+            UPLOAD_ERR_FORM_SIZE => 'Arquivo excede o limite do formulário (100MB).',
+            UPLOAD_ERR_PARTIAL => 'Upload incompleto. Tente novamente.',
+            UPLOAD_ERR_NO_FILE => 'Nenhum arquivo enviado.',
+            UPLOAD_ERR_NO_TMP_DIR => 'Sem diretório temporário no servidor.',
+            UPLOAD_ERR_CANT_WRITE => 'Falha ao escrever no disco.',
+            UPLOAD_ERR_EXTENSION => 'Upload bloqueado por extensão PHP.',
+        ];
+        $msg = $messages[$file['error']] ?? 'Erro no upload (código: ' . $file['error'] . ').';
+        return ['success' => false, 'message' => $msg];
+    }
+
+    if ($file['size'] > MAX_UPLOAD_SIZE) {
+        return ['success' => false, 'message' => 'Arquivo muito grande. Máximo: ' . (MAX_UPLOAD_SIZE / 1024 / 1024) . 'MB'];
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, ALLOWED_GAME_EXTENSIONS)) {
+        return ['success' => false, 'message' => 'Formato não suportado. Use: ' . implode(', ', ALLOWED_GAME_EXTENSIONS)];
+    }
+
+    $engineSlug = generateSlug($engine);
+    $gameSlug = generateSlug($gameTitle);
+    $gameDir = UPLOAD_PATH . '/games/' . $engineSlug . '/' . $gameSlug;
+
+    // If game already exists, delete old version first
+    if (is_dir($gameDir)) {
+        deleteGameDir($engineSlug . '/' . $gameSlug);
+    }
+
+    if (!is_dir($gameDir)) {
+        mkdir($gameDir, 0755, true);
+    }
+
+    $tmpFile = $gameDir . '/_upload.' . $ext;
+    if (!move_uploaded_file($file['tmp_name'], $tmpFile)) {
+        return ['success' => false, 'message' => 'Falha ao salvar o arquivo.'];
+    }
+
+    $extracted = false;
+    $extractError = '';
+
+    if ($ext === 'zip') {
+        $zip = new ZipArchive();
+        $result = $zip->open($tmpFile);
+        if ($result === true) {
+            $zip->extractTo($gameDir);
+            $zip->close();
+            $extracted = true;
+        } else {
+            $reasons = [
+                ZipArchive::ER_EXISTS => 'Arquivo já existe',
+                ZipArchive::ER_INCONS => 'Arquivo ZIP inconsistente',
+                ZipArchive::ER_MEMORY => 'Erro de memória',
+                ZipArchive::ER_NOENT => 'Arquivo não encontrado',
+                ZipArchive::ER_NOZIP => 'Não é um arquivo ZIP válido',
+                ZipArchive::ER_OPEN => 'Não foi possível abrir o arquivo',
+                ZipArchive::ER_READ => 'Erro de leitura',
+                ZipArchive::ER_SEEK => 'Erro de seek',
+            ];
+            $extractError = 'ZIP inválido: ' . ($reasons[$result] ?? 'código ' . $result);
+        }
+    }
+
+    if (!$extracted) {
+        @unlink($tmpFile);
+        return ['success' => false, 'message' => 'Falha ao extrair: ' . $extractError];
+    }
+
+    @unlink($tmpFile);
+
+    // Detect and flatten nested folder structure
+    $items = scandir($gameDir);
+    $subdirs = [];
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') continue;
+        if (is_dir($gameDir . '/' . $item)) {
+            $subdirs[] = $item;
+        }
+    }
+
+    // If exactly one subdirectory and it contains index.html, flatten
+    if (count($subdirs) === 1) {
+        $onlyDir = $gameDir . '/' . $subdirs[0];
+        if (file_exists($onlyDir . '/index.html')) {
+            moveDirectoryContents($onlyDir, $gameDir);
+            @rmdir($onlyDir);
+        }
+    }
+
+    // Validate index.html exists
+    if (!file_exists($gameDir . '/index.html')) {
+        // Try to find index.html in a deeper subdirectory
+        $found = findIndexHtml($gameDir);
+        if ($found) {
+            moveDirectoryContents(dirname($found), $gameDir);
+            // Remove empty subdirectories
+            cleanupEmptyDirs($gameDir);
+        } else {
+            return ['success' => false, 'message' => 'Arquivo index.html não encontrado no pacote. O jogo precisa ter um index.html na raiz.'];
+        }
+    }
+
+    return [
+        'success' => true,
+        'game_path' => $engineSlug . '/' . $gameSlug,
+        'engine_slug' => $engineSlug,
+        'game_slug' => $gameSlug,
+        'message' => 'Jogo extraído com sucesso!'
+    ];
+}
+
+function moveDirectoryContents($source, $dest) {
+    $items = scandir($source);
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') continue;
+        $src = $source . '/' . $item;
+        $dst = $dest . '/' . $item;
+        if (is_dir($src)) {
+            if (!is_dir($dst)) {
+                mkdir($dst, 0755, true);
+            }
+            moveDirectoryContents($src, $dst);
+            @rmdir($src);
+        } else {
+            rename($src, $dst);
+        }
+    }
+}
+
+function findIndexHtml($dir) {
+    $items = scandir($dir);
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') continue;
+        $path = $dir . '/' . $item;
+        if (is_dir($path)) {
+            if (file_exists($path . '/index.html')) {
+                return $path . '/index.html';
+            }
+            $found = findIndexHtml($path);
+            if ($found) return $found;
+        }
+    }
+    return null;
+}
+
+function cleanupEmptyDirs($dir) {
+    $items = scandir($dir);
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') continue;
+        $path = $dir . '/' . $item;
+        if (is_dir($path)) {
+            cleanupEmptyDirs($path);
+            if (count(scandir($path)) === 2) {
+                @rmdir($path);
+            }
+        }
+    }
+}
+
+function deleteGameDir($gamePath) {
+    if (!$gamePath) return;
+    $fullPath = UPLOAD_PATH . '/games/' . $gamePath;
+    if (!is_dir($fullPath)) return;
+
+    $items = scandir($fullPath);
+    foreach ($items as $item) {
+        if ($item === '.' || $item === '..') continue;
+        $path = $fullPath . '/' . $item;
+        if (is_dir($path)) {
+            deleteGameDir($path);
+            @rmdir($path);
+        } else {
+            @unlink($path);
+        }
+    }
+    @rmdir($fullPath);
+
+    // Clean up empty engine folder
+    $engineDir = dirname($fullPath);
+    if (is_dir($engineDir) && count(scandir($engineDir)) === 2) {
+        @rmdir($engineDir);
+    }
+}
