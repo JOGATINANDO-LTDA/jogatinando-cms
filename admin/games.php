@@ -12,7 +12,8 @@ $engines = ['GDevelop', 'Godot', 'RPG Maker', 'Unity', 'Unreal Engine', 'Constru
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Detect oversized upload (POST empty due to exceeding post_max_size)
     if (empty($_POST) && empty($_FILES)) {
-        flashMessage('error', 'Arquivo muito grande. O tamanho máximo é 100MB.');
+        $serverLimit = @ini_get('post_max_size') ?: '30M';
+        flashMessage('error', "Arquivo excede o limite do servidor ($serverLimit). Contate a hospedagem para aumentar post_max_size.");
         ob_end_clean();
         header('Location: games.php');
         exit;
@@ -21,8 +22,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Check for upload errors before processing
     if (isset($_FILES['game_archive']) && $_FILES['game_archive']['error'] !== UPLOAD_ERR_OK && $_FILES['game_archive']['error'] !== UPLOAD_ERR_NO_FILE) {
         $err = $_FILES['game_archive']['error'];
+        $serverLimit = @ini_get('post_max_size') ?: '30M';
         if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
-            flashMessage('error', 'Arquivo muito grande. Máximo: 100MB.');
+            flashMessage('error', "Arquivo muito grande. Limite do servidor: $serverLimit.");
         } else {
             flashMessage('error', 'Erro no upload do arquivo.');
         }
@@ -162,21 +164,41 @@ if ($action === 'new' || $action === 'edit') {
         </div>
         <div class="card-body">
         <!-- Server capabilities -->
+        <?php try { ?>
         <div class="server-status">
             <span class="status-item <?= class_exists('ZipArchive') ? 'ok' : 'fail' ?>">
                 <?= class_exists('ZipArchive') ? '✅' : '❌' ?> ZIP
             </span>
-            <span class="status-item <?= canExtractRar() ? 'ok' : 'warn' ?>">
-                <?= canExtractRar() ? '✅' : '⚠️' ?> RAR
+            <?php
+            $rarOk = false;
+            try { $rarOk = @canExtractRar(); } catch (Throwable $e) { $rarOk = false; }
+            ?>
+            <span class="status-item <?= $rarOk ? 'ok' : 'warn' ?>">
+                <?= $rarOk ? '✅' : '⚠️' ?> RAR
             </span>
-            <span class="status-item <?= ini_get('post_max_size') >= 104857600 ? 'ok' : 'warn' ?>">
-                <?= ini_get('post_max_size') >= 104857600 ? '✅' : '⚠️' ?> Limite: <?= ini_get('post_max_size') ?>
+            <?php
+            $postMax = @ini_get('post_max_size');
+            $postMaxBytes = 0;
+            if (is_string($postMax)) {
+                $val = trim($postMax);
+                $multiplier = strtolower(substr($val, -1));
+                $num = (int)$val;
+                if ($multiplier === 'g') $postMaxBytes = $num * 1073741824;
+                elseif ($multiplier === 'm') $postMaxBytes = $num * 1048576;
+                elseif ($multiplier === 'k') $postMaxBytes = $num * 1024;
+                else $postMaxBytes = $num;
+            }
+            ?>
+            <span class="status-item <?= $postMaxBytes >= 104857600 ? 'ok' : 'warn' ?>">
+                <?= $postMaxBytes >= 104857600 ? '✅' : '⚠️' ?> Limite: <?= e($postMax ?: 'N/A') ?>
             </span>
         </div>
+        <?php } catch (Throwable $e) { /* silently skip server status */ } ?>
 
         <form method="POST" enctype="multipart/form-data" id="gameForm">
             <input type="hidden" name="action" value="save">
             <input type="hidden" name="MAX_FILE_SIZE" value="<?= MAX_UPLOAD_SIZE ?>">
+            <input type="hidden" id="serverLimitBytes" value="<?= $postMaxBytes ?>" data-limit="<?= e($postMax ?: '30M') ?>">
             <?php if ($id > 0): ?><input type="hidden" name="id" value="<?= $id ?>"><?php endif; ?>
             <?= csrfField() ?>
 
@@ -223,7 +245,7 @@ if ($action === 'new' || $action === 'edit') {
                             <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                         </div>
                         <div class="upload-text">Clique ou arraste uma imagem</div>
-                        <div class="upload-hint">JPG, PNG, WebP — máx 10MB</div>
+                        <div class="upload-hint">JPG, PNG, WebP — máx <?= e($postMax ?: '30M') ?></div>
                     </div>
                     <?php if (!empty($game['thumbnail_url'])): ?>
                         <img src="<?= e($game['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail">
@@ -238,7 +260,7 @@ if ($action === 'new' || $action === 'edit') {
                             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </div>
                         <div class="upload-text">Upload do arquivo do jogo</div>
-                        <div class="upload-hint">ZIP<?= $rarSupport ? ' ou RAR' : '' ?> — HTML exportado — máx 100MB</div>
+                        <div class="upload-hint">ZIP<?= $rarSupport ? ' ou RAR' : '' ?> — HTML exportado — máx <?= e($postMax ?: '30M') ?></div>
                     </div>
                     <?php if (!$rarSupport): ?>
                         <p style="margin-top:8px;font-size:12px;color:var(--warn)">⚠️ Este servidor não suporta extração de RAR. Use ZIP.</p>
@@ -358,12 +380,18 @@ if ($action === 'new' || $action === 'edit') {
         }
 
         // Submit with progress overlay
-        form.addEventListener('submit', () => {
+        form.addEventListener('submit', (e) => {
             if (input.files.length > 0) {
+                const serverLimit = parseInt(document.getElementById('serverLimitBytes')?.value || 0);
+                const fileSize = input.files[0].size;
+                if (serverLimit > 0 && fileSize > serverLimit * 0.9) {
+                    e.preventDefault();
+                    alert(`Arquivo muito grande!\n\nTamanho: ${(fileSize / 1048576).toFixed(1)}MB\nLimite do servidor: ${document.getElementById('serverLimitBytes').dataset.limit || '30M'}\n\nContate sua hospedagem para aumentar o limite.`);
+                    return;
+                }
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Enviando...';
                 progress.style.display = 'flex';
-                // Fallback: if still loading after 30s, show timeout warning
                 setTimeout(() => {
                     const statusEl = document.getElementById('uploadStatus');
                     if (statusEl && progress.style.display === 'flex') {

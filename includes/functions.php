@@ -150,10 +150,11 @@ function getEngineColor($engine) {
  */
 function canExtractRar() {
     if (class_exists('RarArchive')) return true;
+    if (!function_exists('shell_exec')) return false;
     foreach (['unrar-free', 'unrar', '/usr/bin/unrar-free', '/usr/bin/unrar'] as $cmd) {
-        if (is_executable($cmd) || trim(shell_exec("which $cmd 2>/dev/null")) !== '') {
-            return true;
-        }
+        if (is_executable($cmd)) return true;
+        $result = @shell_exec("which $cmd 2>/dev/null");
+        if (trim($result ?? '') !== '') return true;
     }
     return false;
 }
@@ -250,23 +251,34 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
         if (!$extracted) {
             $unrarCmd = null;
             foreach (['unrar-free', 'unrar', '/usr/bin/unrar-free', '/usr/bin/unrar'] as $cmd) {
-                if (is_executable($cmd) || trim(shell_exec("which $cmd 2>/dev/null")) !== '') {
+                if (is_executable($cmd)) {
                     $unrarCmd = $cmd;
                     break;
                 }
+                if (function_exists('shell_exec')) {
+                    $result = @shell_exec("which $cmd 2>/dev/null");
+                    if (trim($result ?? '') !== '') {
+                        $unrarCmd = $cmd;
+                        break;
+                    }
+                }
             }
-            if ($unrarCmd) {
+            if ($unrarCmd && function_exists('exec')) {
                 $cmd = sprintf('%s x -o+ -y %s %s/ 2>&1',
                     $unrarCmd,
                     escapeshellarg($tmpFile),
                     escapeshellarg($gameDir)
                 );
+                $output = [];
+                $returnCode = 0;
                 exec($cmd, $output, $returnCode);
                 if ($returnCode === 0) {
                     $extracted = true;
                 } else {
                     $extractError = 'unrar falhou: ' . implode(' ', array_slice($output, -2));
                 }
+            } elseif ($unrarCmd) {
+                $extractError = 'exec() desabilitado neste servidor';
             } else {
                 $extractError = 'unrar não está instalado no servidor';
             }

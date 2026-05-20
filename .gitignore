@@ -44,3 +44,5 @@ temp/
 # === Composer (if ever added) ===
 vendor/
 composer.lock
+
+/*.zip

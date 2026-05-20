@@ -80,8 +80,10 @@ function compressImage($filePath) {
     $originalSize = filesize($filePath);
 
     // Try external tools first
-    if ($ext === 'png' && is_executable('pngquant')) {
+    if ($ext === 'png' && function_exists('exec') && is_executable('pngquant')) {
         $tmp = $filePath . '.tmp';
+        $output = [];
+        $return = 1;
         exec("pngquant --quality=60-80 --skip-if-larger --force --output=\"$tmp\" \"$filePath\" 2>/dev/null", $output, $return);
         if ($return === 0 && file_exists($tmp) && filesize($tmp) < $originalSize) {
             rename($tmp, $filePath);
@@ -91,7 +93,9 @@ function compressImage($filePath) {
     }
 
     if ($ext === 'jpg' || $ext === 'jpeg') {
-        if (is_executable('jpegoptim')) {
+        if (function_exists('exec') && is_executable('jpegoptim')) {
+            $output = [];
+            $return = 1;
             exec("jpegoptim --strip-all --quiet \"$filePath\" 2>/dev/null", $output, $return);
             $newSize = filesize($filePath);
             if ($newSize < $originalSize) return $originalSize - $newSize;
