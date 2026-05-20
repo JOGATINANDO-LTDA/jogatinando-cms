@@ -1,4 +1,5 @@
 <?php
+ob_start();
 $pageTitle = 'Blog';
 require_once __DIR__ . '/../includes/header.php';
 
@@ -8,6 +9,7 @@ $id = (int)($_GET['id'] ?? 0);
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
+        ob_end_clean();
         header('Location: blog.php');
         exit;
     }
@@ -23,10 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
             $result = uploadFile($_FILES['thumbnail'], 'blog', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
             if ($result['success']) $thumbnail_url = $result['url'];
-            else { flashMessage('error', $result['message']); header('Location: blog.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: blog.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         }
 
-        if (empty($title)) { flashMessage('error', 'Título é obrigatório.'); header('Location: blog.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+        if (empty($title)) { flashMessage('error', 'Título é obrigatório.'); ob_end_clean(); header('Location: blog.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
 
         if ($id > 0) {
             if (!$thumbnail_url) { $existing = dbQueryOne("SELECT thumbnail_url FROM blog_posts WHERE id = ?", [$id]); $thumbnail_url = $existing['thumbnail_url']; }
@@ -36,11 +38,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             dbExec("INSERT INTO blog_posts (title, slug, content, thumbnail_url, external_url, active) VALUES (?, ?, ?, ?, ?, ?)", [$title, $slug, $content, $thumbnail_url, $external_url, $active]);
             flashMessage('success', 'Post criado!');
         }
+        ob_end_clean();
         header('Location: blog.php'); exit;
     }
 
-    if ($_POST['action'] === 'delete') { dbDelete('blog_posts', $id); flashMessage('success', 'Post excluído.'); header('Location: blog.php'); exit; }
-    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM blog_posts WHERE id = ?", [$id]); if ($r) dbExec("UPDATE blog_posts SET active = ? WHERE id = ?", [1 - $r['active'], $id]); header('Location: blog.php'); exit; }
+    if ($_POST['action'] === 'delete') { dbDelete('blog_posts', $id); flashMessage('success', 'Post excluído.'); ob_end_clean(); header('Location: blog.php'); exit; }
+    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM blog_posts WHERE id = ?", [$id]); if ($r) dbExec("UPDATE blog_posts SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: blog.php'); exit; }
 }
 
 if ($action === 'new' || $action === 'edit') {

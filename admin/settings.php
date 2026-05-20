@@ -1,9 +1,10 @@
 <?php
+ob_start();
 $pageTitle = 'Configurações';
 require_once __DIR__ . '/../includes/header.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); header('Location: settings.php'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings.php'); exit; }
 
     $settings = [
         'site_name' => trim($_POST['site_name']),
@@ -22,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         setSetting($key, $value);
     }
     flashMessage('success', 'Configurações salvas!');
+    ob_end_clean();
     header('Location: settings.php');
     exit;
 }

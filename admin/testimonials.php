@@ -1,11 +1,12 @@
 <?php
+ob_start();
 $pageTitle = 'Depoimentos';
 require_once __DIR__ . '/../includes/header.php';
 $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); header('Location: testimonials.php'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: testimonials.php'); exit; }
     if ($_POST['action'] === 'save') {
         $name = trim($_POST['name']); $role = trim($_POST['role']); $quote = trim($_POST['quote']);
         $sort_order = (int)($_POST['sort_order'] ?? 0); $active = isset($_POST['active']) ? 1 : 0;
@@ -13,9 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
             $result = uploadFile($_FILES['avatar'], 'avatars', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
             if ($result['success']) $avatar_url = $result['url'];
-            else { flashMessage('error', $result['message']); header('Location: testimonials.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: testimonials.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         }
-        if (empty($name) || empty($quote)) { flashMessage('error', 'Nome e depoimento são obrigatórios.'); header('Location: testimonials.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+        if (empty($name) || empty($quote)) { flashMessage('error', 'Nome e depoimento são obrigatórios.'); ob_end_clean(); header('Location: testimonials.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         if ($id > 0) {
             if (!$avatar_url) { $existing = dbQueryOne("SELECT avatar_url FROM testimonials WHERE id = ?", [$id]); $avatar_url = $existing['avatar_url']; }
             dbExec("UPDATE testimonials SET name=?, role=?, quote=?, avatar_url=?, sort_order=?, active=? WHERE id=?", [$name, $role, $quote, $avatar_url, $sort_order, $active, $id]);
@@ -24,15 +25,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             dbExec("INSERT INTO testimonials (name, role, quote, avatar_url, sort_order, active) VALUES (?, ?, ?, ?, ?, ?)", [$name, $role, $quote, $avatar_url, $sort_order, $active]);
             flashMessage('success', 'Depoimento criado!');
         }
+        ob_end_clean();
         header('Location: testimonials.php'); exit;
     }
-    if ($_POST['action'] === 'delete') { dbDelete('testimonials', $id); flashMessage('success', 'Depoimento excluído.'); header('Location: testimonials.php'); exit; }
-    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM testimonials WHERE id = ?", [$id]); if ($r) dbExec("UPDATE testimonials SET active = ? WHERE id = ?", [1 - $r['active'], $id]); header('Location: testimonials.php'); exit; }
+    if ($_POST['action'] === 'delete') { dbDelete('testimonials', $id); flashMessage('success', 'Depoimento excluído.'); ob_end_clean(); header('Location: testimonials.php'); exit; }
+    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM testimonials WHERE id = ?", [$id]); if ($r) dbExec("UPDATE testimonials SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: testimonials.php'); exit; }
 }
 
 if ($action === 'new' || $action === 'edit') {
     $item = $id > 0 ? dbQueryOne("SELECT * FROM testimonials WHERE id = ?", [$id]) : null;
-    if ($action === 'edit' && !$item) { flashMessage('error', 'Não encontrado.'); header('Location: testimonials.php'); exit; }
+    if ($action === 'edit' && !$item) { flashMessage('error', 'Não encontrado.'); ob_end_clean(); header('Location: testimonials.php'); exit; }
     ?>
     <div class="card">
         <div class="card-header"><h2 class="card-title"><?= $action === 'new' ? 'Novo Depoimento' : 'Editar Depoimento' ?></h2><a href="testimonials.php" class="btn btn-outline btn-sm">← Voltar</a></div>
