@@ -32,8 +32,8 @@ Hostinger respects `.htaccess` `php_value` directives:
 - **Shared free**: `post_max_size` limited to 30MB (upgrade needed)
 
 ## 6. RAR support
-Hostinger shared hosting **does not have** `unrar` or `rar` extension.
-Users must upload **ZIP only**. The CMS detects this and shows a warning.
+RAR is **not supported**. Only ZIP uploads are accepted.
+This ensures full compatibility with all shared hosting providers.
 
 ## 7. Image optimization
 `pngquant` and `jpegoptim` are not available on shared hosting.

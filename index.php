@@ -8,7 +8,7 @@ if (!file_exists(DB_PATH)) {
 
 $banners = dbQuery("SELECT * FROM banners WHERE active = 1 ORDER BY sort_order ASC");
 $games = dbQuery("SELECT * FROM games WHERE active = 1 ORDER BY featured DESC, sort_order ASC");
-$blogPosts = dbQuery("SELECT * FROM blog_posts WHERE active = 1 ORDER BY published_at DESC LIMIT 6");
+$blogPosts = dbQuery("SELECT * FROM blog_posts WHERE active = 1 ORDER BY published_at DESC LIMIT 3");
 $testimonials = dbQuery("SELECT * FROM testimonials WHERE active = 1 ORDER BY sort_order ASC");
 $faqItems = dbQuery("SELECT * FROM faq_items WHERE active = 1 ORDER BY sort_order ASC");
 $teamMembers = dbQuery("SELECT * FROM team_members WHERE active = 1 ORDER BY sort_order ASC");
@@ -262,7 +262,7 @@ function engineBadgeStyle($engine) {
             </div>
             <?php if ($blogUrl): ?>
             <div class="section-footer">
-                <a href="<?= e($blogUrl) ?>" class="btn btn-outline" target="_blank" rel="noopener">Ver Blog Completo</a>
+                <a href="<?= e($blogUrl) ?>" class="btn btn-outline" target="_blank" rel="noopener">Ver Blog Completo →</a>
             </div>
             <?php endif; ?>
         </div>

@@ -98,7 +98,7 @@ function seedDefaultData() {
 
     // Seed team
     $team = [
-        ['name' => 'Victor', 'role' => 'Fundador & Lead Developer', 'bio' => 'Criador da Jogatinando, apaixonado por desenvolvimento de jogos e educação. Ensina criação de games no YouTube e faz lives na Twitch.', 'avatar_url' => '', 'social_youtube' => 'https://youtube.com/@jogatinandodevs', 'social_twitch' => 'https://www.twitch.tv/jogatinandolive', 'social_linkedin' => '', 'sort_order' => 1, 'active' => 1],
+        ['name' => 'Sulivan', 'role' => 'Fundador & Lead Developer', 'bio' => 'Criador da Jogatinando, apaixonado por desenvolvimento de jogos e educação. Ensina criação de games no YouTube e faz lives na Twitch.', 'avatar_url' => '', 'social_youtube' => 'https://youtube.com/@jogatinandodevs', 'social_twitch' => 'https://www.twitch.tv/jogatinandolive', 'social_linkedin' => '', 'sort_order' => 1, 'active' => 1],
     ];
 
     $stmt = $db->prepare("INSERT INTO team_members (name, role, bio, avatar_url, social_youtube, social_twitch, social_linkedin, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");

@@ -3,12 +3,11 @@ FROM php:8.2-apache
 # Enable mod_rewrite for clean URLs
 RUN a2enmod rewrite
 
-# Install system dependencies + SQLite support + unrar-free
+# Install system dependencies + SQLite support
 RUN apt-get update && apt-get install -y --no-install-recommends \
     libsqlite3-dev \
     libzip-dev \
     zip \
-    unrar-free \
     && docker-php-ext-install zip \
     && rm -rf /var/lib/apt/lists/*
 

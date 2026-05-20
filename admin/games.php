@@ -64,15 +64,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Handle game archive upload (zip/rar)
+        // Handle game archive upload (zip only)
         if (isset($_FILES['game_archive']) && $_FILES['game_archive']['error'] === UPLOAD_ERR_OK) {
-            $ext = strtolower(pathinfo($_FILES['game_archive']['name'], PATHINFO_EXTENSION));
-            if ($ext === 'rar' && !canExtractRar()) {
-                flashMessage('error', 'RAR não é suportado neste servidor. Use ZIP.');
-                ob_end_clean();
-                header('Location: games.php?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
-                exit;
-            }
             $result = uploadAndExtractGame($_FILES['game_archive'], $engine, $title);
             if ($result['success']) {
                 $game_path = $result['game_path'];
@@ -170,13 +163,6 @@ if ($action === 'new' || $action === 'edit') {
                 <?= class_exists('ZipArchive') ? '✅' : '❌' ?> ZIP
             </span>
             <?php
-            $rarOk = false;
-            try { $rarOk = @canExtractRar(); } catch (Throwable $e) { $rarOk = false; }
-            ?>
-            <span class="status-item <?= $rarOk ? 'ok' : 'warn' ?>">
-                <?= $rarOk ? '✅' : '⚠️' ?> RAR
-            </span>
-            <?php
             $postMax = @ini_get('post_max_size');
             $postMaxBytes = 0;
             if (is_string($postMax)) {
@@ -253,18 +239,14 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
                 <div class="form-group">
                     <label>Arquivo do Jogo</label>
-                    <?php $rarSupport = canExtractRar(); ?>
                     <div class="file-upload" id="gameArchiveDrop">
-                        <input type="file" name="game_archive" accept="<?= $rarSupport ? '.zip,.rar' : '.zip' ?>" id="gameArchiveInput">
+                        <input type="file" name="game_archive" accept=".zip" id="gameArchiveInput">
                         <div class="upload-icon">
                             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </div>
                         <div class="upload-text">Upload do arquivo do jogo</div>
-                        <div class="upload-hint">ZIP<?= $rarSupport ? ' ou RAR' : '' ?> — HTML exportado — máx <?= e($postMax ?: '30M') ?></div>
+                        <div class="upload-hint">ZIP — HTML exportado — máx <?= e($postMax ?: '30M') ?></div>
                     </div>
-                    <?php if (!$rarSupport): ?>
-                        <p style="margin-top:8px;font-size:12px;color:var(--warn)">⚠️ Este servidor não suporta extração de RAR. Use ZIP.</p>
-                    <?php endif; ?>
                     <div class="file-selected" id="gameArchiveInfo" style="display:none">
                         <span class="file-name" id="gameArchiveName"></span>
                         <span class="file-size" id="gameArchiveSize"></span>

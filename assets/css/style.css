@@ -860,14 +860,17 @@ input, textarea, select { font-family: inherit; }
 
 /* === Blog Grid === */
 .blog-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     gap: 24px;
     position: relative;
     z-index: 1;
 }
 
 .blog-card {
+    flex: 0 1 360px;
+    max-width: 380px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-lg);
@@ -1719,7 +1722,8 @@ input, textarea, select { font-family: inherit; }
     .section-title { margin-bottom: 32px; }
 
     /* Grids */
-    .blog-grid { grid-template-columns: 1fr; }
+    .blog-grid { gap: 20px; }
+    .blog-card { flex: 0 1 320px; }
     .testimonials-grid { grid-template-columns: 1fr; }
     .team-grid { gap: 16px; }
     .team-card { width: 220px; }
@@ -1782,6 +1786,7 @@ input, textarea, select { font-family: inherit; }
     .section-title h2 { font-size: clamp(20px, 5.5vw, 28px); }
 
     /* Grids */
+    .blog-card { flex: 1 1 100%; }
     .team-grid { gap: 16px; }
     .team-card { width: 200px; }
 

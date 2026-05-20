@@ -146,20 +146,6 @@ function getEngineColor($engine) {
 }
 
 /**
- * Check if the server can extract RAR files
- */
-function canExtractRar() {
-    if (class_exists('RarArchive')) return true;
-    if (!function_exists('shell_exec')) return false;
-    foreach (['unrar-free', 'unrar', '/usr/bin/unrar-free', '/usr/bin/unrar'] as $cmd) {
-        if (is_executable($cmd)) return true;
-        $result = @shell_exec("which $cmd 2>/dev/null");
-        if (trim($result ?? '') !== '') return true;
-    }
-    return false;
-}
-
-/**
  * Upload and extract game archive to uploads/{engine-slug}/{game-slug}/
  * Handles nested folder structures automatically.
  */
@@ -231,57 +217,6 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
                 ZipArchive::ER_SEEK => 'Erro de seek',
             ];
             $extractError = 'ZIP inválido: ' . ($reasons[$result] ?? 'código ' . $result);
-        }
-    } elseif ($ext === 'rar') {
-        // Try PHP rar extension first
-        if (class_exists('RarArchive')) {
-            $rar = RarArchive::open($tmpFile);
-            if ($rar && !$rar->isBroken()) {
-                $entries = $rar->getEntries();
-                foreach ($entries as $entry) {
-                    $entry->extract($gameDir);
-                }
-                $rar->close();
-                $extracted = true;
-            } else {
-                $extractError = 'RAR corrompido ou inválido';
-            }
-        }
-        // Fallback: unrar CLI
-        if (!$extracted) {
-            $unrarCmd = null;
-            foreach (['unrar-free', 'unrar', '/usr/bin/unrar-free', '/usr/bin/unrar'] as $cmd) {
-                if (is_executable($cmd)) {
-                    $unrarCmd = $cmd;
-                    break;
-                }
-                if (function_exists('shell_exec')) {
-                    $result = @shell_exec("which $cmd 2>/dev/null");
-                    if (trim($result ?? '') !== '') {
-                        $unrarCmd = $cmd;
-                        break;
-                    }
-                }
-            }
-            if ($unrarCmd && function_exists('exec')) {
-                $cmd = sprintf('%s x -o+ -y %s %s/ 2>&1',
-                    $unrarCmd,
-                    escapeshellarg($tmpFile),
-                    escapeshellarg($gameDir)
-                );
-                $output = [];
-                $returnCode = 0;
-                exec($cmd, $output, $returnCode);
-                if ($returnCode === 0) {
-                    $extracted = true;
-                } else {
-                    $extractError = 'unrar falhou: ' . implode(' ', array_slice($output, -2));
-                }
-            } elseif ($unrarCmd) {
-                $extractError = 'exec() desabilitado neste servidor';
-            } else {
-                $extractError = 'unrar não está instalado no servidor';
-            }
         }
     }
 
