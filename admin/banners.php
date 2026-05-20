@@ -1,4 +1,5 @@
 <?php
+ob_start();
 $pageTitle = 'Banners';
 require_once __DIR__ . '/../includes/header.php';
 
@@ -9,6 +10,7 @@ $id = (int)($_GET['id'] ?? 0);
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
+        ob_end_clean();
         header('Location: banners.php');
         exit;
     }
@@ -31,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $image_url = $result['url'];
             } else {
                 flashMessage('error', $result['message']);
+                ob_end_clean();
                 header('Location: banners.php?action=new');
                 exit;
             }
@@ -38,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         if (empty($title)) {
             flashMessage('error', 'Título é obrigatório.');
+            ob_end_clean();
             header('Location: banners.php?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
             exit;
         }
@@ -58,6 +62,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 [$title, $subtitle, $description, $image_url, $cta_text, $cta_url, $engine_tag, $sort_order, $active]);
             flashMessage('success', 'Banner criado com sucesso!');
         }
+        ob_end_clean();
         header('Location: banners.php');
         exit;
     }
@@ -68,6 +73,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             dbDelete('banners', $id);
             flashMessage('success', 'Banner excluído.');
         }
+        ob_end_clean();
         header('Location: banners.php');
         exit;
     }
@@ -77,6 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($banner) {
             dbExec("UPDATE banners SET active = ? WHERE id = ?", [1 - $banner['active'], $id]);
         }
+        ob_end_clean();
         header('Location: banners.php');
         exit;
     }
@@ -86,6 +93,7 @@ if ($action === 'new' || $action === 'edit') {
     $banner = $id > 0 ? dbQueryOne("SELECT * FROM banners WHERE id = ?", [$id]) : null;
     if ($action === 'edit' && !$banner) {
         flashMessage('error', 'Banner não encontrado.');
+        ob_end_clean();
         header('Location: banners.php');
         exit;
     }
