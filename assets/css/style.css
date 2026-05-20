@@ -1194,6 +1194,171 @@ input, textarea, select { font-family: inherit; }
     max-width: 300px;
 }
 
+/* === Contact Form === */
+.contact-form-wrapper {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 32px;
+}
+
+.flash {
+    padding: 12px 16px;
+    border-radius: var(--radius-md);
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+.flash-error {
+    background: oklch(55% 0.20 25 / 0.15);
+    border: 1px solid oklch(55% 0.20 25 / 0.3);
+    color: oklch(70% 0.20 25);
+}
+
+.contact-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.contact-form .form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.contact-form .form-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--fg-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.contact-form .form-group input,
+.contact-form .form-group select,
+.contact-form .form-group textarea {
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 12px 16px;
+    font-size: 14px;
+    color: var(--fg);
+    font-family: var(--font-body);
+    transition: border-color 0.2s;
+}
+
+.contact-form .form-group input:focus,
+.contact-form .form-group select:focus,
+.contact-form .form-group textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px var(--gold-subtle);
+}
+
+.contact-form .form-group select {
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 12px center;
+    padding-right: 36px;
+}
+
+.contact-form .btn-lg {
+    align-self: flex-start;
+    padding: 14px 32px;
+}
+
+.contact-feedback {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 32px 24px;
+    text-align: center;
+    border-radius: 12px;
+    margin-bottom: 24px;
+    animation: fadeIn 0.3s ease;
+}
+
+.contact-feedback.success {
+    display: flex;
+    background: oklch(70% 0.18 150 / 0.1);
+    border: 1px solid oklch(70% 0.18 150 / 0.3);
+}
+
+.contact-feedback.error {
+    display: flex;
+    background: oklch(50% 0.2 25 / 0.1);
+    border: 1px solid oklch(50% 0.2 25 / 0.3);
+}
+
+.contact-feedback svg {
+    width: 56px;
+    height: 56px;
+    filter: drop-shadow(0 0 16px currentColor);
+}
+
+.contact-feedback.success svg {
+    color: oklch(70% 0.18 150);
+}
+
+.contact-feedback.error svg {
+    color: oklch(60% 0.22 25);
+}
+
+.contact-feedback h3 {
+    font-family: var(--font-display);
+    font-size: 18px;
+    margin: 0;
+}
+
+.contact-feedback.success h3 {
+    color: oklch(70% 0.18 150);
+}
+
+.contact-feedback.error h3 {
+    color: oklch(60% 0.22 25);
+}
+
+.contact-feedback p {
+    color: var(--muted);
+    font-size: 14px;
+    margin: 0;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.contact-success {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    padding: 40px 24px;
+    text-align: center;
+}
+
+.contact-success svg {
+    width: 64px;
+    height: 64px;
+    color: oklch(70% 0.18 150);
+    filter: drop-shadow(0 0 20px oklch(70% 0.18 150 / 0.4));
+}
+
+.contact-success h3 {
+    font-family: var(--font-display);
+    font-size: 20px;
+    color: oklch(70% 0.18 150);
+}
+
+.contact-success p {
+    color: var(--muted);
+    font-size: 14px;
+}
+
 /* === Footer === */
 .footer {
     padding: 48px 0 24px;
@@ -1695,7 +1860,10 @@ input, textarea, select { font-family: inherit; }
 
 /* Tablet landscape */
 @media (max-width: 1024px) {
+    /* Contact */
     .contact-grid { grid-template-columns: 1fr; gap: 32px; }
+    .contact-form-wrapper { padding: 24px; }
+    .contact-form .btn-lg { align-self: stretch; text-align: center; }
     .footer-grid { grid-template-columns: 1fr 1fr; }
     .hero-slide .hero-content { padding: 0 72px; }
 }

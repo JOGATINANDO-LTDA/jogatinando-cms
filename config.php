@@ -2,20 +2,26 @@
 /**
  * Jogatinando CMS — Configuration
  */
+
+// Load local overrides (secrets, passwords) if they exist
+if (file_exists(__DIR__ . '/config.local.php')) {
+    require_once __DIR__ . '/config.local.php';
+}
+
 session_start();
 error_reporting(E_ALL);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
 
 // Paths
-define('ROOT_PATH', dirname(__FILE__));
-define('DATA_PATH', ROOT_PATH . '/data');
-define('UPLOAD_PATH', ROOT_PATH . '/uploads');
-define('DB_PATH', DATA_PATH . '/jogatinando.db');
+if (!defined('ROOT_PATH')) define('ROOT_PATH', dirname(__FILE__));
+if (!defined('DATA_PATH')) define('DATA_PATH', ROOT_PATH . '/data');
+if (!defined('UPLOAD_PATH')) define('UPLOAD_PATH', ROOT_PATH . '/uploads');
+if (!defined('DB_PATH')) define('DB_PATH', DATA_PATH . '/jogatinando.db');
 
-// URLs — prioridade: constante definida antes do config > env var > detecção automática
+// URLs
 if (defined('SITE_URL')) {
-    // já definido externamente
+    // already defined in local config
 } elseif (!empty($_ENV['SITE_URL'])) {
     define('SITE_URL', rtrim($_ENV['SITE_URL'], '/'));
 } elseif (php_sapi_name() !== 'cli') {
@@ -25,21 +31,29 @@ if (defined('SITE_URL')) {
 } else {
     define('SITE_URL', 'http://localhost');
 }
-define('ADMIN_URL', SITE_URL . '/admin');
-define('UPLOAD_URL', SITE_URL . '/uploads');
+if (!defined('ADMIN_URL')) define('ADMIN_URL', SITE_URL . '/admin');
+if (!defined('UPLOAD_URL')) define('UPLOAD_URL', SITE_URL . '/uploads');
 
 // Upload limits
-define('MAX_UPLOAD_SIZE', 100 * 1024 * 1024); // 100MB for game archives
-define('ALLOWED_GAME_EXTENSIONS', ['zip']);
-define('ALLOWED_IMAGE_EXTENSIONS', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+if (!defined('MAX_UPLOAD_SIZE')) define('MAX_UPLOAD_SIZE', 100 * 1024 * 1024);
+if (!defined('ALLOWED_GAME_EXTENSIONS')) define('ALLOWED_GAME_EXTENSIONS', ['zip']);
+if (!defined('ALLOWED_IMAGE_EXTENSIONS')) define('ALLOWED_IMAGE_EXTENSIONS', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
 
-// Admin credentials (change after first login!)
-define('ADMIN_USERNAME', 'admin');
-define('ADMIN_PASSWORD_HASH', password_hash('jogatinando2024', PASSWORD_DEFAULT));
+// Admin credentials
+if (!defined('ADMIN_USERNAME')) define('ADMIN_USERNAME', 'admin');
+if (!defined('ADMIN_PASSWORD_HASH')) define('ADMIN_PASSWORD_HASH', password_hash('jogatinando2024', PASSWORD_DEFAULT));
 
 // Site info
-define('SITE_NAME', 'Jogatinando');
-define('SITE_TAGLINE', 'Desenvolvimento de Jogos Sob Medida');
+if (!defined('SITE_NAME')) define('SITE_NAME', 'Jogatinando');
+if (!defined('SITE_TAGLINE')) define('SITE_TAGLINE', 'Desenvolvimento de Jogos Sob Medida');
+
+// SMTP Configuration (Zoho Mail)
+if (!defined('SMTP_HOST')) define('SMTP_HOST', 'smtp.zoho.com');
+if (!defined('SMTP_PORT')) define('SMTP_PORT', 587);
+if (!defined('SMTP_USER')) define('SMTP_USER', 'contato@jogatinando.com.br');
+if (!defined('SMTP_PASS')) define('SMTP_PASS', ''); // Override in config.local.php
+if (!defined('SMTP_FROM')) define('SMTP_FROM', 'contato@jogatinando.com.br');
+if (!defined('SMTP_FROM_NAME')) define('SMTP_FROM_NAME', 'Jogatinando CMS');
 
 // Auto-load helpers
 require_once ROOT_PATH . '/includes/db.php';

@@ -6,6 +6,48 @@ if (!file_exists(DB_PATH)) {
     exit;
 }
 
+// Handle contact form submission
+$contactSuccess = false;
+$contactError = '';
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
+    $cName = trim($_POST['c_name'] ?? '');
+    $cEmail = trim($_POST['c_email'] ?? '');
+    $cEngine = trim($_POST['c_engine'] ?? '');
+    $cMessage = trim($_POST['c_message'] ?? '');
+
+    if (empty($cName) || empty($cEmail) || empty($cMessage)) {
+        $contactError = 'Preencha nome, email e mensagem.';
+    } elseif (!filter_var($cEmail, FILTER_VALIDATE_EMAIL)) {
+        $contactError = 'Email inválido.';
+    } else {
+        $to = 'contato@jogatinando.com.br';
+        $subject = "Orçamento — $cName ($cEngine)";
+        $body = "Novo pedido de orçamento recebido pelo site:\n\n";
+        $body .= "Nome: $cName\n";
+        $body .= "Email: $cEmail\n";
+        $body .= "Engine: $cEngine\n\n";
+        $body .= "Mensagem:\n$cMessage\n";
+
+        if (sendSmtpMail($to, $subject, $body)) {
+            $contactSuccess = true;
+        } else {
+            $logFile = ROOT_PATH . '/data/contact_log.txt';
+            if (@file_put_contents($logFile, date('Y-m-d H:i:s') . " | $cName | $cEmail | $cEngine\n$cMessage\n---\n", FILE_APPEND | LOCK_EX)) {
+                $contactSuccess = true;
+            } else {
+                $contactError = 'Erro ao enviar. Tente novamente ou use nosso email direto.';
+            }
+        }
+    }
+
+    // AJAX response for no-reload submission
+    if (!empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest') {
+        header('Content-Type: application/json');
+        echo json_encode(['success' => $contactSuccess, 'message' => $contactError]);
+        exit;
+    }
+}
+
 $banners = dbQuery("SELECT * FROM banners WHERE active = 1 ORDER BY sort_order ASC");
 $games = dbQuery("SELECT * FROM games WHERE active = 1 ORDER BY featured DESC, sort_order ASC");
 $blogPosts = dbQuery("SELECT * FROM blog_posts WHERE active = 1 ORDER BY published_at DESC LIMIT 3");
@@ -394,9 +436,48 @@ function engineBadgeStyle($engine) {
                 <p>Conte-nos sobre seu projeto e retornaremos em até 24 horas</p>
             </div>
             <div class="contact-grid">
+                <!-- Form -->
+                <div class="contact-form-wrapper">
+                    <div id="contactFeedback" class="contact-feedback" style="display:none"></div>
+                    <form id="contactForm" class="contact-form">
+                        <div class="form-group">
+                            <label for="c_name">Nome *</label>
+                            <input type="text" id="c_name" name="c_name" required placeholder="Seu nome completo">
+                        </div>
+                        <div class="form-group">
+                            <label for="c_email">Email *</label>
+                            <input type="email" id="c_email" name="c_email" required placeholder="seu@email.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="c_engine">Engine do Projeto</label>
+                            <select id="c_engine" name="c_engine">
+                                <option value="">Selecione ou deixe em branco</option>
+                                <option value="GDevelop">GDevelop</option>
+                                <option value="Godot">Godot</option>
+                                <option value="RPG Maker">RPG Maker</option>
+                                <option value="Unity">Unity</option>
+                                <option value="Unreal Engine">Unreal Engine</option>
+                                <option value="Construct">Construct</option>
+                                <option value="Defold">Defold</option>
+                                <option value="Game Maker">Game Maker</option>
+                                <option value="Ren'py">Ren'py</option>
+                                <option value="Pixel Game Maker MV">Pixel Game Maker MV</option>
+                                <option value="RPG Paper Maker">RPG Paper Maker</option>
+                                <option value="Outra">Outra</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="c_message">Mensagem *</label>
+                            <textarea id="c_message" name="c_message" rows="6" required placeholder="Descreva seu projeto, plataforma alvo, prazo estimado..."></textarea>
+                        </div>
+                        <button type="submit" id="contactBtn" class="btn btn-gold btn-lg">Enviar Solicitação</button>
+                    </form>
+                </div>
+
+                <!-- Info -->
                 <div class="contact-info">
-                    <h3>Vamos Criar Algo <span class="gold">Incrível</span></h3>
-                    <p>Estamos prontos para transformar sua ideia em um jogo real. Entre em contato pelos nossos canais.</p>
+                    <h3>Outros <span class="gold">Canais</span></h3>
+                    <p>Também pode nos encontrar por aqui:</p>
                     <div class="contact-links">
                         <?php if ($contactEmail): ?>
                         <a href="mailto:<?= e($contactEmail) ?>" class="contact-link">
@@ -413,30 +494,16 @@ function engineBadgeStyle($engine) {
                         <?php if ($youtubeUrl): ?>
                         <a href="<?= e($youtubeUrl) ?>" class="contact-link" target="_blank" rel="noopener">
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2c-.3-1-1-1.8-2-2.1C19.6 3.5 12 3.5 12 3.5s-7.6 0-9.5.6c-1 .3-1.7 1.1-2 2.1C0 8.1 0 12 0 12s0 3.9.5 5.8c.3 1 1 1.8 2 2.1 1.9.6 9.5.6 9.5.6s7.6 0 9.5-.6c1-.3 1.7-1.1 2-2.1.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.5 15.6V8.4L15.8 12l-6.3 3.6z"/></svg>
-                            YouTube — <?= e($siteName) ?>
+                            YouTube
                         </a>
                         <?php endif; ?>
                         <?php if ($twitchUrl): ?>
                         <a href="<?= e($twitchUrl) ?>" class="contact-link" target="_blank" rel="noopener">
                             <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.6 6.4V2.8H8.8v3.6H6v7.2h2.8v2.8h2.8V13.6h2.8V6.4h-2.8zm5.6 0V2.8h-2.8v3.6h2.8zM2.8 0L0 2.8v18.4h5.6V24h2.8l2.8-2.8h4.8L24 13.2V0H2.8zm18.4 12.4l-3.6 3.6h-4.8l-2.8 2.8v-2.8H6.4V2.8h14.8v9.6z"/></svg>
-                            Twitch — <?= e($siteName) ?>
+                            Twitch
                         </a>
                         <?php endif; ?>
                     </div>
-                </div>
-                <div class="contact-visual">
-                    <svg viewBox="0 0 200 200" fill="none">
-                        <path d="M100 10L180 40V100C180 150 140 185 100 195C60 185 20 150 20 100V40L100 10Z" fill="oklch(75% 0.15 85 / 0.08)" stroke="oklch(75% 0.15 85)" stroke-width="2.5"/>
-                        <path d="M100 22L168 48V100C168 142 136 172 100 182C64 172 32 142 32 100V48L100 22Z" fill="oklch(75% 0.15 85 / 0.05)" stroke="oklch(75% 0.15 85 / 0.4)" stroke-width="1.5"/>
-                        <path d="M100 34L156 56V100C156 134 132 158 100 168C68 158 44 134 44 100V56L100 34Z" fill="oklch(75% 0.15 85 / 0.03)"/>
-                        <text x="100" y="98" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-size="36" font-weight="900" fill="oklch(75% 0.15 85)" style="text-shadow: 0 0 20px oklch(75% 0.15 85 / 0.5);">JTN</text>
-                        <rect x="72" y="128" width="56" height="28" rx="14" fill="oklch(65% 0.18 220 / 0.2)" stroke="oklch(65% 0.18 220)" stroke-width="1.5"/>
-                        <circle cx="88" cy="142" r="4" fill="oklch(65% 0.18 220)"/>
-                        <circle cx="112" cy="142" r="4" fill="oklch(55% 0.20 25)"/>
-                        <circle cx="100" cy="136" r="3" fill="oklch(65% 0.18 145)"/>
-                        <circle cx="100" cy="148" r="3" fill="oklch(80% 0.16 90)"/>
-                    </svg>
-                    <p>Da concepção ao lançamento — criamos experiências que encantam jogadores e geram resultados.</p>
                 </div>
             </div>
         </div>
@@ -516,5 +583,50 @@ function engineBadgeStyle($engine) {
     </footer>
 
     <script src="<?= SITE_URL ?>/assets/js/main.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const form = document.getElementById('contactForm');
+        const feedback = document.getElementById('contactFeedback');
+        const btn = document.getElementById('contactBtn');
+        if (!form) return;
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            btn.disabled = true;
+            btn.textContent = 'Enviando...';
+            feedback.style.display = 'none';
+
+            const data = new FormData(form);
+            data.append('contact_submit', '1');
+
+            try {
+                const res = await fetch(window.location.href, {
+                    method: 'POST',
+                    body: data,
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                });
+                const json = await res.json();
+
+                feedback.className = 'contact-feedback ' + (json.success ? 'success' : 'error');
+                feedback.innerHTML = json.success
+                    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><h3>Mensagem Enviada!</h3><p>Recebemos seu pedido. Retornaremos em breve.</p>'
+                    : '<p>' + (json.message || 'Erro ao enviar. Tente novamente.') + '</p>';
+                feedback.style.display = 'flex';
+
+                if (json.success) {
+                    form.reset();
+                    setTimeout(() => { feedback.style.display = 'none'; }, 5000);
+                }
+            } catch (err) {
+                feedback.className = 'contact-feedback error';
+                feedback.innerHTML = '<p>Erro de conexão. Verifique sua internet.</p>';
+                feedback.style.display = 'flex';
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Enviar Solicitação';
+            }
+        });
+    });
+    </script>
 </body>
 </html>

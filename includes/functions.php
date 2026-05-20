@@ -7,6 +7,76 @@ function e($string) {
     return htmlspecialchars($string ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+/**
+ * Lightweight SMTP client using native PHP sockets.
+ * Sends email via authenticated SMTP (Zoho, etc).
+ */
+function sendSmtpMail($to, $subject, $body, $from = null, $fromName = null) {
+    $host = defined('SMTP_HOST') ? SMTP_HOST : 'smtp.zoho.com';
+    $port = defined('SMTP_PORT') ? SMTP_PORT : 587;
+    $user = defined('SMTP_USER') ? SMTP_USER : '';
+    $pass = defined('SMTP_PASS') ? SMTP_PASS : '';
+    $fromAddr = $from ?: (defined('SMTP_FROM') ? SMTP_FROM : $user);
+    $fromLbl = $fromName ?: (defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : 'CMS');
+
+    if (empty($pass)) {
+        error_log('SMTP: Password not configured.');
+        return false;
+    }
+
+    $fp = @fsockopen($host, $port, $errno, $errstr, 30);
+    if (!$fp) return false;
+
+    $read = function($fp) {
+        $out = '';
+        while (($line = fgets($fp)) !== false) {
+            $out .= $line;
+            if (substr($line, 3, 1) === ' ') break;
+        }
+        return trim($out);
+    };
+
+    $write = function($fp, $cmd) {
+        fwrite($fp, $cmd . "\r\n");
+    };
+
+    $read($fp); // Banner
+    $write($fp, "EHLO " . $_SERVER['HTTP_HOST'] ?? 'localhost');
+    $read($fp);
+    $write($fp, "STARTTLS");
+    $read($fp);
+    stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+    $write($fp, "EHLO " . $_SERVER['HTTP_HOST'] ?? 'localhost');
+    $read($fp);
+    $write($fp, "AUTH LOGIN");
+    $read($fp);
+    $write($fp, base64_encode($user));
+    $read($fp);
+    $write($fp, base64_encode($pass));
+    $resp = $read($fp);
+    if (strpos($resp, '235') === false) { fclose($fp); return false; }
+
+    $write($fp, "MAIL FROM: <$fromAddr>");
+    $read($fp);
+    $write($fp, "RCPT TO: <$to>");
+    $read($fp);
+    $write($fp, "DATA");
+    $read($fp);
+
+    $headers = "From: $fromLbl <$fromAddr>\r\n";
+    $headers .= "Reply-To: $to\r\n";
+    $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
+    $headers .= "X-Mailer: Jogatinando CMS\r\n";
+
+    fwrite($fp, "Subject: $subject\r\n$headers\r\n$body\r\n.\r\n");
+    $resp = $read($fp);
+    $write($fp, "QUIT");
+    $read($fp);
+    fclose($fp);
+
+    return strpos($resp, '250') !== false;
+}
+
 function generateSlug($text) {
     $text = strtolower($text);
     $text = preg_replace('/[àáâãäå]/', 'a', $text);
