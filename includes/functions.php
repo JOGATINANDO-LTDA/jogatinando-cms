@@ -25,7 +25,10 @@ function sendSmtpMail($to, $subject, $body, $from = null, $fromName = null) {
     }
 
     $fp = @fsockopen($host, $port, $errno, $errstr, 30);
-    if (!$fp) return false;
+    if (!$fp) {
+        error_log("SMTP: Connection to $host:$port failed: $errstr");
+        return false;
+    }
 
     $read = function($fp) {
         $out = '';
@@ -40,41 +43,62 @@ function sendSmtpMail($to, $subject, $body, $from = null, $fromName = null) {
         fwrite($fp, $cmd . "\r\n");
     };
 
-    $read($fp); // Banner
-    $write($fp, "EHLO " . $_SERVER['HTTP_HOST'] ?? 'localhost');
-    $read($fp);
+    $banner = $read($fp);
+    error_log("SMTP: Banner: $banner");
+    $write($fp, "EHLO " . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    $ehloResp = $read($fp);
+    error_log("SMTP: EHLO: $ehloResp");
     $write($fp, "STARTTLS");
-    $read($fp);
+    $starttlsResp = $read($fp);
+    error_log("SMTP: STARTTLS: $starttlsResp");
     stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
-    $write($fp, "EHLO " . $_SERVER['HTTP_HOST'] ?? 'localhost');
-    $read($fp);
+    $write($fp, "EHLO " . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    $ehlo2Resp = $read($fp);
+    error_log("SMTP: EHLO (after TLS): $ehlo2Resp");
     $write($fp, "AUTH LOGIN");
-    $read($fp);
+    $authLoginResp = $read($fp);
+    error_log("SMTP: AUTH LOGIN: $authLoginResp");
     $write($fp, base64_encode($user));
-    $read($fp);
+    $userResp = $read($fp);
+    error_log("SMTP: User response: $userResp");
     $write($fp, base64_encode($pass));
-    $resp = $read($fp);
-    if (strpos($resp, '235') === false) { fclose($fp); return false; }
+    $passResp = $read($fp);
+    error_log("SMTP: Pass response: $passResp");
+    if (strpos($passResp, '235') === false) {
+        error_log("SMTP: Authentication failed: $passResp");
+        fclose($fp);
+        return false;
+    }
 
     $write($fp, "MAIL FROM: <$fromAddr>");
-    $read($fp);
+    $mailFromResp = $read($fp);
+    error_log("SMTP: MAIL FROM: $mailFromResp");
     $write($fp, "RCPT TO: <$to>");
-    $read($fp);
+    $rcptToResp = $read($fp);
+    error_log("SMTP: RCPT TO: $rcptToResp");
     $write($fp, "DATA");
-    $read($fp);
+    $dataResp = $read($fp);
+    error_log("SMTP: DATA: $dataResp");
 
     $headers = "From: $fromLbl <$fromAddr>\r\n";
     $headers .= "Reply-To: $to\r\n";
     $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
     $headers .= "X-Mailer: Jogatinando CMS\r\n";
 
-    fwrite($fp, "Subject: $subject\r\n$headers\r\n$body\r\n.\r\n");
-    $resp = $read($fp);
+    $messageData = "Subject: $subject\r\n$headers\r\n$body\r\n.\r\n";
+    fwrite($fp, $messageData);
+    $messageResp = $read($fp);
+    error_log("SMTP: Message response: $messageResp");
     $write($fp, "QUIT");
-    $read($fp);
+    $quitResp = $read($fp);
+    error_log("SMTP: QUIT: $quitResp");
     fclose($fp);
 
-    return strpos($resp, '250') !== false;
+    $success = strpos($messageResp, '250') !== false;
+    if (!$success) {
+        error_log("SMTP: Message sending failed. Final response: $messageResp");
+    }
+    return $success;
 }
 
 function generateSlug($text) {

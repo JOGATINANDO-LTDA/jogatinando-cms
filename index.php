@@ -13,26 +13,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
     $cName = trim($_POST['c_name'] ?? '');
     $cEmail = trim($_POST['c_email'] ?? '');
     $cEngine = trim($_POST['c_engine'] ?? '');
+    $cEngineOther = trim($_POST['c_engine_other'] ?? '');
     $cMessage = trim($_POST['c_message'] ?? '');
 
+    $validEngines = ['GDevelop', 'Godot', 'RPG Maker', 'Unity', 'Unreal Engine', 'Construct', 'Defold', 'Game Maker', 'Ren\'py', 'Pixel Game Maker MV', 'RPG Paper Maker', 'Outra'];
+
     if (empty($cName) || empty($cEmail) || empty($cMessage)) {
-        $contactError = 'Preencha nome, email e mensagem.';
-    } elseif (!filter_var($cEmail, FILTER_VALIDATE_EMAIL)) {
+        $contactError = 'Preencha todos os campos obrigatórios.';
+    } elseif (strpos($cName, ' ') === false) {
+        $contactError = 'Informe seu nome completo (nome e sobrenome).';
+    } elseif (strlen($cName) < 5) {
+        $contactError = 'Nome muito curto. Informe seu nome completo.';
+    } elseif (strpos($cEmail, '@') === false) {
         $contactError = 'Email inválido.';
+    } elseif (empty($cEngine)) {
+        $contactError = 'Selecione a engine do projeto.';
+    } elseif (!in_array($cEngine, $validEngines)) {
+        $contactError = 'Engine inválida.';
+    } elseif ($cEngine === 'Outra' && empty($cEngineOther)) {
+        $contactError = 'Especifique qual engine você está usando.';
+    } elseif (strlen($cMessage) < 20) {
+        $contactError = 'Descreva seu projeto com mais detalhes (mínimo 20 caracteres).';
     } else {
-        $to = 'contato@jogatinando.com.br';
-        $subject = "Orçamento — $cName ($cEngine)";
+        $engineDisplay = ($cEngine === 'Outra') ? ucfirst($cEngineOther) : $cEngine;
+        $to = 'sulivan.lineage2@gmail.com';
+        $subject = "Orçamento - $cName";
         $body = "Novo pedido de orçamento recebido pelo site:\n\n";
         $body .= "Nome: $cName\n";
         $body .= "Email: $cEmail\n";
-        $body .= "Engine: $cEngine\n\n";
+        $body .= "Engine: $engineDisplay\n\n";
         $body .= "Mensagem:\n$cMessage\n";
 
         if (sendSmtpMail($to, $subject, $body)) {
             $contactSuccess = true;
         } else {
             $logFile = ROOT_PATH . '/data/contact_log.txt';
-            if (@file_put_contents($logFile, date('Y-m-d H:i:s') . " | $cName | $cEmail | $cEngine\n$cMessage\n---\n", FILE_APPEND | LOCK_EX)) {
+            if (@file_put_contents($logFile, date('Y-m-d H:i:s') . " | $cName | $cEmail | $engineDisplay\n$cMessage\n---\n", FILE_APPEND | LOCK_EX)) {
                 $contactSuccess = true;
             } else {
                 $contactError = 'Erro ao enviar. Tente novamente ou use nosso email direto.';
@@ -443,15 +459,16 @@ function engineBadgeStyle($engine) {
                         <div class="form-group">
                             <label for="c_name">Nome *</label>
                             <input type="text" id="c_name" name="c_name" required placeholder="Seu nome completo">
+                            <span id="nameCounter" class="field-hint">0 caracteres</span>
                         </div>
                         <div class="form-group">
                             <label for="c_email">Email *</label>
                             <input type="email" id="c_email" name="c_email" required placeholder="seu@email.com">
                         </div>
                         <div class="form-group">
-                            <label for="c_engine">Engine do Projeto</label>
-                            <select id="c_engine" name="c_engine">
-                                <option value="">Selecione ou deixe em branco</option>
+                            <label for="c_engine">Engine do Projeto *</label>
+                            <select id="c_engine" name="c_engine" required>
+                                <option value="">Selecione uma engine</option>
                                 <option value="GDevelop">GDevelop</option>
                                 <option value="Godot">Godot</option>
                                 <option value="RPG Maker">RPG Maker</option>
@@ -466,9 +483,14 @@ function engineBadgeStyle($engine) {
                                 <option value="Outra">Outra</option>
                             </select>
                         </div>
+                        <div class="form-group" id="engineOtherGroup" style="display:none">
+                            <label for="c_engine_other">Qual engine? *</label>
+                            <input type="text" id="c_engine_other" name="c_engine_other" placeholder="Ex: UDK, CryEngine, Phaser...">
+                        </div>
                         <div class="form-group">
                             <label for="c_message">Mensagem *</label>
-                            <textarea id="c_message" name="c_message" rows="6" required placeholder="Descreva seu projeto, plataforma alvo, prazo estimado..."></textarea>
+                            <textarea id="c_message" name="c_message" rows="6" required placeholder="Descreva seu projeto, plataforma alvo, prazo estimado..." minlength="20"></textarea>
+                            <span id="msgCounter" class="field-hint">0 / 20 caracteres mínimos</span>
                         </div>
                         <button type="submit" id="contactBtn" class="btn btn-gold btn-lg">Enviar Solicitação</button>
                     </form>
@@ -588,10 +610,79 @@ function engineBadgeStyle($engine) {
         const form = document.getElementById('contactForm');
         const feedback = document.getElementById('contactFeedback');
         const btn = document.getElementById('contactBtn');
+        const engineSelect = document.getElementById('c_engine');
+        const engineOtherGroup = document.getElementById('engineOtherGroup');
+        const engineOtherInput = document.getElementById('c_engine_other');
+        const msgTextarea = document.getElementById('c_message');
+        const msgCounter = document.getElementById('msgCounter');
+        const nameInput = document.getElementById('c_name');
+        const nameCounter = document.getElementById('nameCounter');
         if (!form) return;
 
+        // Engine "Outra" toggle
+        engineSelect.addEventListener('change', () => {
+            const show = engineSelect.value === 'Outra';
+            engineOtherGroup.style.display = show ? 'block' : 'none';
+            if (!show) {
+                engineOtherInput.value = '';
+                engineOtherInput.removeAttribute('required');
+            } else {
+                engineOtherInput.setAttribute('required', 'required');
+            }
+        });
+
+        // Name character counter
+        nameInput.addEventListener('input', () => {
+            const len = nameInput.value.trim().length;
+            const min = 5;
+            const hasSpace = nameInput.value.trim().indexOf(' ') !== -1;
+            nameCounter.textContent = len < min
+                ? `${len} / ${min} caracteres mínimos`
+                : `${len} caracteres${hasSpace ? '' : ' — informe nome e sobrenome'}`;
+            nameCounter.style.color = (len >= min && hasSpace) ? 'oklch(70% 0.18 150)' : 'oklch(60% 0.22 25)';
+        });
+
+        // Message character counter
+        msgTextarea.addEventListener('input', () => {
+            const len = msgTextarea.value.length;
+            const min = 20;
+            msgCounter.textContent = `${len} / ${min} caracteres mínimos`;
+            msgCounter.style.color = len < min ? 'oklch(60% 0.22 25)' : 'oklch(70% 0.18 150)';
+        });
+
+        // Form submission
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
+
+            // Client-side validation
+            const name = nameInput.value.trim();
+            const email = document.getElementById('c_email').value.trim();
+            const msg = msgTextarea.value.trim();
+            if (name.length < 5) {
+                showFeedback('error', 'Nome muito curto. Informe seu nome completo.');
+                return;
+            }
+            if (name.indexOf(' ') === -1) {
+                showFeedback('error', 'Informe seu nome completo (nome e sobrenome).');
+                return;
+            }
+            if (email.indexOf('@') === -1) {
+                showFeedback('error', 'Email inválido.');
+                return;
+            }
+            if (msg.length < 20) {
+                showFeedback('error', 'Descreva seu projeto com mais detalhes (mínimo 20 caracteres).');
+                return;
+            }
+            if (!engineSelect.value) {
+                showFeedback('error', 'Selecione a engine do projeto.');
+                return;
+            }
+            if (engineSelect.value === 'Outra' && !engineOtherInput.value.trim()) {
+                showFeedback('error', 'Especifique qual engine você está usando.');
+                return;
+            }
+
             btn.disabled = true;
             btn.textContent = 'Enviando...';
             feedback.style.display = 'none';
@@ -607,25 +698,36 @@ function engineBadgeStyle($engine) {
                 });
                 const json = await res.json();
 
-                feedback.className = 'contact-feedback ' + (json.success ? 'success' : 'error');
-                feedback.innerHTML = json.success
-                    ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg><h3>Mensagem Enviada!</h3><p>Recebemos seu pedido. Retornaremos em breve.</p>'
-                    : '<p>' + (json.message || 'Erro ao enviar. Tente novamente.') + '</p>';
-                feedback.style.display = 'flex';
-
                 if (json.success) {
+                    showFeedback('success', 'Mensagem Enviada!', 'Recebemos seu pedido. Retornaremos em breve.');
                     form.reset();
+                    engineOtherGroup.style.display = 'none';
+                    engineOtherInput.removeAttribute('required');
+                    nameCounter.textContent = '0 caracteres';
+                    nameCounter.style.color = 'oklch(60% 0.22 25)';
+                    msgCounter.textContent = `0 / 20 caracteres mínimos`;
+                    msgCounter.style.color = 'oklch(60% 0.22 25)';
                     setTimeout(() => { feedback.style.display = 'none'; }, 5000);
+                } else {
+                    showFeedback('error', json.message || 'Erro ao enviar. Tente novamente.');
                 }
             } catch (err) {
-                feedback.className = 'contact-feedback error';
-                feedback.innerHTML = '<p>Erro de conexão. Verifique sua internet.</p>';
-                feedback.style.display = 'flex';
+                showFeedback('error', 'Erro de conexão. Verifique sua internet.');
             } finally {
                 btn.disabled = false;
                 btn.textContent = 'Enviar Solicitação';
             }
         });
+
+        function showFeedback(type, title, subtitle) {
+            const svg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 11-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>';
+            const errorSvg = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>';
+            feedback.className = 'contact-feedback ' + type;
+            feedback.innerHTML = (type === 'success' ? svg : errorSvg) +
+                '<h3>' + title + '</h3>' +
+                (subtitle ? '<p>' + subtitle + '</p>' : '<p>' + title + '</p>');
+            feedback.style.display = 'flex';
+        }
     });
     </script>
 </body>

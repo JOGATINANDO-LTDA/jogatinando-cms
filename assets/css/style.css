@@ -6,6 +6,7 @@
     --bg-card: oklch(14% 0.03 265);
     --bg-card-hover: oklch(18% 0.035 265);
     --surface: oklch(18% 0.03 265);
+    --bg-input: oklch(10% 0.025 260);
     --fg: oklch(97% 0.002 250);
     --fg-secondary: oklch(82% 0.006 250);
     --muted: oklch(60% 0.012 250);
@@ -1262,6 +1263,19 @@ input, textarea, select { font-family: inherit; }
     background-repeat: no-repeat;
     background-position: right 12px center;
     padding-right: 36px;
+}
+
+.contact-form .form-group select option {
+    background: var(--bg-input);
+    color: var(--fg);
+}
+
+.field-hint {
+    display: block;
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+    transition: color 0.2s;
 }
 
 .contact-form .btn-lg {

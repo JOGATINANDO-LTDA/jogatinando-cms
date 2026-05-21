@@ -50,10 +50,10 @@ if (!defined('SITE_TAGLINE')) define('SITE_TAGLINE', 'Desenvolvimento de Jogos S
 // SMTP Configuration (Zoho Mail)
 if (!defined('SMTP_HOST')) define('SMTP_HOST', 'smtp.zoho.com');
 if (!defined('SMTP_PORT')) define('SMTP_PORT', 587);
-if (!defined('SMTP_USER')) define('SMTP_USER', 'contato@jogatinando.com.br');
-if (!defined('SMTP_PASS')) define('SMTP_PASS', ''); // Override in config.local.php
-if (!defined('SMTP_FROM')) define('SMTP_FROM', 'contato@jogatinando.com.br');
-if (!defined('SMTP_FROM_NAME')) define('SMTP_FROM_NAME', 'Jogatinando CMS');
+if (!defined('SMTP_USER')) define('SMTP_USER', 'sulivan.leite@jogatinando.com.br');
+if (!defined('SMTP_PASS')) define('SMTP_PASS', '');
+if (!defined('SMTP_FROM')) define('SMTP_FROM', 'orcamento@jogatinando.com.br');
+if (!defined('SMTP_FROM_NAME')) define('SMTP_FROM_NAME', 'Jogatinando LTDA');
 
 // Auto-load helpers
 require_once ROOT_PATH . '/includes/db.php';
