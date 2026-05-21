@@ -5,6 +5,12 @@
  */
 require_once 'config.php';
 
+// Production guard: silently redirect if APP_ENV=production
+if (defined('APP_ENV') && APP_ENV === 'production') {
+    header('Location: /');
+    exit;
+}
+
 // If DB already exists, show info page
 if (file_exists(DB_PATH)) {
     $db = getDB();

@@ -1,0 +1,27 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home/SEU_USUARIO/public_html/
+    #
+    # 1. Backup persistent data antes do deploy
+    #    (banco SQLite, uploads, config.local.php)
+    #
+    - /bin/mkdir -p $HOME/deploy_backup
+    - test -d $DEPLOYPATH/data && /bin/cp -r $DEPLOYPATH/data $HOME/deploy_backup/ || true
+    - test -d $DEPLOYPATH/uploads && /bin/cp -r $DEPLOYPATH/uploads $HOME/deploy_backup/ || true
+    - test -f $DEPLOYPATH/config.local.php && /bin/cp $DEPLOYPATH/config.local.php $HOME/deploy_backup/ || true
+    #
+    # 2. Deploy todo o código novo
+    #
+    - /bin/cp -r . $DEPLOYPATH
+    #
+    # 3. Restaura os dados persistentes
+    #    (sobrescreve .gitkeep e afins, mantém DB + uploads + secrets)
+    #
+    - test -d $HOME/deploy_backup/data && /bin/cp -r $HOME/deploy_backup/data/. $DEPLOYPATH/data/ || true
+    - test -d $HOME/deploy_backup/uploads && /bin/cp -r $HOME/deploy_backup/uploads/. $DEPLOYPATH/uploads/ || true
+    - test -f $HOME/deploy_backup/config.local.php && /bin/cp $HOME/deploy_backup/config.local.php $DEPLOYPATH/config.local.php || true
+    #
+    # 4. Limpeza
+    #
+    - /bin/rm -rf $HOME/deploy_backup
