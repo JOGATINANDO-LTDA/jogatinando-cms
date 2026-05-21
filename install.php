@@ -149,7 +149,7 @@ function seedDefaultData() {
             <div class="status success">✅ Banco de dados inicializado com sucesso!</div>
             <p>Dados padrão inseridos: banners, jogos, depoimentos, FAQ e equipe.</p>
             <a href="admin/login.php" class="btn btn-gold">Acessar Painel Admin</a>
-            <a href="admin/index.php" class="btn btn-outline">Ver Site</a>
+            <a href="/" class="btn btn-outline">Ver Site</a>
 
         <?php elseif ($message === 'reset'): ?>
             <div class="status success">🔄 Banco de dados resetado e re-inicializado!</div>
@@ -174,7 +174,7 @@ function seedDefaultData() {
             </table>
             <div class="warning">⚠️ Reset irá apagar todos os dados e re-inicializar com valores padrão.</div>
             <a href="admin/login.php" class="btn btn-gold">Acessar Painel Admin</a>
-            <a href="admin/index.php" class="btn btn-outline">Ver Site</a>
+            <a href="/" class="btn btn-outline">Ver Site</a>
             <form method="POST" onsubmit="return confirm('Tem certeza? Todos os dados serão perdidos.')">
                 <input type="hidden" name="action" value="reset">
                 <button type="submit" class="btn btn-outline">Resetar e Re-inicializar</button>
