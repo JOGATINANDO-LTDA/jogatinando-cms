@@ -10,7 +10,7 @@ $initial = strtoupper(substr($_SESSION['admin_username'] ?? 'A', 0, 1));
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($pageTitle ?? 'Dashboard') ?> — Jogatinando CMS</title>
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36' fill='none'><path d='M18 2L32 8V20C32 28 26 33 18 35C10 33 4 28 4 20V8L18 2Z' fill='oklch(75%25 0.15 85 / 0.15)' stroke='oklch(75%25 0.15 85)' stroke-width='1.5'/><path d='M18 6L28 10V20C28 26 24 30 18 32C12 30 8 26 8 20V10L18 6Z' fill='oklch(75%25 0.15 85 / 0.1)' stroke='oklch(75%25 0.15 85 / 0.5)' stroke-width='1'/><text x='18' y='19' text-anchor='middle' dominant-baseline='central' font-family='Cinzel, serif' font-size='7' font-weight='800' fill='oklch(75%25 0.15 85)'>JTN</text></svg>" type="image/svg+xml">
+    <link rel="icon" href="<?= SITE_URL ?>/assets/svg/logo.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -24,11 +24,7 @@ $initial = strtoupper(substr($_SESSION['admin_username'] ?? 'A', 0, 1));
         <aside class="admin-sidebar" id="adminSidebar">
             <div class="sidebar-logo">
                 <div class="logo-shield">
-                    <svg viewBox="0 0 36 36" fill="none">
-                        <path d="M18 2L32 8V20C32 28 26 33 18 35C10 33 4 28 4 20V8L18 2Z" fill="oklch(75% 0.15 85 / 0.15)" stroke="oklch(75% 0.15 85)" stroke-width="1.5"/>
-                        <path d="M18 6L28 10V20C28 26 24 30 18 32C12 30 8 26 8 20V10L18 6Z" fill="oklch(75% 0.15 85 / 0.1)" stroke="oklch(75% 0.15 85 / 0.5)" stroke-width="1"/>
-                        <text x="18" y="19" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-size="7" font-weight="800" fill="oklch(75% 0.15 85)">JTN</text>
-                    </svg>
+                    <img src="<?= SITE_URL ?>/assets/svg/logo.svg" alt="Jogatinando">
                 </div>
                 <div>
                     <span class="logo-text">Jogatinando</span>

@@ -111,7 +111,7 @@ function engineBadgeStyle($engine) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($siteName) ?> — <?= e($siteTagline) ?></title>
     <meta name="description" content="<?= e($footerDescription) ?>">
-    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 36 36' fill='none'><path d='M18 2L32 8V20C32 28 26 33 18 35C10 33 4 28 4 20V8L18 2Z' fill='oklch(75%25 0.15 85 / 0.15)' stroke='oklch(75%25 0.15 85)' stroke-width='1.5'/><path d='M18 6L28 10V20C28 26 24 30 18 32C12 30 8 26 8 20V10L18 6Z' fill='oklch(75%25 0.15 85 / 0.1)' stroke='oklch(75%25 0.15 85 / 0.5)' stroke-width='1'/><text x='18' y='19' text-anchor='middle' dominant-baseline='central' font-family='Cinzel, serif' font-size='7' font-weight='800' fill='oklch(75%25 0.15 85)'>JTN</text></svg>" type="image/svg+xml">
+    <link rel="icon" href="/assets/svg/logo.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -126,11 +126,7 @@ function engineBadgeStyle($engine) {
         <div class="container navbar-inner">
             <a href="/" class="navbar-brand">
                 <div class="logo-shield">
-                    <svg viewBox="0 0 36 36" fill="none">
-                        <path d="M18 2L32 8V20C32 28 26 33 18 35C10 33 4 28 4 20V8L18 2Z" fill="oklch(75% 0.15 85 / 0.15)" stroke="oklch(75% 0.15 85)" stroke-width="1.5"/>
-                        <path d="M18 6L28 10V20C28 26 24 30 18 32C12 30 8 26 8 20V10L18 6Z" fill="oklch(75% 0.15 85 / 0.1)" stroke="oklch(75% 0.15 85 / 0.5)" stroke-width="1"/>
-                        <text x="18" y="19" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-size="7" font-weight="800" fill="oklch(75% 0.15 85)">JTN</text>
-                    </svg>
+                    <img src="/assets/svg/logo.svg" alt="Jogatinando">
                 </div>
                 <?= e($siteName) ?>
             </a>
@@ -196,25 +192,7 @@ function engineBadgeStyle($engine) {
             </div>
             <?php else: ?>
             <div class="hero-crest">
-                <svg viewBox="0 0 200 200" fill="none">
-                    <path d="M100 10L180 40V100C180 150 140 185 100 195C60 185 20 150 20 100V40L100 10Z" fill="oklch(75% 0.15 85 / 0.08)" stroke="oklch(75% 0.15 85)" stroke-width="2.5"/>
-                    <path d="M100 22L168 48V100C168 142 136 172 100 182C64 172 32 142 32 100V48L100 22Z" fill="oklch(75% 0.15 85 / 0.05)" stroke="oklch(75% 0.15 85 / 0.4)" stroke-width="1.5"/>
-                    <path d="M100 34L156 56V100C156 134 132 158 100 168C68 158 44 134 44 100V56L100 34Z" fill="oklch(75% 0.15 85 / 0.03)"/>
-                    <text x="100" y="98" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-size="36" font-weight="900" fill="oklch(75% 0.15 85)" style="text-shadow: 0 0 20px oklch(75% 0.15 85 / 0.5);">JTN</text>
-                    <rect x="72" y="128" width="56" height="28" rx="14" fill="oklch(65% 0.18 220 / 0.2)" stroke="oklch(65% 0.18 220)" stroke-width="1.5"/>
-                    <circle cx="88" cy="142" r="4" fill="oklch(65% 0.18 220)"/>
-                    <circle cx="112" cy="142" r="4" fill="oklch(55% 0.20 25)"/>
-                    <circle cx="100" cy="136" r="3" fill="oklch(65% 0.18 145)"/>
-                    <circle cx="100" cy="148" r="3" fill="oklch(80% 0.16 90)"/>
-                    <line x1="62" y1="46" x2="62" y2="74" stroke="oklch(65% 0.18 220)" stroke-width="2.5" stroke-linecap="round"/>
-                    <polygon points="62,38 58,48 66,48" fill="oklch(65% 0.18 220)"/>
-                    <line x1="56" y1="56" x2="68" y2="56" stroke="oklch(75% 0.15 85)" stroke-width="1.5" stroke-linecap="round"/>
-                    <line x1="138" y1="46" x2="138" y2="74" stroke="oklch(75% 0.15 85)" stroke-width="2.5" stroke-linecap="round"/>
-                    <path d="M138 46 L148 40 L148 54 Z" fill="oklch(75% 0.15 85 / 0.6)" stroke="oklch(75% 0.15 85)" stroke-width="1"/>
-                    <line x1="132" y1="56" x2="144" y2="56" stroke="oklch(65% 0.18 220)" stroke-width="1.5" stroke-linecap="round"/>
-                    <circle cx="50" cy="42" r="1.5" fill="oklch(75% 0.15 85)" opacity="0.5"/>
-                    <circle cx="150" cy="42" r="1.5" fill="oklch(75% 0.15 85)" opacity="0.5"/>
-                </svg>
+                <img src="/assets/svg/logo.svg" alt="Jogatinando">
             </div>
             <h1><?= $heroTitle ?></h1>
             <p class="hero-subtitle"><?= $heroSubtitle ?></p>
@@ -547,11 +525,7 @@ function engineBadgeStyle($engine) {
                 <div class="footer-brand">
                     <div class="logo">
                         <div class="logo-shield">
-                            <svg viewBox="0 0 36 36" fill="none">
-                                <path d="M18 2L32 8V20C32 28 26 33 18 35C10 33 4 28 4 20V8L18 2Z" fill="oklch(75% 0.15 85 / 0.15)" stroke="oklch(75% 0.15 85)" stroke-width="1.5"/>
-                                <path d="M18 6L28 10V20C28 26 24 30 18 32C12 30 8 26 8 20V10L18 6Z" fill="oklch(75% 0.15 85 / 0.1)" stroke="oklch(75% 0.15 85 / 0.5)" stroke-width="1"/>
-                                <text x="18" y="19" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-size="7" font-weight="800" fill="oklch(75% 0.15 85)">JTN</text>
-                            </svg>
+                            <img src="/assets/svg/logo.svg" alt="Jogatinando">
                         </div>
                         <?= e($siteName) ?>
                     </div>

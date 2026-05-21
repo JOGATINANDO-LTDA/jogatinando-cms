@@ -264,7 +264,8 @@ input, textarea, select { font-family: inherit; }
     flex-shrink: 0;
 }
 
-.logo-shield svg {
+.logo-shield svg,
+.logo-shield img {
     width: 100%;
     height: 100%;
     filter: drop-shadow(0 0 8px var(--gold-glow));
@@ -424,7 +425,8 @@ input, textarea, select { font-family: inherit; }
     justify-content: center;
 }
 
-.hero-crest svg {
+.hero-crest svg,
+.hero-crest img {
     width: 200px;
     height: 200px;
     filter: drop-shadow(0 0 40px var(--gold-glow-strong));
@@ -1890,7 +1892,8 @@ input, textarea, select { font-family: inherit; }
 
     /* Hero static */
     .hero { min-height: auto; padding-top: 80px; padding-bottom: 48px; }
-    .hero-crest svg { width: 140px; height: 140px; }
+    .hero-crest svg,
+    .hero-crest img { width: 140px; height: 140px; }
     .hero-content h1 { font-size: clamp(28px, 7vw, 40px); }
     .hero-subtitle { font-size: 15px; margin-bottom: 28px; }
     .hero-sub-nav { gap: 16px; margin-top: 32px; padding-top: 16px; }
@@ -1944,7 +1947,8 @@ input, textarea, select { font-family: inherit; }
 
     /* Hero static */
     .hero { padding-top: 72px; padding-bottom: 32px; }
-    .hero-crest svg { width: 120px; height: 120px; }
+    .hero-crest svg,
+    .hero-crest img { width: 120px; height: 120px; }
     .hero-crest { margin-bottom: 24px; }
     .hero-content h1 { font-size: clamp(24px, 7vw, 32px); margin-bottom: 16px; }
     .hero-subtitle { font-size: 14px; margin-bottom: 24px; }
@@ -2007,7 +2011,8 @@ input, textarea, select { font-family: inherit; }
     .navbar-brand { font-size: 16px; }
     .logo-shield { width: 28px; height: 28px; }
 
-    .hero-crest svg { width: 100px; height: 100px; }
+    .hero-crest svg,
+    .hero-crest img { width: 100px; height: 100px; }
     .hero-carousel { height: 55vh; }
     .hero-slide .hero-content { padding: 0 40px; }
     .hero-slide .hero-content h1 { font-size: clamp(18px, 6vw, 24px); }

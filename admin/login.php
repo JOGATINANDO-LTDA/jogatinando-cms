@@ -136,7 +136,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             margin-bottom: 24px;
         }
 
-        .login-crest svg {
+        .login-crest svg,
+        .login-crest img {
             width: 72px;
             height: 72px;
             filter: drop-shadow(0 0 20px var(--gold-glow));
@@ -251,7 +252,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         @media (max-width: 480px) {
             .login-card { padding: 32px 24px; }
-            .login-crest svg { width: 56px; height: 56px; }
+            .login-crest svg,
+            .login-crest img { width: 56px; height: 56px; }
             .login-card h1 { font-size: 18px; }
         }
     </style>
@@ -262,17 +264,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="login-wrapper">
         <div class="login-card">
             <div class="login-crest">
-                <svg viewBox="0 0 200 200" fill="none">
-                    <path d="M100 10L180 40V100C180 150 140 185 100 195C60 185 20 150 20 100V40L100 10Z" fill="oklch(75% 0.15 85 / 0.08)" stroke="oklch(75% 0.15 85)" stroke-width="2.5"/>
-                    <path d="M100 22L168 48V100C168 142 136 172 100 182C64 172 32 142 32 100V48L100 22Z" fill="oklch(75% 0.15 85 / 0.05)" stroke="oklch(75% 0.15 85 / 0.4)" stroke-width="1.5"/>
-                    <path d="M100 34L156 56V100C156 134 132 158 100 168C68 158 44 134 44 100V56L100 34Z" fill="oklch(75% 0.15 85 / 0.03)"/>
-                    <text x="100" y="98" text-anchor="middle" dominant-baseline="central" font-family="Cinzel, serif" font-size="36" font-weight="900" fill="oklch(75% 0.15 85)" style="text-shadow: 0 0 20px oklch(75% 0.15 85 / 0.5);">JTN</text>
-                    <rect x="72" y="128" width="56" height="28" rx="14" fill="oklch(65% 0.18 220 / 0.2)" stroke="oklch(65% 0.18 220)" stroke-width="1.5"/>
-                    <circle cx="88" cy="142" r="4" fill="oklch(65% 0.18 220)"/>
-                    <circle cx="112" cy="142" r="4" fill="oklch(55% 0.20 25)"/>
-                    <circle cx="100" cy="136" r="3" fill="oklch(65% 0.18 145)"/>
-                    <circle cx="100" cy="148" r="3" fill="oklch(80% 0.16 90)"/>
-                </svg>
+                <img src="/assets/svg/logo.svg" alt="Jogatinando">
             </div>
             <h1>Jogatinando</h1>
             <p class="subtitle">Painel Administrativo</p>
