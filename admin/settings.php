@@ -38,6 +38,12 @@ foreach ($keys as $key) {
 <div class="card">
     <div class="card-header">
         <h2 class="card-title">Configurações do Site</h2>
+        <div style="margin-top: 8px;">
+            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: <?= DB_TYPE === 'mysql' ? 'oklch(68% 0.16 220 / 0.15)' : 'oklch(75% 0.15 85 / 0.15)' ?>; color: <?= DB_TYPE === 'mysql' ? 'oklch(68% 0.16 220)' : 'oklch(75% 0.15 85)' ?>;">
+                <span style="width: 8px; height: 8px; border-radius: 50%; background: <?= DB_TYPE === 'mysql' ? 'oklch(68% 0.16 220)' : 'oklch(75% 0.15 85)' ?>;"></span>
+                Banco: <?= DB_TYPE === 'mysql' ? 'MySQL' : 'SQLite' ?>
+            </span>
+        </div>
     </div>
     <div class="card-body">
     <form method="POST">
@@ -76,5 +82,143 @@ foreach ($keys as $key) {
     </form>
     </div>
 </div>
+
+<!-- Migração SQLite → MySQL -->
+<?php if (DB_TYPE === 'sqlite'): ?>
+<div class="card" style="margin-top: 24px; border-color: oklch(68% 0.16 220 / 0.3);">
+    <div class="card-header">
+        <h2 class="card-title">Migrar para MySQL</h2>
+    </div>
+    <div class="card-body">
+        <?php
+        $migrateMessage = '';
+        $migrateSuccess = false;
+        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'migrate') {
+            if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
+                $migrateMessage = '<div class="status error">Token inválido.</div>';
+            } else {
+                try {
+                    $host = $_POST['db_host'] ?? '127.0.0.1';
+                    $port = $_POST['db_port'] ?? '3306';
+                    $name = $_POST['db_name'] ?? 'jogatinando';
+                    $user = $_POST['db_user'] ?? 'root';
+                    $pass = $_POST['db_pass'] ?? '';
+
+                    $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
+                    $mysql = new PDO($dsn, $user, $pass, [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4",
+                    ]);
+
+                    // Validar credenciais do admin antes de começar
+                    $adminUser = trim($_POST['admin_user'] ?? '');
+                    $adminPass = $_POST['admin_pass'] ?? '';
+                    if ($adminUser === '' || $adminPass === '') {
+                        throw new Exception('Defina o usuário e senha do administrador para continuar.');
+                    }
+                    $adminHash = password_hash($adminPass, PASSWORD_DEFAULT);
+
+                    require_once ROOT_PATH . '/includes/migrations.php';
+
+                    // DDL (auto-commit) — cria tabelas e limpa dados anteriores
+                    migration_001($mysql, 'mysql');
+                    $mysql->exec("SET FOREIGN_KEY_CHECKS = 0");
+                    foreach (['users', 'banners', 'games', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings', 'schema_version'] as $t) {
+                        $mysql->exec("TRUNCATE TABLE `$t`");
+                    }
+                    $mysql->exec("SET FOREIGN_KEY_CHECKS = 1");
+
+                    // Transação — cópia dos dados + admin + schema_version
+                    $mysql->beginTransaction();
+                    try {
+                        $mysql->exec("INSERT INTO schema_version (version, name) VALUES (1, 'create_all_tables')");
+
+                        $stmtUpd = $mysql->prepare("UPDATE users SET username = ?, password_hash = ? WHERE id = 1");
+
+                        $sqlite = getDB();
+                        foreach (['users', 'banners', 'games', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings'] as $table) {
+                            $rows = $sqlite->query("SELECT * FROM `$table`")->fetchAll(PDO::FETCH_ASSOC);
+                            if (empty($rows)) continue;
+                            $columns = array_keys($rows[0]);
+                            $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+                            $cols = implode(', ', array_map(fn($c) => "`$c`", $columns));
+                            $stmt = $mysql->prepare("INSERT INTO `$table` ($cols) VALUES ($placeholders)");
+                            foreach ($rows as $row) {
+                                $stmt->execute(array_values($row));
+                            }
+                        }
+
+                        // Atualizar admin após copiar dados dos usuários
+                        $stmtUpd->execute([$adminUser, $adminHash]);
+
+                        $mysql->commit();
+                    } catch (Exception $e) {
+                        $mysql->rollBack();
+                        throw $e;
+                    }
+
+                    // Write config.local.php
+                    $localConfig = '<?php' . "\n\n";
+                    $localConfig .= "if (!defined('DB_TYPE')) {\n";
+                    $localConfig .= "    define('DB_TYPE', 'mysql');\n";
+                    $localConfig .= "    define('DB_HOST', '$host');\n";
+                    $localConfig .= "    define('DB_PORT', '$port');\n";
+                    $localConfig .= "    define('DB_NAME', '$name');\n";
+                    $localConfig .= "    define('DB_USER', '$user');\n";
+                    $localConfig .= "    define('DB_PASS', '$pass');\n";
+                    $localConfig .= "}\n\n";
+
+                    if (file_exists(ROOT_PATH . '/config.local.php')) {
+                        $existing = file_get_contents(ROOT_PATH . '/config.local.php');
+                        if (preg_match_all('/define\(\'(SMTP_\w+)\',\s*\'(.*?)\'\);/', $existing, $m)) {
+                            $localConfig .= "if (!defined('SMTP_PASS')) {\n";
+                            foreach ($m[1] as $i => $const) {
+                                $localConfig .= "    define('$const', '" . addslashes($m[2][$i]) . "');\n";
+                            }
+                            $localConfig .= "}\n";
+                        }
+                    }
+                    file_put_contents(ROOT_PATH . '/config.local.php', $localConfig);
+
+                    $migrateMessage = '<div class="status success">Migração concluída! O sistema agora está usando MySQL.</div>';
+                    $migrateSuccess = true;
+                } catch (Exception $ex) {
+                    $migrateMessage = '<div class="status error">' . e($ex->getMessage()) . '</div>';
+                }
+            }
+        }
+        echo $migrateMessage;
+        ?>
+        <?php if (!$migrateSuccess): ?>
+        <p style="margin-bottom: 16px; color: oklch(68% 0.16 220);">
+            Seus dados atuais (SQLite) serão copiados para um banco MySQL. O arquivo SQLite original será preservado.
+        </p>
+        <form method="POST">
+            <input type="hidden" name="action" value="migrate">
+            <?= csrfField() ?>
+            <div class="form-row">
+                <div class="form-group"><label for="db_host">Host</label><input type="text" id="db_host" name="db_host" value="<?= e(DB_HOST) ?>"></div>
+                <div class="form-group"><label for="db_port">Porta</label><input type="text" id="db_port" name="db_port" value="<?= e(DB_PORT) ?>"></div>
+            </div>
+            <div class="form-group"><label for="db_name">Database</label><input type="text" id="db_name" name="db_name" value="<?= e(DB_NAME) ?>"></div>
+            <div class="form-row">
+                <div class="form-group"><label for="db_user">Usuário MySQL</label><input type="text" id="db_user" name="db_user" value="<?= e(DB_USER) ?>"></div>
+                <div class="form-group"><label for="db_pass">Senha MySQL</label><input type="password" id="db_pass" name="db_pass" value="<?= e(DB_PASS) ?>"></div>
+            </div>
+
+            <h3 class="form-section-title" style="margin-top: 24px;">Administrador</h3>
+            <p style="color: oklch(60% 0.012 250); font-size: 13px; margin-bottom: 16px;">Defina o novo login e senha do painel admin para o MySQL.</p>
+            <div class="form-row">
+                <div class="form-group"><label for="admin_user">* Usuário Admin</label><input type="text" id="admin_user" name="admin_user" placeholder="admin" required></div>
+                <div class="form-group"><label for="admin_pass">* Senha Admin</label><input type="password" id="admin_pass" name="admin_pass" placeholder="Nova senha" required></div>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, oklch(68% 0.16 220), oklch(55% 0.14 220)); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer;">Migrar para MySQL</button>
+        </form>
+        <?php endif; ?>
+    </div>
+</div>
+<?php endif; // DB_TYPE === 'sqlite' ?>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -1,164 +1,178 @@
 <?php
-/**
- * Database helper — SQLite with PDO
- */
+
+function getDbType() {
+    if (!defined('DB_TYPE')) {
+        define('DB_TYPE', 'sqlite');
+    }
+    return DB_TYPE;
+}
+
+function getDsn() {
+    $type = getDbType();
+    if ($type === 'mysql') {
+        $host = defined('DB_HOST') ? DB_HOST : '127.0.0.1';
+        $port = defined('DB_PORT') ? DB_PORT : '3306';
+        $name = defined('DB_NAME') ? DB_NAME : 'jogatinando';
+        return "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
+    }
+    return 'sqlite:' . DB_PATH;
+}
+
+function getDbOptions() {
+    $type = getDbType();
+    $opts = [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ];
+    if ($type === 'mysql') {
+        $opts[PDO::MYSQL_ATTR_INIT_COMMAND] = "SET NAMES utf8mb4";
+    }
+    return $opts;
+}
+
+function getDbUser() {
+    return getDbType() === 'mysql' ? (defined('DB_USER') ? DB_USER : 'root') : null;
+}
+
+function getDbPass() {
+    return getDbType() === 'mysql' ? (defined('DB_PASS') ? DB_PASS : '') : null;
+}
 
 function getDB() {
     static $db = null;
     if ($db === null) {
-        if (!file_exists(DB_PATH)) {
-            return null; // DB not initialized yet
+        $type = getDbType();
+        if ($type === 'sqlite' && !file_exists(DB_PATH)) {
+            return null;
         }
-        $db = new PDO('sqlite:' . DB_PATH);
-        $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-        $db->exec('PRAGMA journal_mode=WAL');
-        $db->exec('PRAGMA foreign_keys=ON');
-        dbMigrate($db);
+        try {
+            $db = new PDO(getDsn(), getDbUser(), getDbPass(), getDbOptions());
+            if ($type === 'sqlite') {
+                $db->exec('PRAGMA journal_mode=WAL');
+                $db->exec('PRAGMA foreign_keys=ON');
+            }
+            dbMigrate($db);
+        } catch (PDOException $ex) {
+            error_log("DB Connection failed: " . $ex->getMessage());
+            return null;
+        }
     }
     return $db;
 }
 
-function dbMigrate($db) {
-    // Add slug and game_path columns to games table if they don't exist
-    $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
-    if (!in_array('slug', $cols)) {
-        $db->exec("ALTER TABLE games ADD COLUMN slug TEXT DEFAULT ''");
+function getDbTables($db) {
+    if (getDbType() === 'mysql') {
+        $stmt = $db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()");
+        return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
-    if (!in_array('game_path', $cols)) {
-        $db->exec("ALTER TABLE games ADD COLUMN game_path TEXT DEFAULT ''");
-    }
-    if (!in_array('orientation', $cols)) {
-        $db->exec("ALTER TABLE games ADD COLUMN orientation TEXT DEFAULT 'auto'");
-    }
-    if (!in_array('optimized_at', $cols)) {
-        $db->exec("ALTER TABLE games ADD COLUMN optimized_at TEXT DEFAULT NULL");
-    }
-    // Backfill slug from title for existing records
-    $db->exec("UPDATE games SET slug = LOWER(REPLACE(REPLACE(REPLACE(title, ' ', '-'), ':', ''), '''', '')) WHERE slug = '' OR slug IS NULL");
+    return $db->query("SELECT name FROM sqlite_master WHERE type='table'")->fetchAll(PDO::FETCH_COLUMN);
 }
 
-function dbInit() {
-    if (!is_dir(DATA_PATH)) {
+function dbRandom() {
+    return getDbType() === 'mysql' ? 'RAND()' : 'RANDOM()';
+}
+
+function dbInsertIgnore($db, $table, $columns, $values) {
+    $placeholder = implode(', ', array_fill(0, count($columns), '?'));
+    $cols = implode(', ', $columns);
+    $prefix = getDbType() === 'mysql' ? 'INSERT IGNORE INTO' : 'INSERT OR IGNORE INTO';
+    $stmt = $db->prepare("$prefix $table ($cols) VALUES ($placeholder)");
+    return $stmt->execute($values);
+}
+
+function dbInsertReplace($db, $table, $columns, $values) {
+    $placeholder = implode(', ', array_fill(0, count($columns), '?'));
+    $cols = implode(', ', $columns);
+    $prefix = getDbType() === 'mysql' ? 'REPLACE INTO' : 'INSERT OR REPLACE INTO';
+    $stmt = $db->prepare("$prefix $table ($cols) VALUES ($placeholder)");
+    return $stmt->execute($values);
+}
+
+function dbMigrate($db) {
+    $type = getDbType();
+    $pkType = $type === 'mysql' ? 'INT' : 'INTEGER';
+
+    $db->exec("CREATE TABLE IF NOT EXISTS schema_version (
+        version $pkType PRIMARY KEY,
+        name TEXT NOT NULL,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $currentVersion = 0;
+    $row = $db->query("SELECT MAX(version) as v FROM schema_version")->fetch();
+    if ($row && $row['v'] !== null) {
+        $currentVersion = (int)$row['v'];
+    }
+
+    // Detect existing DB without schema_version entries
+    if ($currentVersion === 0) {
+        $tables = getDbTables($db);
+        $coreTables = ['games', 'banners', 'users', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings'];
+        $hasExistingData = count(array_intersect($tables, $coreTables)) > 0;
+
+        if ($hasExistingData) {
+            $stmt = $db->prepare("INSERT INTO schema_version (version, name) VALUES (?, ?)");
+            foreach (getMigrationList() as $ver => $name) {
+                $stmt->execute([$ver, $name]);
+            }
+            return;
+        }
+    }
+
+    $migrations = getMigrationList();
+    require_once __DIR__ . '/migrations.php';
+
+    foreach ($migrations as $version => $name) {
+        if ($version > $currentVersion) {
+            $func = 'migration_' . str_pad($version, 3, '0', STR_PAD_LEFT);
+            if (function_exists($func)) {
+                $func($db, $type);
+                $stmt = $db->prepare("INSERT INTO schema_version (version, name) VALUES (?, ?)");
+                $stmt->execute([$version, $name]);
+            }
+        }
+    }
+}
+
+function getMigrationList() {
+    return [
+        1 => 'create_all_tables',
+    ];
+}
+
+function dbInit($dsn = null, $user = null, $pass = null, $type = null) {
+    $type = $type ?? getDbType();
+    $dsn = $dsn ?? getDsn();
+    $user = $user ?? getDbUser();
+    $pass = $pass ?? getDbPass();
+
+    if ($type === 'sqlite' && !is_dir(DATA_PATH)) {
         mkdir(DATA_PATH, 0755, true);
     }
 
-    $db = new PDO('sqlite:' . DB_PATH);
-    $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-
-    $db->exec("CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        username TEXT UNIQUE NOT NULL,
-        password_hash TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS banners (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        subtitle TEXT DEFAULT '',
-        description TEXT DEFAULT '',
-        image_url TEXT DEFAULT '',
-        cta_text TEXT DEFAULT 'Saiba Mais',
-        cta_url TEXT DEFAULT '#',
-        engine_tag TEXT DEFAULT '',
-        sort_order INTEGER DEFAULT 0,
-        active INTEGER DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS games (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        slug TEXT DEFAULT '',
-        engine TEXT NOT NULL,
-        description TEXT DEFAULT '',
-        thumbnail_url TEXT DEFAULT '',
-        zip_filename TEXT DEFAULT '',
-        game_path TEXT DEFAULT '',
-        featured INTEGER DEFAULT 0,
-        orientation TEXT DEFAULT 'auto',
-        optimized_at TEXT DEFAULT NULL,
-        sort_order INTEGER DEFAULT 0,
-        active INTEGER DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS blog_posts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        title TEXT NOT NULL,
-        slug TEXT UNIQUE NOT NULL,
-        content TEXT DEFAULT '',
-        thumbnail_url TEXT DEFAULT '',
-        external_url TEXT DEFAULT '',
-        published_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        active INTEGER DEFAULT 1,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS testimonials (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        role TEXT DEFAULT '',
-        quote TEXT NOT NULL,
-        avatar_url TEXT DEFAULT '',
-        active INTEGER DEFAULT 1,
-        sort_order INTEGER DEFAULT 0
-    )");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS faq_items (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        question TEXT NOT NULL,
-        answer TEXT NOT NULL,
-        sort_order INTEGER DEFAULT 0,
-        active INTEGER DEFAULT 1
-    )");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS team_members (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        role TEXT NOT NULL,
-        bio TEXT DEFAULT '',
-        avatar_url TEXT DEFAULT '',
-        social_youtube TEXT DEFAULT '',
-        social_twitch TEXT DEFAULT '',
-        social_linkedin TEXT DEFAULT '',
-        sort_order INTEGER DEFAULT 0,
-        active INTEGER DEFAULT 1
-    )");
-
-    $db->exec("CREATE TABLE IF NOT EXISTS site_settings (
-        key TEXT PRIMARY KEY,
-        value TEXT DEFAULT ''
-    )");
-
-    // Seed default admin user if none exists
-    $stmt = $db->query("SELECT COUNT(*) as cnt FROM users");
-    $row = $stmt->fetch();
-    if ($row['cnt'] == 0) {
-        $stmt = $db->prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
-        $stmt->execute([ADMIN_USERNAME, ADMIN_PASSWORD_HASH]);
+    $db = new PDO($dsn, $user, $pass, getDbOptions());
+    if ($type === 'sqlite') {
+        $db->exec('PRAGMA journal_mode=WAL');
+        $db->exec('PRAGMA foreign_keys=ON');
     }
 
-    // Seed default settings
-    $defaults = [
-        ['site_name', SITE_NAME],
-        ['site_tagline', SITE_TAGLINE],
-        ['hero_title', 'Transformamos Ideias em <span class="gold">Jogos Incríveis</span>'],
-        ['hero_subtitle', 'Somos um estúdio brasileiro especializado em desenvolvimento de jogos digitais. Da concepção ao lançamento, criamos experiências que encantam jogadores e geram resultados.'],
-        ['contact_email', 'contato@jogatinando.com.br'],
-        ['contact_whatsapp', ''],
-        ['youtube_url', 'https://youtube.com/@jogatinandodevs'],
-        ['twitch_url', 'https://www.twitch.tv/jogatinandolive'],
-        ['blog_url', 'https://gamenews.xo.je/'],
-        ['footer_description', 'Estúdio brasileiro de desenvolvimento de jogos digitais. Criamos games sob medida em diversas engines para clientes de todo o mundo.'],
-    ];
+    $pkType = $type === 'mysql' ? 'INT' : 'INTEGER';
+    $db->exec("CREATE TABLE IF NOT EXISTS schema_version (
+        version $pkType PRIMARY KEY,
+        name TEXT NOT NULL,
+        applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
 
-    foreach ($defaults as $def) {
-        $stmt = $db->prepare("INSERT OR IGNORE INTO site_settings (key, value) VALUES (?, ?)");
-        $stmt->execute($def);
+    $migrations = getMigrationList();
+    require_once __DIR__ . '/migrations.php';
+
+    foreach ($migrations as $version => $name) {
+        $func = 'migration_' . str_pad($version, 3, '0', STR_PAD_LEFT);
+        if (function_exists($func)) {
+            $func($db, $type);
+        }
+        $stmt = $db->prepare("INSERT INTO schema_version (version, name) VALUES (?, ?)");
+        $stmt->execute([$version, $name]);
     }
 
     return $db;
@@ -182,6 +196,7 @@ function dbQueryOne($sql, $params = []) {
 
 function dbExec($sql, $params = []) {
     $db = getDB();
+    if (!$db) return false;
     $stmt = $db->prepare($sql);
     $stmt->execute($params);
     return $db->lastInsertId();
@@ -189,6 +204,7 @@ function dbExec($sql, $params = []) {
 
 function dbDelete($table, $id) {
     $db = getDB();
+    if (!$db) return false;
     $stmt = $db->prepare("DELETE FROM $table WHERE id = ?");
     return $stmt->execute([$id]);
 }
@@ -196,7 +212,7 @@ function dbDelete($table, $id) {
 function getSetting($key, $default = '') {
     $db = getDB();
     if (!$db) return $default;
-    $stmt = $db->prepare("SELECT value FROM site_settings WHERE key = ?");
+    $stmt = $db->prepare("SELECT `value` FROM site_settings WHERE `key` = ?");
     $stmt->execute([$key]);
     $row = $stmt->fetch();
     return $row ? $row['value'] : $default;
@@ -204,6 +220,8 @@ function getSetting($key, $default = '') {
 
 function setSetting($key, $value) {
     $db = getDB();
-    $stmt = $db->prepare("INSERT OR REPLACE INTO site_settings (key, value) VALUES (?, ?)");
+    if (!$db) return false;
+    $prefix = getDbType() === 'mysql' ? 'REPLACE INTO' : 'INSERT OR REPLACE INTO';
+    $stmt = $db->prepare("$prefix site_settings (`key`, `value`) VALUES (?, ?)");
     return $stmt->execute([$key, $value]);
 }

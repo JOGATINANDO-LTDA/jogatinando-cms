@@ -8,10 +8,16 @@ PHP 8.2 + SQLite CMS for Jogatinando game studio website. Flat-file PHP, no fram
 
 ```bash
 # Start (Docker)
-docker compose -f docker/docker-compose.yml up -d --build
+docker compose -p jogatinando-cms -f docker/docker-compose.yml up -d --build --force-recreate
+
+# Refresh (down + up evitar conflito de containers órfãos)
+docker compose -p jogatinando-cms -f docker/docker-compose.yml down && docker compose -p jogatinando-cms -f docker/docker-compose.yml up -d --build
 
 # Stop
-docker compose -f docker/docker-compose.yml down
+docker compose -p jogatinando-cms -f docker/docker-compose.yml down
+
+# Reset (destroy + rebuild from scratch)
+docker compose -p jogatinando-cms -f docker/docker-compose.yml down -v && docker compose -p jogatinando-cms -f docker/docker-compose.yml up -d --build
 
 # Logs
 docker compose -f docker/docker-compose.yml logs -f
@@ -27,12 +33,28 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 
 ## Architecture
 
-- **Entry points**: `index.php` (frontend), `game.php` (game player), `install.php` (setup), `admin/*.php` (admin panel)
-- **Config**: `config.php` — defines paths, URLs, upload limits, admin creds, auto-loads all helpers
-- **DB**: SQLite at `data/jogatinando.db`. WAL mode, foreign keys ON. Single `getDB()` singleton.
-- **Tables**: `users`, `banners`, `games`, `blog_posts`, `testimonials`, `faq_items`, `team_members`, `site_settings`
+- **Entry points**: `index.php` (frontend), `game.php` (game player), `install.php` (setup wizard), `admin/*.php` (admin panel)
+- **Config**: `config.php` — defines paths, URLs, upload limits, admin creds, auto-loads all helpers. `config.local.php` (gitignored) overrides secrets and DB type.
+- **DB**: Supports SQLite (default) or MySQL/MariaDB via PDO. DB type set via `DB_TYPE` constant (`sqlite`|`mysql`). MySQL credentials: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`. Single `getDB()` singleton.
+- **Migration system**: `schema_version` table tracks applied migrations. `includes/migrations.php` contains numbered functions (`migration_001()` etc.). Auto-runs on `getDB()` via `dbMigrate()`. Existing SQLite DBs without `schema_version` are detected and backfilled.
+- **Tables**: `users`, `banners`, `games`, `blog_posts`, `testimonials`, `faq_items`, `team_members`, `site_settings`, `schema_version`
 - **Auth**: Session-based login + CSRF tokens. All `admin/` pages call `requireLogin()`
-- **URLs**: `.htaccess` rewrites `/jogar/<id>` → `game.php?id=$1`, everything else → `index.php`
+- **URLs**: `.htaccess` rewrites `/<engine-slug>/<game-slug>` → `game.php?engine=$1&slug=$2`, everything else → `index.php`
+
+### DB helpers (includes/db.php)
+
+| Function | Purpose |
+|---|---|
+| `getDB()` | PDO singleton — auto-detects DB type, runs migrations |
+| `getDbType()` | Returns `'sqlite'` or `'mysql'` from `DB_TYPE` constant |
+| `dbInit($dsn, $user, $pass, $type)` | Setup — creates all tables + seeds data |
+| `dbMigrate($db)` | Runs pending migrations from `schema_version` |
+| `dbQuery()` / `dbQueryOne()` / `dbExec()` | Query helpers using `getDB()` |
+| `dbDelete()` | DELETE by id |
+| `getSetting()` / `setSetting()` | site_settings CRUD |
+| `dbRandom()` | Returns `RANDOM()` (SQLite) or `RAND()` (MySQL) |
+| `dbInsertIgnore()` / `dbInsertReplace()` | Cross-DB INSERT wrappers |
+| `getDbTables()` | Lists all table names (works on both DB types) |
 
 ## Key helpers (includes/)
 
@@ -50,9 +72,11 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 
 ## Docker notes
 
-- Volumes `cms-data` and `cms-uploads` persist DB and uploads across rebuilds
-- For dev hot-reload: uncomment `- ..:/var/www/html` bind mount in `docker-compose.yml` (no rebuild needed)
-- `.dockerignore` excludes `data/*.db` and `uploads/*` (volumes handle persistence)
+- Volumes `cms-data`, `cms-uploads`, and `cms-mysql` persist data across rebuilds
+- MySQL 8.0 service (`db`) with credentials: `jogatinando` / `jogatinando2024`, database `jogatinando`, port `3307` (host) → `3306` (container)
+- For MySQL dev, `config.local.php` sets `DB_TYPE=mysql` with host `db` — auto-migrates on first request
+- For dev hot-reload: bind mount is already active (code changes reflect instantly)
+- `.dockerignore` excludes `data/*.db`, `uploads/*`, `config.local.php` (volumes handle persistence)
 
 ## Security gotchas
 
