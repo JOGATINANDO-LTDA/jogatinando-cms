@@ -1,6 +1,21 @@
 <?php
 
 function migration_001($db, $type) {
+    // --- Schema Version ---
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS schema_version (
+            version INT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS schema_version (
+            version INTEGER PRIMARY KEY,
+            name TEXT NOT NULL,
+            applied_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
+
     // --- Users ---
     if ($type === 'mysql') {
         $db->exec("CREATE TABLE IF NOT EXISTS users (
