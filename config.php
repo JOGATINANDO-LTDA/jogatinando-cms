@@ -19,6 +19,15 @@ if (!defined('DATA_PATH')) define('DATA_PATH', ROOT_PATH . '/data');
 if (!defined('UPLOAD_PATH')) define('UPLOAD_PATH', ROOT_PATH . '/uploads');
 if (!defined('DB_PATH')) define('DB_PATH', DATA_PATH . '/jogatinando.db');
 
+// Database type: 'sqlite' (default) or 'mysql'
+if (!defined('DB_TYPE')) define('DB_TYPE', 'sqlite');
+// MySQL connection (ignored when DB_TYPE is 'sqlite')
+if (!defined('DB_HOST')) define('DB_HOST', '127.0.0.1');
+if (!defined('DB_PORT')) define('DB_PORT', '3306');
+if (!defined('DB_NAME')) define('DB_NAME', 'jogatinando');
+if (!defined('DB_USER')) define('DB_USER', 'root');
+if (!defined('DB_PASS')) define('DB_PASS', '');
+
 // URLs
 if (defined('SITE_URL')) {
     // already defined in local config
@@ -41,7 +50,7 @@ if (!defined('ALLOWED_IMAGE_EXTENSIONS')) define('ALLOWED_IMAGE_EXTENSIONS', ['j
 
 // Admin credentials
 if (!defined('ADMIN_USERNAME')) define('ADMIN_USERNAME', 'admin');
-if (!defined('ADMIN_PASSWORD_HASH')) define('ADMIN_PASSWORD_HASH', password_hash('jogatinando2024', PASSWORD_DEFAULT));
+if (!defined('ADMIN_PASSWORD_HASH')) define('ADMIN_PASSWORD_HASH', password_hash('admin1234', PASSWORD_DEFAULT));
 
 // Site info
 if (!defined('SITE_NAME')) define('SITE_NAME', 'Jogatinando');

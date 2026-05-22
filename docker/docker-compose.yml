@@ -3,14 +3,11 @@ services:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    container_name: jogatinando-cms
     restart: unless-stopped
     ports:
       - "8080:80"
     volumes:
-      # Live reload — código do projeto (alterações refletem instantaneamente)
       - ..:/var/www/html
-      # Persistent data (SQLite DB + uploads) — sobrescrevem o bind mount nestes subdirs
       - cms-data:/var/www/html/data
       - cms-uploads:/var/www/html/uploads
     environment:
@@ -20,9 +17,32 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    ports:
+      - "3307:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword2024
+      MYSQL_DATABASE: jogatinando
+      MYSQL_USER: jogatinando
+      MYSQL_PASSWORD: jogatinando2024
+    volumes:
+      - cms-mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-prootpassword2024"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
   cms-data:
     driver: local
   cms-uploads:
+    driver: local
+  cms-mysql:
     driver: local
