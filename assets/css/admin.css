@@ -71,7 +71,7 @@ button { cursor: pointer; font-family: inherit; }
 input, textarea, select, button { font-family: inherit; }
 
 /* ── Layout ── */
-.admin-layout { display: flex; min-height: 100vh; }
+.admin-layout { display: flex; min-height: 100vh; overflow-x: hidden; }
 
 /* ── Sidebar ── */
 .admin-sidebar {
@@ -243,11 +243,11 @@ input, textarea, select, button { font-family: inherit; }
 /* ── Main Content ── */
 .admin-main {
   flex: 1;
-  margin-left: var(--sidebar-width);
-  min-height: 100vh;
+  margin-left: 260px;
   display: flex;
   flex-direction: column;
-  transition: margin-left var(--transition-normal);
+  min-width: 0;
+  touch-action: pan-y pinch-zoom;
 }
 
 .admin-header {
@@ -337,6 +337,7 @@ input, textarea, select, button { font-family: inherit; }
 .admin-content {
   padding: 32px;
   flex: 1;
+  min-width: 0;
 }
 
 /* ── Flash Messages ── */
@@ -953,6 +954,11 @@ tbody tr:last-child td { border-bottom: none; }
   .admin-content { padding: 16px; }
 
   .form-row { grid-template-columns: 1fr; }
+
+  /* Prevent iOS auto-zoom on input focus */
+  .form-group input,
+  .form-group textarea,
+  .form-group select { font-size: 16px; }
 
   .stats-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; }
 
