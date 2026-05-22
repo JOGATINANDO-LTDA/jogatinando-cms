@@ -409,10 +409,10 @@ if ($action === 'new' || $action === 'edit') {
                         <tr>
                             <th>Título</th>
                             <th>Engine</th>
-                            <th>ZIP</th>
+                            <th class="hide-tablet">ZIP</th>
                             <th>Status</th>
-                            <th>Otimização</th>
-                            <th>Criado</th>
+                            <th class="hide-mobile">Otimização</th>
+                            <th class="hide-mobile">Criado</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
@@ -421,7 +421,7 @@ if ($action === 'new' || $action === 'edit') {
                         <tr>
                             <td><strong style="color:var(--fg)"><?= e($g['title']) ?></strong></td>
                             <td><?= e($g['engine']) ?></td>
-                            <td><?= $g['game_path'] ? '📦 ' . e($g['game_path']) : '—' ?></td>
+                            <td class="hide-tablet"><?= $g['game_path'] ? '📦 ' . e($g['game_path']) : '—' ?></td>
                             <td>
                                 <?php if ($g['active']): ?>
                                     <span class="badge badge-active">Ativo</span>
@@ -432,7 +432,7 @@ if ($action === 'new' || $action === 'edit') {
                                     <span class="badge badge-featured">Destaque</span>
                                 <?php endif; ?>
                             </td>
-                            <td>
+                            <td class="hide-mobile">
                                 <?php if ($g['game_path']): ?>
                                     <?php if (!empty($g['optimized_at'])): ?>
                                         <span class="badge badge-optimized">✅ <?= date('d/m/Y', strtotime($g['optimized_at'])) ?></span>
@@ -443,7 +443,7 @@ if ($action === 'new' || $action === 'edit') {
                                     —
                                 <?php endif; ?>
                             </td>
-                            <td><?= timeAgo($g['created_at']) ?></td>
+                            <td class="hide-mobile"><?= timeAgo($g['created_at']) ?></td>
                             <td class="actions">
                                 <form method="POST" style="display:inline">
                                     <input type="hidden" name="action" value="toggle">
