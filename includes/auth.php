@@ -15,12 +15,31 @@ function requireLogin() {
 }
 
 function login($username, $password) {
-    if ($username === ADMIN_USERNAME && password_verify($password, ADMIN_PASSWORD_HASH)) {
+    $stmt = getDB()->prepare("SELECT password_hash FROM users WHERE username = ?");
+    $stmt->execute([$username]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($user && password_verify($password, $user['password_hash'])) {
         $_SESSION['admin_logged_in'] = true;
         $_SESSION['admin_username'] = $username;
         return true;
     }
     return false;
+}
+
+function requireInstalled() {
+    if (basename($_SERVER['PHP_SELF']) === 'install.php') return;
+    try {
+        $db = getDB();
+        if (!$db) { header('Location: /install.php'); exit; }
+        $count = $db->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        if ($count == 0) {
+            header('Location: /install.php');
+            exit;
+        }
+    } catch (Exception $e) {
+        header('Location: /install.php');
+        exit;
+    }
 }
 
 function logout() {

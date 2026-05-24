@@ -83,7 +83,7 @@ function sendSmtpMail($to, $subject, $body, $from = null, $fromName = null) {
     $headers = "From: $fromLbl <$fromAddr>\r\n";
     $headers .= "Reply-To: $to\r\n";
     $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";
-    $headers .= "X-Mailer: Jogatinando CMS\r\n";
+    $headers .= "X-Mailer: CMS de Jogos\r\n";
 
     $messageData = "Subject: $subject\r\n$headers\r\n$body\r\n.\r\n";
     fwrite($fp, $messageData);

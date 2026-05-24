@@ -36,7 +36,7 @@ $orientation = $game['orientation'] ?? 'auto';
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($game['title']) ?> — <?= e(getSetting('site_name', 'Jogatinando')) ?></title>
+    <title><?= e($game['title']) ?> — <?= e(getSetting('site_name', 'CMS de Jogos')) ?></title>
     <meta name="description" content="<?= e(truncateText($game['description'], 160)) ?>">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -56,9 +56,9 @@ $orientation = $game['orientation'] ?? 'auto';
         <div class="container navbar-inner">
             <a href="/" class="navbar-brand">
                 <div class="logo-shield">
-                    <img src="/assets/svg/logo.svg" alt="Jogatinando">
+                    <img src="/assets/svg/logo.svg" alt="Logo">
                 </div>
-                <?= e(getSetting('site_name', 'Jogatinando')) ?>
+                <?= e(getSetting('site_name', 'CMS de Jogos')) ?>
             </a>
             <a href="/" class="btn btn-outline btn-sm theater-back">← Voltar ao site</a>
         </div>
@@ -183,7 +183,7 @@ $orientation = $game['orientation'] ?? 'auto';
     <footer class="footer">
         <div class="container">
             <div class="footer-bottom">
-                <p>&copy; <?= date('Y') ?> <?= e(getSetting('site_name', 'Jogatinando')) ?>. Todos os direitos reservados.</p>
+                <p>&copy; <?= date('Y') ?> <?= e(getSetting('site_name', 'CMS de Jogos')) ?>. Todos os direitos reservados.</p>
             </div>
         </div>
     </footer>

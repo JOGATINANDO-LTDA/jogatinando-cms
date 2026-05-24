@@ -7,16 +7,16 @@ if (defined('APP_ENV') && APP_ENV === 'production') {
     exit;
 }
 
+$message = '';
+$step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
+
 $isInstalled = false;
-if (file_exists(DB_PATH) || (defined('DB_TYPE') && DB_TYPE === 'mysql')) {
-    $db = getDB();
-    if ($db) {
-        $tables = getDbTables($db);
-        $coreTables = ['games', 'banners', 'users', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings'];
-        if (count(array_intersect($tables, $coreTables)) > 0) {
-            $isInstalled = true;
-        }
-    }
+$db = getDB();
+if ($db) {
+    try {
+        $count = $db->query("SELECT COUNT(*) FROM users")->fetchColumn();
+        $isInstalled = $count > 0;
+    } catch (Exception $e) {}
 }
 
 if ($isInstalled) {
@@ -24,59 +24,68 @@ if ($isInstalled) {
     exit;
 }
 
-$message = '';
-$step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
-
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'sqlite') {
         try {
-            dbInit();
+            dbInit(null, null, null, 'sqlite');
+            writeLocalConfig('sqlite');
             $message = 'success';
         } catch (Exception $ex) {
             $message = 'error: ' . $ex->getMessage();
         }
     } elseif ($_POST['action'] === 'mysql') {
         try {
+            $adminUser = trim($_POST['admin_user'] ?? '');
+            $adminPass = $_POST['admin_pass'] ?? '';
+            if ($adminUser === '' || $adminPass === '') {
+                throw new Exception('Preencha o usuário e senha do administrador.');
+            }
+            $adminHash = password_hash($adminPass, PASSWORD_DEFAULT);
+
             $host = $_POST['db_host'] ?? '127.0.0.1';
             $port = $_POST['db_port'] ?? '3306';
-            $name = $_POST['db_name'] ?? 'jogatinando';
+            $name = $_POST['db_name'] ?? 'cms_db';
             $user = $_POST['db_user'] ?? 'root';
             $pass = $_POST['db_pass'] ?? '';
-
+            $dsnNoDb = "mysql:host=$host;port=$port;charset=utf8mb4";
+            try {
+                $pdo = new PDO($dsnNoDb, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                $pdo->exec("CREATE DATABASE IF NOT EXISTS `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                $pdo = null;
+            } catch (Exception $_) {
+                // User may not have CREATE privilege — db may already exist
+            }
             $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
+            $mysql = new PDO($dsn, $user, $pass, [
+                PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            ]);
             dbInit($dsn, $user, $pass, 'mysql');
+            $stmt = $mysql->prepare("UPDATE users SET username = ?, password_hash = ? WHERE id = 1");
+            $stmt->execute([$adminUser, $adminHash]);
             $message = 'success';
-
-            writeMysqlConfig($host, $port, $name, $user, $pass);
+            writeLocalConfig('mysql', $host, $port, $name, $user, $pass);
         } catch (Exception $ex) {
             $message = 'error: ' . $ex->getMessage();
         }
     }
 }
 
-function writeMysqlConfig($host, $port, $name, $user, $pass) {
-    $localConfig = '<?php' . "\n\n";
-    $localConfig .= "if (!defined('DB_TYPE')) {\n";
-    $localConfig .= "    define('DB_TYPE', 'mysql');\n";
-    $localConfig .= "    define('DB_HOST', '$host');\n";
-    $localConfig .= "    define('DB_PORT', '$port');\n";
-    $localConfig .= "    define('DB_NAME', '$name');\n";
-    $localConfig .= "    define('DB_USER', '$user');\n";
-    $localConfig .= "    define('DB_PASS', '$pass');\n";
-    $localConfig .= "}\n\n";
-
-    if (file_exists(__DIR__ . '/config.local.php')) {
-        $existing = file_get_contents(__DIR__ . '/config.local.php');
-        if (preg_match_all('/define\(\'(SMTP_\w+)\',\s*\'(.*?)\'\);/', $existing, $m)) {
-            $localConfig .= "if (!defined('SMTP_PASS')) {\n";
-            foreach ($m[1] as $i => $const) {
-                $localConfig .= "    define('$const', '" . addslashes($m[2][$i]) . "');\n";
-            }
-            $localConfig .= "}\n";
-        }
+function writeLocalConfig($type, $host = null, $port = null, $name = null, $user = null, $pass = null) {
+    $content = '<?php' . "\n\n";
+    $content .= "if (!defined('CMS_INSTALL_VERSION')) define('CMS_INSTALL_VERSION', '" . CMS_VERSION . "');\n";
+    $content .= "if (!defined('DB_TYPE')) {\n";
+    $content .= "    define('DB_TYPE', '$type');\n";
+    if ($type === 'mysql') {
+        $content .= "    define('DB_HOST', '$host');\n";
+        $content .= "    define('DB_PORT', '$port');\n";
+        $content .= "    define('DB_NAME', '$name');\n";
+        $content .= "    define('DB_USER', '$user');\n";
+        $content .= "    define('DB_PASS', '$pass');\n";
     }
-
-    file_put_contents(__DIR__ . '/config.local.php', $localConfig);
+    $content .= "}\n";
+    if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
+    file_put_contents(DATA_PATH . '/config.local.php', $content);
 }
 ?>
 <!DOCTYPE html>
@@ -84,7 +93,7 @@ function writeMysqlConfig($host, $port, $name, $user, $pass) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jogatinando CMS — Instalação</title>
+    <title>CMS de Jogos — Instalação</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: oklch(10% 0.03 260); color: oklch(96% 0.003 250); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
@@ -114,7 +123,7 @@ function writeMysqlConfig($host, $port, $name, $user, $pass) {
 </head>
 <body>
     <div class="install-card">
-        <h1>Jogatinando CMS</h1>
+        <h1>CMS de Jogos</h1>
 
         <?php if ($message === 'success'): ?>
             <div class="status success">Banco de dados inicializado com sucesso!</div>
@@ -155,36 +164,53 @@ function writeMysqlConfig($host, $port, $name, $user, $pass) {
             <p>Configure a conexão com o banco MySQL / MariaDB.</p>
             <form method="POST" action="?step=2">
                 <input type="hidden" name="action" value="mysql">
+
+                <h3 style="color: oklch(68% 0.16 220); font-size: 14px; margin-bottom: 12px;">Conexão MySQL</h3>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="db_host">Host</label>
-                        <input type="text" id="db_host" name="db_host" value="<?= e(DB_HOST) ?>" required>
+                        <input type="text" id="db_host" name="db_host" value="127.0.0.1" required>
                     </div>
                     <div class="form-group">
                         <label for="db_port">Porta</label>
-                        <input type="text" id="db_port" name="db_port" value="<?= e(DB_PORT) ?>" required>
+                        <input type="text" id="db_port" name="db_port" value="3306" required>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="db_name">Database</label>
-                    <input type="text" id="db_name" name="db_name" value="<?= e(DB_NAME) ?>" required>
+                    <input type="text" id="db_name" name="db_name" value="cms_db" required>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="db_user">Usuário</label>
-                        <input type="text" id="db_user" name="db_user" value="<?= e(DB_USER) ?>" required>
+                        <input type="text" id="db_user" name="db_user" value="root" required>
                     </div>
                     <div class="form-group">
                         <label for="db_pass">Senha</label>
-                        <input type="password" id="db_pass" name="db_pass" value="<?= e(DB_PASS) ?>" required>
+                        <input type="password" id="db_pass" name="db_pass" value="">
                     </div>
                 </div>
+
+                <hr style="border: none; border-top: 1px solid oklch(25% 0.02 260); margin: 20px 0;">
+
+                <h3 style="color: oklch(75% 0.15 85); font-size: 14px; margin-bottom: 12px;">Administrador</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="admin_user">Usuário Admin</label>
+                        <input type="text" id="admin_user" name="admin_user" value="admin" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="admin_pass">Senha Admin</label>
+                        <input type="password" id="admin_pass" name="admin_pass" required>
+                    </div>
+                </div>
+
                 <button type="submit" class="btn btn-gold">Instalar com MySQL</button>
                 <a href="?step=1" class="btn btn-outline">Voltar</a>
             </form>
 
         <?php else: ?>
-            <p>Instalação do CMS Jogatinando. Escolha o tipo de banco para começar.</p>
+            <p>Instalação do CMS. Escolha o tipo de banco para começar.</p>
             <a href="?step=1" class="btn btn-gold">Iniciar Instalação</a>
         <?php endif; ?>
     </div>

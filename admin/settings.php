@@ -93,6 +93,7 @@ foreach ($keys as $key) {
         <?php
         $migrateMessage = '';
         $migrateSuccess = false;
+        $migrateRedirect = false;
         if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'migrate') {
             if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
                 $migrateMessage = '<div class="status error">Token inválido.</div>';
@@ -100,10 +101,18 @@ foreach ($keys as $key) {
                 try {
                     $host = $_POST['db_host'] ?? '127.0.0.1';
                     $port = $_POST['db_port'] ?? '3306';
-                    $name = $_POST['db_name'] ?? 'jogatinando';
+                    $name = $_POST['db_name'] ?? 'cms_db';
                     $user = $_POST['db_user'] ?? 'root';
                     $pass = $_POST['db_pass'] ?? '';
 
+                    $dsnNoDb = "mysql:host=$host;port=$port;charset=utf8mb4";
+                    try {
+                        $pdo = new PDO($dsnNoDb, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                        $pdo->exec("CREATE DATABASE IF NOT EXISTS `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                        $pdo = null;
+                    } catch (Exception $_) {
+                        // User may not have CREATE privilege — db may already exist
+                    }
                     $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
                     $mysql = new PDO($dsn, $user, $pass, [
                         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -160,6 +169,7 @@ foreach ($keys as $key) {
 
                     // Write config.local.php
                     $localConfig = '<?php' . "\n\n";
+                    $localConfig .= "if (!defined('CMS_INSTALL_VERSION')) define('CMS_INSTALL_VERSION', '" . CMS_VERSION . "');\n";
                     $localConfig .= "if (!defined('DB_TYPE')) {\n";
                     $localConfig .= "    define('DB_TYPE', 'mysql');\n";
                     $localConfig .= "    define('DB_HOST', '$host');\n";
@@ -169,9 +179,17 @@ foreach ($keys as $key) {
                     $localConfig .= "    define('DB_PASS', '$pass');\n";
                     $localConfig .= "}\n\n";
 
-                    if (file_exists(ROOT_PATH . '/config.local.php')) {
-                        $existing = file_get_contents(ROOT_PATH . '/config.local.php');
-                        if (preg_match_all('/define\(\'(SMTP_\w+)\',\s*\'(.*?)\'\);/', $existing, $m)) {
+                    $configPath = DATA_PATH . '/config.local.php';
+                    $existingContent = file_exists($configPath) ? file_get_contents($configPath) : '';
+                    if ($existingContent !== '' && preg_match_all('/define\(\'(SMTP_\w+)\',\s*\'(.*?)\'\);/', $existingContent, $m)) {
+                        $localConfig .= "if (!defined('SMTP_PASS')) {\n";
+                        foreach ($m[1] as $i => $const) {
+                            $localConfig .= "    define('$const', '" . addslashes($m[2][$i]) . "');\n";
+                        }
+                        $localConfig .= "}\n";
+                    } elseif (file_exists(ROOT_PATH . '/config.local.php')) {
+                        $rootContent = file_get_contents(ROOT_PATH . '/config.local.php');
+                        if (preg_match_all('/define\(\'(SMTP_\w+)\',\s*\'(.*?)\'\);/', $rootContent, $m)) {
                             $localConfig .= "if (!defined('SMTP_PASS')) {\n";
                             foreach ($m[1] as $i => $const) {
                                 $localConfig .= "    define('$const', '" . addslashes($m[2][$i]) . "');\n";
@@ -179,10 +197,13 @@ foreach ($keys as $key) {
                             $localConfig .= "}\n";
                         }
                     }
-                    file_put_contents(ROOT_PATH . '/config.local.php', $localConfig);
+                    if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
+                    file_put_contents($configPath, $localConfig);
 
-                    $migrateMessage = '<div class="status success">Migração concluída! O sistema agora está usando MySQL.</div>';
+                    $migrateMessage = '<div class="status success">Migração concluída! Redirecionando para o login…</div>';
                     $migrateSuccess = true;
+                    $migrateRedirect = true;
+                    session_destroy();
                 } catch (Exception $ex) {
                     $migrateMessage = '<div class="status error">' . e($ex->getMessage()) . '</div>';
                 }
@@ -216,6 +237,9 @@ foreach ($keys as $key) {
 
             <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, oklch(68% 0.16 220), oklch(55% 0.14 220)); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer;">Migrar para MySQL</button>
         </form>
+        <?php endif; ?>
+        <?php if ($migrateRedirect): ?>
+        <script>setTimeout(function(){window.location.href='login.php'},2500);</script>
         <?php endif; ?>
     </div>
 </div>

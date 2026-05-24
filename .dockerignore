@@ -16,9 +16,11 @@ desktop.ini
 
 # Docker files (needed for build)
 # docker/
+docker/mysql-init.sql
 
 # Data (will be mounted as volume)
 data/*.db
+data/config.local.php
 
 # Uploads (will be mounted as volume)
 uploads/*
