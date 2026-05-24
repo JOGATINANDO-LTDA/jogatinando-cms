@@ -9,7 +9,7 @@ $initial = strtoupper(substr($_SESSION['admin_username'] ?? 'A', 0, 1));
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($pageTitle ?? 'Dashboard') ?> — Jogatinando CMS</title>
+    <title><?= e($pageTitle ?? 'Dashboard') ?> — CMS de Jogos</title>
     <link rel="icon" href="<?= SITE_URL ?>/assets/svg/logo.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,10 +24,10 @@ $initial = strtoupper(substr($_SESSION['admin_username'] ?? 'A', 0, 1));
         <aside class="admin-sidebar" id="adminSidebar">
             <div class="sidebar-logo">
                 <div class="logo-shield">
-                    <img src="<?= SITE_URL ?>/assets/svg/logo.svg" alt="Jogatinando">
+                    <img src="<?= SITE_URL ?>/assets/svg/logo.svg" alt="CMS de Jogos">
                 </div>
                 <div>
-                    <span class="logo-text">Jogatinando</span>
+                    <span class="logo-text">CMS de Jogos</span>
                     <span class="logo-sub">Painel Admin</span>
                 </div>
             </div>
@@ -65,6 +65,10 @@ $initial = strtoupper(substr($_SESSION['admin_username'] ?? 'A', 0, 1));
                 </a>
 
                 <div class="nav-section-label">Sistema</div>
+                <a href="<?= ADMIN_URL ?>/users.php" class="nav-item <?= $currentPage === 'users' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></span>
+                    <span class="nav-label">Usuários</span>
+                </a>
                 <a href="<?= ADMIN_URL ?>/optimize.php" class="nav-item <?= $currentPage === 'optimize' ? 'active' : '' ?>">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></span>
                     <span class="nav-label">Otimizador</span>

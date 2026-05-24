@@ -213,7 +213,9 @@ function migration_001($db, $type) {
             value TEXT DEFAULT ''
         )");
     }
+}
 
+function dbSeed($db, $type) {
     // Seed default admin user
     $stmt = $db->query("SELECT COUNT(*) as cnt FROM users");
     $row = $stmt->fetch();
@@ -226,14 +228,14 @@ function migration_001($db, $type) {
     $defaults = [
         ['site_name', SITE_NAME],
         ['site_tagline', SITE_TAGLINE],
-        ['hero_title', 'Transformamos Ideias em <span class="gold">Jogos Incríveis</span>'],
-        ['hero_subtitle', 'Somos um estúdio brasileiro especializado em desenvolvimento de jogos digitais. Da concepção ao lançamento, criamos experiências que encantam jogadores e geram resultados.'],
-        ['contact_email', 'contato@jogatinando.com.br'],
+        ['hero_title', 'Crie, Gerencie e Publique <span class="gold">Seus Jogos</span>'],
+        ['hero_subtitle', 'Sistema completo para gerenciar seu portfólio de jogos digitais. Publique em qualquer engine e compartilhe com o mundo.'],
+        ['contact_email', 'contato@exemplo.com.br'],
         ['contact_whatsapp', ''],
-        ['youtube_url', 'https://youtube.com/@jogatinandodevs'],
-        ['twitch_url', 'https://www.twitch.tv/jogatinandolive'],
-        ['blog_url', 'https://gamenews.xo.je/'],
-        ['footer_description', 'Estúdio brasileiro de desenvolvimento de jogos digitais. Criamos games sob medida em diversas engines para clientes de todo o mundo.'],
+        ['youtube_url', ''],
+        ['twitch_url', ''],
+        ['blog_url', ''],
+        ['footer_description', 'Sistema de gerenciamento de portfólio de jogos digitais. Publique seus games em diversas engines para qualquer plataforma.'],
     ];
 
     $seedCount = $db->query("SELECT COUNT(*) as cnt FROM site_settings")->fetch();
@@ -254,9 +256,9 @@ function seedDefaultData($db) {
     if ($count > 0) return;
 
     $banners = [
-        ['title' => 'Nossos Projetos', 'subtitle' => 'Jogos que criamos com paixão', 'description' => 'Cada projeto é uma aventura única. Conheça os jogos que desenvolvemos para nossos clientes.', 'image_url' => '', 'cta_text' => 'Ver Portfólio', 'cta_url' => '#portfolio', 'engine_tag' => '', 'sort_order' => 1, 'active' => 1],
-        ['title' => 'Multi-Engine', 'subtitle' => 'Qualquer engine, qualquer plataforma', 'description' => 'GDevelop, Godot, RPG Maker, Unity, Unreal e mais. Escolha a engine, nós fazemos o resto.', 'image_url' => '', 'cta_text' => 'Ver Engines', 'cta_url' => '#engines', 'engine_tag' => '', 'sort_order' => 2, 'active' => 1],
-        ['title' => 'Aprenda Conosco', 'subtitle' => 'YouTube, Twitch e Blog', 'description' => 'Ensinamos a criar jogos no nosso canal do YouTube, fazemos lives na Twitch e publicamos artigos no blog.', 'image_url' => '', 'cta_text' => 'Conteúdo Gratuito', 'cta_url' => '#media', 'engine_tag' => '', 'sort_order' => 3, 'active' => 1],
+        ['title' => 'Seu Portfólio de Jogos', 'subtitle' => 'Publique em qualquer engine', 'description' => 'Gerencie e publique seus jogos digitais em uma plataforma unificada. Compatível com GDevelop, Godot, Unity, RPG Maker e muito mais.', 'image_url' => '', 'cta_text' => 'Ver Portfólio', 'cta_url' => '#portfolio', 'engine_tag' => '', 'sort_order' => 1, 'active' => 1],
+        ['title' => 'Multi-Engine', 'subtitle' => 'Qualquer engine, qualquer plataforma', 'description' => 'GDevelop, Godot, RPG Maker, Unity, Construct, Game Maker e outras. Sua escolha, seu jogo.', 'image_url' => '', 'cta_text' => 'Ver Engines', 'cta_url' => '#engines', 'engine_tag' => '', 'sort_order' => 2, 'active' => 1],
+        ['title' => 'Demonstração', 'subtitle' => 'Explore os recursos do CMS', 'description' => 'Este é um ambiente de demonstração. Configure seus banners, adicione jogos e personalize seu site.', 'image_url' => '', 'cta_text' => 'Começar', 'cta_url' => '#start', 'engine_tag' => '', 'sort_order' => 3, 'active' => 1],
     ];
 
     $stmt = $db->prepare("INSERT INTO banners (title, subtitle, description, image_url, cta_text, cta_url, engine_tag, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -265,11 +267,11 @@ function seedDefaultData($db) {
     }
 
     $games = [
-        ['title' => 'Acacia: O Prólogo do Desespero', 'slug' => 'acacia-o-prologo-do-desespero', 'engine' => "Ren'py", 'description' => 'Uma visual novel sombria sobre escolhas impossíveis e consequências inevitáveis.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'portrait', 'sort_order' => 1, 'active' => 1],
-        ['title' => 'Aventura Medieval', 'slug' => 'aventura-medieval', 'engine' => 'RPG Maker', 'description' => 'RPG clássico com exploração, batalhas por turno e uma história épica.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 2, 'active' => 1],
-        ['title' => 'Space Defender', 'slug' => 'space-defender', 'engine' => 'GDevelop', 'description' => 'Shooter espacial com ondas de inimigos, power-ups e boss fights.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 3, 'active' => 1],
-        ['title' => 'Platform Quest', 'slug' => 'platform-quest', 'engine' => 'Godot', 'description' => 'Plataforma 2D com física precisa, level design desafiador e pixel art.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 4, 'active' => 1],
-        ['title' => 'Neon Drift', 'slug' => 'neon-drift', 'engine' => 'Unity', 'description' => 'Corrida arcade futurista com trilha sonora synthwave e pistas neon.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 5, 'active' => 1],
+        ['title' => 'Meu Primeiro Jogo', 'slug' => 'meu-primeiro-jogo', 'engine' => 'GDevelop', 'description' => 'Um jogo de exemplo criado com GDevelop para demonstrar os recursos do CMS.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 1, 'active' => 1],
+        ['title' => 'Aventura em Pixel', 'slug' => 'aventura-em-pixel', 'engine' => 'Godot', 'description' => 'Jogo de plataforma 2D com pixel art e física precisa.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 2, 'active' => 1],
+        ['title' => 'RPG das Dungeons', 'slug' => 'rpg-das-dungeons', 'engine' => 'RPG Maker', 'description' => 'RPG clássico com exploração, batalhas e uma história envolvente.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 3, 'active' => 1],
+        ['title' => 'Corrida Arcade', 'slug' => 'corrida-arcade', 'engine' => 'Unity', 'description' => 'Jogo de corrida arcade com gráficos 3D e trilha sonora eletrônica.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 4, 'active' => 1],
+        ['title' => 'Visual Novel Demo', 'slug' => 'visual-novel-demo', 'engine' => "Ren'py", 'description' => 'Uma visual novel interativa demonstrando recursos de narrativa e escolhas.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'portrait', 'sort_order' => 5, 'active' => 1],
     ];
 
     $stmt = $db->prepare("INSERT INTO games (title, slug, engine, description, thumbnail_url, zip_filename, game_path, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -278,9 +280,9 @@ function seedDefaultData($db) {
     }
 
     $testimonials = [
-        ['name' => 'Carlos Silva', 'role' => 'CEO, GameStudio BR', 'quote' => 'A equipe da Jogatinando entregou nosso projeto antes do prazo e com qualidade excepcional. Recomendo!', 'avatar_url' => '', 'sort_order' => 1, 'active' => 1],
-        ['name' => 'Ana Oliveira', 'role' => 'Product Manager, PlayTech', 'quote' => 'Profissionais incríveis. Entenderam nossa visão e transformaram em um jogo que nossos jogadores amam.', 'avatar_url' => '', 'sort_order' => 2, 'active' => 1],
-        ['name' => 'Rafael Santos', 'role' => 'Indie Developer', 'quote' => 'Comecei como aluno no YouTube e hoje sou cliente. A qualidade do trabalho é impressionante.', 'avatar_url' => '', 'sort_order' => 3, 'active' => 1],
+        ['name' => 'Maria Souza', 'role' => 'Game Designer', 'quote' => 'O CMS simplificou todo o processo de publicação dos meus jogos. Interface intuitiva e suporte a várias engines.', 'avatar_url' => '', 'sort_order' => 1, 'active' => 1],
+        ['name' => 'João Lima', 'role' => 'Indie Developer', 'quote' => 'Finalmente um sistema que me permite gerenciar todo meu portfólio em um só lugar. Recomendo!', 'avatar_url' => '', 'sort_order' => 2, 'active' => 1],
+        ['name' => 'Ana Costa', 'role' => 'Produtora de Conteúdo', 'quote' => 'Uso para hospedar meus projetos e compartilhar com seguidores. Funciona perfeitamente.', 'avatar_url' => '', 'sort_order' => 3, 'active' => 1],
     ];
 
     $stmt = $db->prepare("INSERT INTO testimonials (name, role, quote, avatar_url, sort_order, active) VALUES (?, ?, ?, ?, ?, ?)");
@@ -289,11 +291,11 @@ function seedDefaultData($db) {
     }
 
     $faqs = [
-        ['question' => 'Quais engines vocês trabalham?', 'answer' => 'Trabalhamos com GDevelop, Godot, RPG Maker, Unity, Unreal Engine, Construct, Defold, Game Maker, Ren\'py, Pixel Game Maker MV, RPG Paper Maker e outras. Se a engine existe, nós trabalhamos com ela.', 'sort_order' => 1, 'active' => 1],
-        ['question' => 'Quanto custa desenvolver um jogo?', 'answer' => 'O valor depende da complexidade, plataforma, engine e escopo do projeto. Entre em contato pelo formulário de orçamento e enviaremos uma proposta personalizada em até 48 horas.', 'sort_order' => 2, 'active' => 1],
-        ['question' => 'Vocês fazem jogos para mobile?', 'answer' => 'Sim! Desenvolvemos para Android, iOS, Web, PC (Windows/Mac/Linux) e consoles. Cada projeto é otimizado para a plataforma alvo.', 'sort_order' => 3, 'active' => 1],
-        ['question' => 'Posso acompanhar o desenvolvimento?', 'answer' => 'Claro! Fornecemos acesso ao repositório, relatórios semanais de progresso e relatórios de alinhamento. Transparência é nosso compromisso.', 'sort_order' => 4, 'active' => 1],
-        ['question' => 'Vocês também publicam jogos próprios?', 'answer' => 'Sim! Além de desenvolver para clientes, criamos nossos próprios jogos que estão disponíveis no mercado. Confira nosso portfólio para ver os projetos.', 'sort_order' => 5, 'active' => 1],
+        ['question' => 'Quais engines são compatíveis?', 'answer' => 'GDevelop, Godot, RPG Maker, Unity, Unreal Engine, Construct, Defold, Game Maker, Ren\'py e muitas outras.', 'sort_order' => 1, 'active' => 1],
+        ['question' => 'Como publicar um jogo?', 'answer' => 'Faça upload do arquivo ZIP do seu jogo pelo painel admin. O sistema extrai e disponibiliza automaticamente para jogar.', 'sort_order' => 2, 'active' => 1],
+        ['question' => 'Posso usar meu próprio domínio?', 'answer' => 'Sim! Configure o domínio no arquivo de configuração e o CMS funcionará normalmente com seu domínio personalizado.', 'sort_order' => 3, 'active' => 1],
+        ['question' => 'Quais plataformas são suportadas?', 'answer' => 'Os jogos podem ser publicados para Web, e o CMS gerencia todo o portfólio em uma interface centralizada.', 'sort_order' => 4, 'active' => 1],
+        ['question' => 'É possível ter múltiplos usuários?', 'answer' => 'Sim! O administrador master pode criar contas adicionais para outros usuários com acesso ao painel.', 'sort_order' => 5, 'active' => 1],
     ];
 
     $stmt = $db->prepare("INSERT INTO faq_items (question, answer, sort_order, active) VALUES (?, ?, ?, ?)");
@@ -302,7 +304,7 @@ function seedDefaultData($db) {
     }
 
     $team = [
-        ['name' => 'Sulivan', 'role' => 'Fundador & Lead Developer', 'bio' => 'Criador da Jogatinando, apaixonado por desenvolvimento de jogos e educação. Ensina criação de games no YouTube e faz lives na Twitch.', 'avatar_url' => '', 'social_youtube' => 'https://youtube.com/@jogatinandodevs', 'social_twitch' => 'https://www.twitch.tv/jogatinandolive', 'social_linkedin' => '', 'sort_order' => 1, 'active' => 1],
+        ['name' => 'Administrador', 'role' => 'Desenvolvedor', 'bio' => 'Responsável pelo gerenciamento do portfólio de jogos.', 'avatar_url' => '', 'social_youtube' => '', 'social_twitch' => '', 'social_linkedin' => '', 'sort_order' => 1, 'active' => 1],
     ];
 
     $stmt = $db->prepare("INSERT INTO team_members (name, role, bio, avatar_url, social_youtube, social_twitch, social_linkedin, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");

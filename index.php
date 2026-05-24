@@ -1,11 +1,6 @@
 <?php
 require_once 'config.php';
 
-if (!file_exists(DB_PATH)) {
-    header('Location: /install.php');
-    exit;
-}
-
 // Handle contact form submission
 $contactSuccess = false;
 $contactError = '';
@@ -126,7 +121,7 @@ function engineBadgeStyle($engine) {
         <div class="container navbar-inner">
             <a href="/" class="navbar-brand">
                 <div class="logo-shield">
-                    <img src="/assets/svg/logo.svg" alt="Jogatinando">
+                    <img src="/assets/svg/logo.svg" alt="Logo">
                 </div>
                 <?= e($siteName) ?>
             </a>
@@ -192,7 +187,7 @@ function engineBadgeStyle($engine) {
             </div>
             <?php else: ?>
             <div class="hero-crest">
-                <img src="/assets/svg/logo.svg" alt="Jogatinando">
+                <img src="/assets/svg/logo.svg" alt="Logo">
             </div>
             <h1><?= $heroTitle ?></h1>
             <p class="hero-subtitle"><?= $heroSubtitle ?></p>
@@ -525,7 +520,7 @@ function engineBadgeStyle($engine) {
                 <div class="footer-brand">
                     <div class="logo">
                         <div class="logo-shield">
-                            <img src="/assets/svg/logo.svg" alt="Jogatinando">
+                            <img src="/assets/svg/logo.svg" alt="Logo">
                         </div>
                         <?= e($siteName) ?>
                     </div>

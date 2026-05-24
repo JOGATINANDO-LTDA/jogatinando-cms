@@ -3,7 +3,7 @@ data/*.db
 data/*.db-journal
 data/*.db-wal
 data/contact_log.txt
-config.local.php
+data/config.local.php
 
 # === Uploads (managed by Docker volumes) ===
 uploads/*
@@ -48,3 +48,4 @@ vendor/
 composer.lock
 
 /*.zip
+.cortex/

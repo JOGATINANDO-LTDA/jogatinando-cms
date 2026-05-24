@@ -2,7 +2,7 @@
 
 ## Project
 
-PHP 8.2 + SQLite CMS for Jogatinando game studio website. Flat-file PHP, no framework, no Composer.
+PHP 8.2 + SQLite/MySQL CMS for Jogatinando game studio website. Flat-file PHP, no framework, no Composer.
 
 ## Commands
 
@@ -27,15 +27,22 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 
 ## First-run
 
-1. Visit `http://localhost:8080/install.php` → click "Instalar CMS"
-2. Login at `/admin/login.php` — user: `admin`, password: `jogatinando2024`
-3. Delete or `chmod 000 install.php` after install (exposes reset endpoint)
+1. **Docker (MySQL)**: `docker compose ... up --build` → visit `http://localhost:8080/install.php` → click "MySQL / MariaDB" → fill host `db`, user `cms_user`, pass `cms_pass2024` → done
+2. **SQLite**: Visit `http://localhost:8080/install.php` → click "SQLite (Simples)"
+3. Login at `/admin/login.php` — user: `admin`, password: `admin1234`
+4. Delete or `chmod 000 install.php` after install (exposes reset endpoint)
+
+> `config.local.php` é a única forma do sistema saber se está instalado. SQLite e MySQL ambos criam `config.local.php` após o install. Se o arquivo for perdido, install.php aparece — mesmo que o `.db` ainda exista. O usuário clica SQLite (ou MySQL com mesmas credenciais) e os dados são preservados.
+
+> **MySQL auto-create DB**: O install.php conecta primeiro ao MySQL sem database (`CREATE DATABASE IF NOT EXISTS \`$name\``) antes de rodar dbInit. Funciona se o usuário tiver privilégio CREATE. No Docker, `cms_user` não tem — usar database `cms_db` (já existe).
+
+> **Migrações automáticas**: `dbMigrate()` roda em toda conexão PDO. Se o schema do banco estiver desatualizado, as migrações são aplicadas automaticamente sem perder dados.
 
 ## Architecture
 
 - **Entry points**: `index.php` (frontend), `game.php` (game player), `install.php` (setup wizard), `admin/*.php` (admin panel)
-- **Config**: `config.php` — defines paths, URLs, upload limits, admin creds, auto-loads all helpers. `config.local.php` (gitignored) overrides secrets and DB type.
-- **DB**: Supports SQLite (default) or MySQL/MariaDB via PDO. DB type set via `DB_TYPE` constant (`sqlite`|`mysql`). MySQL credentials: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`. Single `getDB()` singleton.
+- **Config**: `config.php` — defines paths, URLs, upload limits, admin creds, auto-loads all helpers. `config.local.php` (gitignored) overrides secrets and DB type. Install marker: system only considers itself installed if `config.local.php` exists.
+- **DB**: Supports SQLite or MySQL/MariaDB via PDO. DB type set via `DB_TYPE` constant (`sqlite`|`mysql`) defined in `config.local.php`. Without it, `getDB()` returns `null` → redirect to install.php. MySQL credentials: `DB_HOST`, `DB_PORT`, `DB_NAME`, `DB_USER`, `DB_PASS`. Single `getDB()` singleton.
 - **Migration system**: `schema_version` table tracks applied migrations. `includes/migrations.php` contains numbered functions (`migration_001()` etc.). Auto-runs on `getDB()` via `dbMigrate()`. Existing SQLite DBs without `schema_version` are detected and backfilled.
 - **Tables**: `users`, `banners`, `games`, `blog_posts`, `testimonials`, `faq_items`, `team_members`, `site_settings`, `schema_version`
 - **Auth**: Session-based login + CSRF tokens. All `admin/` pages call `requireLogin()`
@@ -73,10 +80,12 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 ## Docker notes
 
 - Volumes `cms-data`, `cms-uploads`, and `cms-mysql` persist data across rebuilds
-- MySQL 8.0 service (`db`) with credentials: `jogatinando` / `jogatinando2024`, database `jogatinando`, port `3307` (host) → `3306` (container)
-- For MySQL dev, `config.local.php` sets `DB_TYPE=mysql` with host `db` — auto-migrates on first request
+- MySQL 8.0 service (`db`) with credentials: `cms_db` / `cms_user` / `cms_pass2024`, database `cms_db`, port `3307` (host) → `3306` (container)
+- `docker/mysql-init.sql` grants `cms_user` ALL PRIVILEGES ON *.* (incl. CREATE DATABASE) — runs only on first MySQL init (`down -v` to reset)
+- **MySQL database não é pré-criado** — não tem `MYSQL_DATABASE` nem `MYSQL_USER` no docker-compose. O container sobe zerado. O `cms_user` é criado via init script, mas o database só será criado quando o usuário preencher o form MySQL no install.php.
+- For MySQL dev, `config.local.php` sets `DB_TYPE=mysql` with host `db` — created by install form
 - For dev hot-reload: bind mount is already active (code changes reflect instantly)
-- `.dockerignore` excludes `data/*.db`, `uploads/*`, `config.local.php` (volumes handle persistence)
+- `.dockerignore` excludes `data/*.db`, `uploads/*`, `config.local.php`, `docker/mysql-init.sql` (volumes handle persistence)
 
 ## Security gotchas
 

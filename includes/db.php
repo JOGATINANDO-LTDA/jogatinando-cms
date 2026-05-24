@@ -1,10 +1,7 @@
 <?php
 
 function getDbType() {
-    if (!defined('DB_TYPE')) {
-        define('DB_TYPE', 'sqlite');
-    }
-    return DB_TYPE;
+    return defined('DB_TYPE') ? DB_TYPE : null;
 }
 
 function getDsn() {
@@ -12,14 +9,14 @@ function getDsn() {
     if ($type === 'mysql') {
         $host = defined('DB_HOST') ? DB_HOST : '127.0.0.1';
         $port = defined('DB_PORT') ? DB_PORT : '3306';
-        $name = defined('DB_NAME') ? DB_NAME : 'jogatinando';
+        $name = defined('DB_NAME') ? DB_NAME : 'cms_db';
         return "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
     }
     return 'sqlite:' . DB_PATH;
 }
 
-function getDbOptions() {
-    $type = getDbType();
+function getDbOptions($type = null) {
+    $type = $type ?? getDbType();
     $opts = [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -42,6 +39,7 @@ function getDB() {
     static $db = null;
     if ($db === null) {
         $type = getDbType();
+        if ($type === null) return null;
         if ($type === 'sqlite' && !file_exists(DB_PATH)) {
             return null;
         }
@@ -142,15 +140,23 @@ function getMigrationList() {
 
 function dbInit($dsn = null, $user = null, $pass = null, $type = null) {
     $type = $type ?? getDbType();
-    $dsn = $dsn ?? getDsn();
-    $user = $user ?? getDbUser();
-    $pass = $pass ?? getDbPass();
+    if ($dsn === null) {
+        if ($type === 'sqlite') {
+            $dsn = 'sqlite:' . DB_PATH;
+            $user = null;
+            $pass = null;
+        } else {
+            $dsn = getDsn();
+            $user = $user ?? getDbUser();
+            $pass = $pass ?? getDbPass();
+        }
+    }
 
     if ($type === 'sqlite' && !is_dir(DATA_PATH)) {
         mkdir(DATA_PATH, 0755, true);
     }
 
-    $db = new PDO($dsn, $user, $pass, getDbOptions());
+    $db = new PDO($dsn, $user, $pass, getDbOptions($type));
     if ($type === 'sqlite') {
         $db->exec('PRAGMA journal_mode=WAL');
         $db->exec('PRAGMA foreign_keys=ON');
@@ -171,8 +177,17 @@ function dbInit($dsn = null, $user = null, $pass = null, $type = null) {
         if (function_exists($func)) {
             $func($db, $type);
         }
-        $stmt = $db->prepare("INSERT INTO schema_version (version, name) VALUES (?, ?)");
-        $stmt->execute([$version, $name]);
+        try {
+            $stmt = $db->prepare("INSERT INTO schema_version (version, name) VALUES (?, ?)");
+            $stmt->execute([$version, $name]);
+        } catch (Exception $e) {
+            // Already applied — skip
+        }
+    }
+
+    // Seed default data (called only by install, never by auto-migration)
+    if (function_exists('dbSeed')) {
+        dbSeed($db, $type);
     }
 
     return $db;
