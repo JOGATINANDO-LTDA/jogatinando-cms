@@ -215,6 +215,18 @@ function migration_001($db, $type) {
     }
 }
 
+function migration_002($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users ADD COLUMN avatar_url VARCHAR(255) DEFAULT '' AFTER password_hash");
+        } else {
+            $db->exec("ALTER TABLE users ADD COLUMN avatar_url TEXT DEFAULT ''");
+        }
+    } catch (Exception $e) {
+        // Column may already exist — ignore
+    }
+}
+
 function dbSeed($db, $type) {
     // Seed default admin user
     $stmt = $db->query("SELECT COUNT(*) as cnt FROM users");

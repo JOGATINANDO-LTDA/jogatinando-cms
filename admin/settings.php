@@ -3,6 +3,49 @@ ob_start();
 $pageTitle = 'Configurações';
 require_once __DIR__ . '/../includes/header.php';
 
+$userId = $_SESSION['admin_user_id'] ?? 0;
+
+// Avatar upload
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_avatar') {
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings.php'); exit; }
+
+    if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+        $result = uploadFile($_FILES['avatar'], 'avatars', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+        if ($result['success']) {
+            $db = getDB();
+            $stmt = $db->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
+            $stmt->execute([$result['url'], $userId]);
+            $_SESSION['admin_avatar_url'] = $result['url'];
+            flashMessage('success', 'Foto de perfil atualizada!');
+        } else {
+            flashMessage('error', $result['message']);
+        }
+    }
+    ob_end_clean();
+    header('Location: settings.php');
+    exit;
+}
+
+// Avatar remove
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'remove_avatar') {
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings.php'); exit; }
+
+    $db = getDB();
+    $stmt = $db->prepare("SELECT avatar_url FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $current = $stmt->fetchColumn();
+    if ($current) {
+        deleteFile(str_replace(SITE_URL . '/', ROOT_PATH . '/', $current));
+    }
+    $stmt = $db->prepare("UPDATE users SET avatar_url = '' WHERE id = ?");
+    $stmt->execute([$userId]);
+    $_SESSION['admin_avatar_url'] = '';
+    flashMessage('success', 'Foto de perfil removida.');
+    ob_end_clean();
+    header('Location: settings.php');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings.php'); exit; }
 
@@ -33,7 +76,55 @@ $keys = ['site_name', 'site_tagline', 'hero_title', 'hero_subtitle', 'contact_em
 foreach ($keys as $key) {
     $settings[$key] = getSetting($key, '');
 }
+
+// Current user data for profile card
+$userData = null;
+$db = getDB();
+$stmt = $db->prepare("SELECT username, avatar_url FROM users WHERE id = ?");
+$stmt->execute([$userId]);
+$userData = $stmt->fetch(PDO::FETCH_ASSOC);
+$profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
 ?>
+
+<!-- Meu Perfil -->
+<div class="card" style="margin-bottom: 24px; border-color: oklch(75% 0.15 85 / 0.3);">
+    <div class="card-header">
+        <h2 class="card-title">Meu Perfil</h2>
+    </div>
+    <div class="card-body">
+        <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
+            <div style="text-align: center;">
+                <div style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg, oklch(75% 0.15 85), oklch(62% 0.13 85)); display: flex; align-items: center; justify-content: center; font-family: 'Cinzel', serif; font-size: 28px; font-weight: 700; color: oklch(8% 0.02 260); margin: 0 auto 8px;">
+                    <?php if ($userData && $userData['avatar_url']): ?>
+                        <img src="<?= e($userData['avatar_url']) ?>" alt="" style="width:100%;height:100%;object-fit:cover;">
+                    <?php else: ?>
+                        <?= $profileInitial ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div style="flex:1;min-width:200px;">
+                <p style="margin-bottom:4px;"><strong style="color:var(--fg)"><?= e($userData['username'] ?? '') ?></strong></p>
+                <p style="font-size:13px;color:var(--fg-muted);margin-bottom:12px;">Seu perfil de acesso ao painel administrativo.</p>
+                <form method="POST" enctype="multipart/form-data" style="display:inline-block;">
+                    <input type="hidden" name="action" value="save_avatar">
+                    <?= csrfField() ?>
+                    <label for="avatar-upload" class="btn btn-outline" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                        Upload
+                    </label>
+                    <input type="file" id="avatar-upload" name="avatar" accept="image/*" style="display:none;" onchange="this.form.submit()">
+                </form>
+                <?php if ($userData && $userData['avatar_url']): ?>
+                <form method="POST" style="display:inline-block;margin-left:8px;">
+                    <input type="hidden" name="action" value="remove_avatar">
+                    <?= csrfField() ?>
+                    <button type="submit" class="btn btn-outline" style="border-color:oklch(55% 0.20 25);color:oklch(55% 0.20 25);padding:8px 16px;font-size:13px;cursor:pointer;" onclick="return confirm('Remover foto de perfil?')">Remover</button>
+                </form>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+</div>
 
 <div class="card">
     <div class="card-header">
@@ -132,6 +223,7 @@ foreach ($keys as $key) {
 
                     // DDL (auto-commit) — cria tabelas e limpa dados anteriores
                     migration_001($mysql, 'mysql');
+                    migration_002($mysql, 'mysql');
                     $mysql->exec("SET FOREIGN_KEY_CHECKS = 0");
                     foreach (['users', 'banners', 'games', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings', 'schema_version'] as $t) {
                         $mysql->exec("TRUNCATE TABLE `$t`");
@@ -142,6 +234,7 @@ foreach ($keys as $key) {
                     $mysql->beginTransaction();
                     try {
                         $mysql->exec("INSERT INTO schema_version (version, name) VALUES (1, 'create_all_tables')");
+                        $mysql->exec("INSERT INTO schema_version (version, name) VALUES (2, 'add_user_avatar')");
 
                         $stmtUpd = $mysql->prepare("UPDATE users SET username = ?, password_hash = ? WHERE id = 1");
 

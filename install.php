@@ -2,6 +2,10 @@
 
 require_once 'config.php';
 
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
 if (defined('APP_ENV') && APP_ENV === 'production') {
     header('Location: /');
     exit;
@@ -33,40 +37,144 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } catch (Exception $ex) {
             $message = 'error: ' . $ex->getMessage();
         }
+    } elseif ($_POST['action'] === 'test_mysql') {
+        try {
+            $tHost = $_POST['db_host'] ?? '127.0.0.1';
+            $tPort = $_POST['db_port'] ?? '3306';
+            $tName = $_POST['db_name'] ?? 'cms_db';
+            $tUser = $_POST['db_user'] ?? 'root';
+            $tPass = $_POST['db_pass'] ?? '';
+
+            $dsnNoDb = "mysql:host=$tHost;port=$tPort;charset=utf8mb4";
+            $pdo = new PDO($dsnNoDb, $tUser, $tPass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+            $stmt = $pdo->query("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = " . $pdo->quote($tName));
+            $dbExists = $stmt->fetchColumn();
+
+            $testResult = [
+                'host' => $tHost, 'port' => $tPort, 'name' => $tName,
+                'user' => $tUser, 'pass' => $tPass,
+            ];
+
+            if (!$dbExists) {
+                $testResult['status'] = 'new';
+                $testResult['user_count'] = 0;
+                $testResult['username'] = '';
+                $testResult['site_name'] = 'CMS de Jogos';
+                $_SESSION['mysql_test'] = $testResult;
+                $message = 'info:Conexão OK. Novo banco de dados será criado.';
+            } else {
+                $pdo = null;
+                $dsn = "mysql:host=$tHost;port=$tPort;dbname=$tName;charset=utf8mb4";
+                $pdo2 = new PDO($dsn, $tUser, $tPass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                $tables = $pdo2->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
+
+                $testResult['status'] = 'existing';
+                $testResult['user_count'] = 0;
+                $testResult['username'] = '—';
+                $testResult['site_name'] = 'CMS de Jogos';
+                if (in_array('users', $tables)) {
+                    $testResult['user_count'] = (int)$pdo2->query("SELECT COUNT(*) FROM users")->fetchColumn();
+                    $uname = $pdo2->query("SELECT username FROM users ORDER BY id LIMIT 1")->fetchColumn();
+                    if ($uname) $testResult['username'] = $uname;
+                }
+                if (in_array('site_settings', $tables)) {
+                    $sn = $pdo2->query("SELECT value FROM site_settings WHERE `key` = 'site_name'")->fetchColumn();
+                    if ($sn) $testResult['site_name'] = $sn;
+                }
+                $_SESSION['mysql_test'] = $testResult;
+
+                $msg = 'Conexão OK. Banco ' . $tName . ' existe';
+                if ($testResult['user_count'] > 0) {
+                    $msg .= ' — já possui um CEO cadastrado.';
+                } else {
+                    $msg .= ', sem dados do CMS.';
+                }
+                $message = 'info:' . $msg;
+            }
+        } catch (Exception $ex) {
+            $_SESSION['mysql_test'] = null;
+            $message = 'error:' . $ex->getMessage();
+        }
     } elseif ($_POST['action'] === 'mysql') {
         try {
-            $adminUser = trim($_POST['admin_user'] ?? '');
-            $adminPass = $_POST['admin_pass'] ?? '';
-            if ($adminUser === '' || $adminPass === '') {
-                throw new Exception('Preencha o usuário e senha do administrador.');
-            }
-            $adminHash = password_hash($adminPass, PASSWORD_DEFAULT);
-
             $host = $_POST['db_host'] ?? '127.0.0.1';
             $port = $_POST['db_port'] ?? '3306';
             $name = $_POST['db_name'] ?? 'cms_db';
-            $user = $_POST['db_user'] ?? 'root';
-            $pass = $_POST['db_pass'] ?? '';
+            $dbUser = $_POST['db_user'] ?? 'root';
+            $dbPass = $_POST['db_pass'] ?? '';
+            $siteName = trim($_POST['site_name'] ?? 'CMS de Jogos');
+            if ($siteName === '') $siteName = 'CMS de Jogos';
+
+            $installFresh = isset($_POST['install_fresh']);
+            $existingAdminUser = trim($_POST['existing_admin_user'] ?? '');
+            $existingAdminPass = $_POST['existing_admin_pass'] ?? '';
+
             $dsnNoDb = "mysql:host=$host;port=$port;charset=utf8mb4";
             try {
-                $pdo = new PDO($dsnNoDb, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                $pdo = new PDO($dsnNoDb, $dbUser, $dbPass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
                 $pdo->exec("CREATE DATABASE IF NOT EXISTS `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
                 $pdo = null;
-            } catch (Exception $_) {
-                // User may not have CREATE privilege — db may already exist
-            }
+            } catch (Exception $_) {}
             $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
-            $mysql = new PDO($dsn, $user, $pass, [
+            $mysql = new PDO($dsn, $dbUser, $dbPass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
             ]);
-            dbInit($dsn, $user, $pass, 'mysql');
-            $stmt = $mysql->prepare("UPDATE users SET username = ?, password_hash = ? WHERE id = 1");
-            $stmt->execute([$adminUser, $adminHash]);
+
+            try {
+                $existingUserCount = (int)$mysql->query("SELECT COUNT(*) FROM users")->fetchColumn();
+            } catch (Exception $e) {
+                $existingUserCount = 0;
+            }
+
+            if ($existingUserCount > 0 && $installFresh) {
+                $stmt = $mysql->prepare("SELECT password_hash FROM users WHERE username = ?");
+                $stmt->execute([$existingAdminUser]);
+                $row = $stmt->fetch();
+                if (!$row || !password_verify($existingAdminPass, $row['password_hash'])) {
+                    throw new Exception('Credenciais do admin existente não conferem. Operação cancelada por segurança.');
+                }
+                $mysql = null;
+                $pdo = new PDO($dsnNoDb, $dbUser, $dbPass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                $pdo->exec("DROP DATABASE IF EXISTS `$name`");
+                $pdo->exec("CREATE DATABASE `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                $pdo = null;
+                $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
+                $mysql = new PDO($dsn, $dbUser, $dbPass, [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                ]);
+                $adminUser = trim($_POST['admin_user'] ?? '');
+                $adminPass = $_POST['admin_pass'] ?? '';
+                if ($adminUser === '' || $adminPass === '') {
+                    throw new Exception('Preencha o novo usuário e senha do administrador.');
+                }
+                dbInit($dsn, $dbUser, $dbPass, 'mysql');
+                $stmt = $mysql->prepare("UPDATE users SET username = ?, password_hash = ? WHERE id = 1");
+                $stmt->execute([$adminUser, password_hash($adminPass, PASSWORD_DEFAULT)]);
+                $mysql->exec("REPLACE INTO site_settings (`key`, `value`) VALUES ('site_name', " . $mysql->quote($siteName) . ")");
+            } elseif ($existingUserCount > 0) {
+                $migratePdo = new PDO($dsn, $dbUser, $dbPass, [
+                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                ]);
+                dbMigrate($migratePdo, 'mysql');
+            } else {
+                $adminUser = trim($_POST['admin_user'] ?? '');
+                $adminPass = $_POST['admin_pass'] ?? '';
+                if ($adminUser === '' || $adminPass === '') {
+                    throw new Exception('Preencha o usuário e senha do administrador.');
+                }
+                dbInit($dsn, $dbUser, $dbPass, 'mysql');
+                $stmt = $mysql->prepare("UPDATE users SET username = ?, password_hash = ? WHERE id = 1");
+                $stmt->execute([$adminUser, password_hash($adminPass, PASSWORD_DEFAULT)]);
+                $mysql->exec("REPLACE INTO site_settings (`key`, `value`) VALUES ('site_name', " . $mysql->quote($siteName) . ")");
+            }
             $message = 'success';
-            writeLocalConfig('mysql', $host, $port, $name, $user, $pass);
+            $_SESSION['mysql_test'] = null;
+            writeLocalConfig('mysql', $host, $port, $name, $dbUser, $dbPass);
         } catch (Exception $ex) {
-            $message = 'error: ' . $ex->getMessage();
+            $message = 'error:' . $ex->getMessage();
         }
     }
 }
@@ -131,14 +239,14 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
             <a href="admin/login.php" class="btn btn-gold">Acessar Painel Admin</a>
             <a href="/" class="btn btn-outline">Ver Site</a>
 
-        <?php elseif (strpos($message, 'error') === 0): ?>
-            <div class="status error"><?= e(substr($message, 7)) ?></div>
-            <form method="POST">
-                <input type="hidden" name="action" value="init">
-                <button type="submit" class="btn btn-gold">Tentar Novamente</button>
-            </form>
+        <?php else:
+            if (strpos($message, 'error:') === 0): ?>
+                <div class="status error"><?= e(substr($message, 6)) ?></div>
+            <?php elseif (strpos($message, 'info:') === 0): ?>
+                <div class="status info"><?= e(substr($message, 5)) ?></div>
+            <?php endif; ?>
 
-        <?php elseif ($step === 1): ?>
+        <?php if ($step === 1): ?>
             <div class="steps">
                 <div class="step active">1</div>
                 <div class="step">2</div>
@@ -156,62 +264,132 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
                 Para produção com múltiplos acessos simultâneos
             </p>
 
-        <?php elseif ($step === 2): ?>
+        <?php elseif ($step === 2):
+            $result = $_SESSION['mysql_test'] ?? null;
+            $s = $result ? $result['status'] : null;
+        ?>
             <div class="steps">
                 <div class="step done">1</div>
                 <div class="step active">2</div>
             </div>
             <p>Configure a conexão com o banco MySQL / MariaDB.</p>
             <form method="POST" action="?step=2">
-                <input type="hidden" name="action" value="mysql">
 
                 <h3 style="color: oklch(68% 0.16 220); font-size: 14px; margin-bottom: 12px;">Conexão MySQL</h3>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="db_host">Host</label>
-                        <input type="text" id="db_host" name="db_host" value="127.0.0.1" required>
+                        <input type="text" id="db_host" name="db_host" value="<?= e($result['host'] ?? '127.0.0.1') ?>" required>
                     </div>
                     <div class="form-group">
                         <label for="db_port">Porta</label>
-                        <input type="text" id="db_port" name="db_port" value="3306" required>
+                        <input type="text" id="db_port" name="db_port" value="<?= e($result['port'] ?? '3306') ?>" required>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="db_name">Database</label>
-                    <input type="text" id="db_name" name="db_name" value="cms_db" required>
+                    <input type="text" id="db_name" name="db_name" value="<?= e($result['name'] ?? 'cms_db') ?>" required>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="db_user">Usuário</label>
-                        <input type="text" id="db_user" name="db_user" value="root" required>
+                        <input type="text" id="db_user" name="db_user" value="<?= e($result['user'] ?? 'root') ?>" required>
                     </div>
                     <div class="form-group">
                         <label for="db_pass">Senha</label>
-                        <input type="password" id="db_pass" name="db_pass" value="">
+                        <input type="password" id="db_pass" name="db_pass" value="<?= e($result['pass'] ?? '') ?>">
                     </div>
                 </div>
+
+                <button type="submit" name="action" value="test_mysql" class="btn btn-outline" style="margin-bottom:20px;">Testar Conexão</button>
 
                 <hr style="border: none; border-top: 1px solid oklch(25% 0.02 260); margin: 20px 0;">
 
-                <h3 style="color: oklch(75% 0.15 85); font-size: 14px; margin-bottom: 12px;">Administrador</h3>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label for="admin_user">Usuário Admin</label>
-                        <input type="text" id="admin_user" name="admin_user" value="admin" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="admin_pass">Senha Admin</label>
-                        <input type="password" id="admin_pass" name="admin_pass" required>
-                    </div>
+                <?php if ($s === 'existing'): ?>
+                    <h3 style="color: oklch(75% 0.15 85); font-size: 14px; margin-bottom: 4px;">Site</h3>
+                    <p style="font-size:13px;color:oklch(60% 0.012 250);margin-bottom:16px;">
+                        Nome atual: <strong><?= e($result['site_name'] ?? '—') ?></strong> — será preservado na migração.
+                    </p>
+                <?php else: ?>
+                <h3 style="color: oklch(75% 0.15 85); font-size: 14px; margin-bottom: 12px;">Site</h3>
+                <div class="form-group">
+                    <label for="site_name">Nome do Site</label>
+                    <input type="text" id="site_name" name="site_name" value="<?= e($result['site_name'] ?? 'CMS de Jogos') ?>">
                 </div>
+                <?php endif; ?>
 
-                <button type="submit" class="btn btn-gold">Instalar com MySQL</button>
+                <?php if ($s === 'new'): ?>
+                    <hr style="border: none; border-top: 1px solid oklch(25% 0.02 260); margin: 20px 0;">
+                    <h3 style="color: oklch(75% 0.15 85); font-size: 14px; margin-bottom: 12px;">Administrador</h3>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="admin_user">Usuário Admin</label>
+                            <input type="text" id="admin_user" name="admin_user" value="admin" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="admin_pass">Senha Admin</label>
+                            <input type="password" id="admin_pass" name="admin_pass" required>
+                        </div>
+                    </div>
+                    <button type="submit" name="action" value="mysql" class="btn btn-gold">Instalar</button>
+
+                <?php elseif ($s === 'existing'): ?>
+                    <p style="color:oklch(50% 0.02 250);font-size:13px;text-align:center;margin:16px 0;">
+                        Banco existente com <strong><?= $result['user_count'] ?></strong> usuário(s) — já possui um CEO cadastrado.
+                    </p>
+
+                    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:8px 12px;border:1px solid oklch(55% 0.20 25 / 0.3);border-radius:6px;">
+                        <input type="checkbox" name="install_fresh" value="1" id="installFresh" onchange="
+                            var f=document.getElementById('fresh-fields');
+                            var b=document.getElementById('installBtn');
+                            f.style.display=this.checked?'block':'none';
+                            b.textContent=this.checked?'Instalar do Zero':'Migrar mantendo dados';
+                        ">
+                        <span style="font-size:13px;color:oklch(55% 0.20 25);">Instalar do zero (apagar todos os dados)</span>
+                    </label>
+
+                    <div id="fresh-fields" style="display:none;margin-top:16px;">
+                        <p style="font-size:12px;color:oklch(60% 0.012 250);margin-bottom:12px;">Confirme o admin atual para autorizar a reinstalação:</p>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="existing_admin_user">Admin Atual</label>
+                                <input type="text" id="existing_admin_user" name="existing_admin_user" placeholder="usuário do admin atual">
+                            </div>
+                            <div class="form-group">
+                                <label for="existing_admin_pass">Senha Atual</label>
+                                <input type="password" id="existing_admin_pass" name="existing_admin_pass">
+                            </div>
+                        </div>
+                        <hr style="border:none;border-top:1px solid oklch(25% 0.02 260);margin:16px 0;">
+                        <h3 style="color:oklch(75% 0.15 85);font-size:14px;margin-bottom:12px;">Novo Administrador</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="admin_user">Novo Usuário</label>
+                                <input type="text" id="admin_user" name="admin_user" value="admin">
+                            </div>
+                            <div class="form-group">
+                                <label for="admin_pass">Nova Senha</label>
+                                <input type="password" id="admin_pass" name="admin_pass">
+                            </div>
+                        </div>
+                    </div>
+
+                    <button type="submit" name="action" value="mysql" id="installBtn" class="btn btn-gold" style="margin-top:16px;">Migrar mantendo dados</button>
+
+                <?php else: ?>
+                    <p style="font-size:13px;color:oklch(50% 0.02 250);text-align:center;margin:24px 0;">
+                        Clique em <strong>Testar Conexão</strong> para verificar o banco de dados.
+                    </p>
+                    <button type="submit" name="action" value="mysql" class="btn btn-gold" disabled style="opacity:0.5;">Instalar com MySQL</button>
+                <?php endif; ?>
+
                 <a href="?step=1" class="btn btn-outline">Voltar</a>
             </form>
 
         <?php else: ?>
             <p>Instalação do CMS. Escolha o tipo de banco para começar.</p>
             <a href="?step=1" class="btn btn-gold">Iniciar Instalação</a>
+        <?php endif; ?>
         <?php endif; ?>
     </div>
 </body>

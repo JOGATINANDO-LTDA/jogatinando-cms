@@ -2,14 +2,16 @@
 require_once dirname(__DIR__) . '/config.php';
 requireLogin();
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
+$siteName = getSetting('site_name', 'CMS de Jogos');
 $initial = strtoupper(substr($_SESSION['admin_username'] ?? 'A', 0, 1));
+$avatarUrl = $_SESSION['admin_avatar_url'] ?? '';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title><?= e($pageTitle ?? 'Dashboard') ?> — CMS de Jogos</title>
+    <title><?= e($pageTitle ?? 'Dashboard') ?> — <?= e($siteName) ?></title>
     <link rel="icon" href="<?= SITE_URL ?>/assets/svg/logo.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -24,10 +26,10 @@ $initial = strtoupper(substr($_SESSION['admin_username'] ?? 'A', 0, 1));
         <aside class="admin-sidebar" id="adminSidebar">
             <div class="sidebar-logo">
                 <div class="logo-shield">
-                    <img src="<?= SITE_URL ?>/assets/svg/logo.svg" alt="CMS de Jogos">
+                    <img src="<?= SITE_URL ?>/assets/svg/logo.svg" alt="<?= e($siteName) ?>">
                 </div>
                 <div>
-                    <span class="logo-text">CMS de Jogos</span>
+                    <span class="logo-text"><?= e($siteName) ?></span>
                     <span class="logo-sub">Painel Admin</span>
                 </div>
             </div>
@@ -99,7 +101,13 @@ $initial = strtoupper(substr($_SESSION['admin_username'] ?? 'A', 0, 1));
                     <h1 class="admin-title"><?= e($pageTitle ?? 'Dashboard') ?></h1>
                 </div>
                 <div class="admin-user">
-                    <div class="user-avatar"><?= $initial ?></div>
+                    <div class="user-avatar">
+                        <?php if ($avatarUrl): ?>
+                            <img src="<?= e($avatarUrl) ?>" alt="<?= e($_SESSION['admin_username']) ?>">
+                        <?php else: ?>
+                            <?= $initial ?>
+                        <?php endif; ?>
+                    </div>
                     <span class="user-name"><?= e($_SESSION['admin_username']) ?></span>
                 </div>
             </header>
