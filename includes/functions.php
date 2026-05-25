@@ -153,7 +153,7 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
     return [
         'success' => true,
         'filename' => $filename,
-        'url' => UPLOAD_URL . '/' . $directory . '/' . $filename,
+        'url' => '/uploads/' . $directory . '/' . $filename,
         'path' => $destination
     ];
 }

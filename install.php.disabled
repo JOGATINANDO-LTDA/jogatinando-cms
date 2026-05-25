@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             dbInit(null, null, null, 'sqlite');
             writeLocalConfig('sqlite');
             $message = 'success';
+            disableInstallFile();
         } catch (Exception $ex) {
             $message = 'error: ' . $ex->getMessage();
         }
@@ -173,9 +174,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $message = 'success';
             $_SESSION['mysql_test'] = null;
             writeLocalConfig('mysql', $host, $port, $name, $dbUser, $dbPass);
+            disableInstallFile();
         } catch (Exception $ex) {
             $message = 'error:' . $ex->getMessage();
         }
+    }
+}
+
+function disableInstallFile() {
+    $file = __FILE__;
+    if (!@chmod($file, 0000)) {
+        @rename($file, $file . '.disabled');
     }
 }
 
