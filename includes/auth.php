@@ -28,19 +28,46 @@ function login($username, $password) {
     return false;
 }
 
+function redirectOrError($msg, $detail) {
+    if (file_exists(ROOT_PATH . '/install.php')) {
+        header('Location: /install.php');
+        exit;
+    }
+    http_response_code(500);
+    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>CMS — Erro</title>';
+    echo '<style>body{font-family:sans-serif;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px}';
+    echo '.card{background:#1a1a2e;border:1px solid #c9a84c;border-radius:12px;padding:40px;max-width:520px;text-align:center}';
+    echo 'h1{font-family:Georgia,serif;color:#c9a84c;margin-bottom:12px}';
+    echo 'p{color:#999;line-height:1.6;margin-bottom:16px}</style>';
+    echo '</head><body><div class="card"><h1>CMS de Jogos</h1>';
+    echo '<p>' . e($msg) . '</p>';
+    echo '<p style="font-size:13px">' . e($detail) . '</p>';
+    echo '</div></body></html>';
+    exit;
+}
+
 function requireInstalled() {
     if (basename($_SERVER['PHP_SELF']) === 'install.php') return;
     try {
         $db = getDB();
-        if (!$db) { header('Location: /install.php'); exit; }
+        if (!$db) {
+            redirectOrError(
+                'O sistema n\u00e3o est\u00e1 instalado.',
+                'Para instalar, fa\u00e7a upload do arquivo install.php ou restaure o backup.'
+            );
+        }
         $count = $db->query("SELECT COUNT(*) FROM users")->fetchColumn();
         if ($count == 0) {
-            header('Location: /install.php');
-            exit;
+            redirectOrError(
+                'O banco de dados est\u00e1 vazio.',
+                'O instalador n\u00e3o est\u00e1 dispon\u00edvel. Restaure o backup ou fa\u00e7a upload do install.php.'
+            );
         }
     } catch (Exception $e) {
-        header('Location: /install.php');
-        exit;
+        redirectOrError(
+            'Erro ao conectar ao banco de dados.',
+            'Verifique as configura\u00e7\u00f5es ou restaure o backup.'
+        );
     }
 }
 

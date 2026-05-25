@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             dbInit(null, null, null, 'sqlite');
             writeLocalConfig('sqlite');
             $message = 'success';
+            disableInstallFile();
         } catch (Exception $ex) {
             $message = 'error: ' . $ex->getMessage();
         }
@@ -173,6 +174,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $message = 'success';
             $_SESSION['mysql_test'] = null;
             writeLocalConfig('mysql', $host, $port, $name, $dbUser, $dbPass);
+            disableInstallFile();
         } catch (Exception $ex) {
             $message = 'error:' . $ex->getMessage();
         }
@@ -194,6 +196,22 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
     $content .= "}\n";
     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
     file_put_contents(DATA_PATH . '/config.local.php', $content);
+}
+
+function shouldRemoveInstall() {
+    if (file_exists('/.dockerenv')) return false;
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if ($host === 'localhost' || $host === '127.0.0.1' || str_starts_with($host, 'localhost:') || str_starts_with($host, '127.0.0.1:')) return false;
+    return true;
+}
+
+function disableInstallFile() {
+    if (!shouldRemoveInstall()) return;
+    $path = ROOT_PATH . '/install.php';
+    if (!file_exists($path)) return;
+    $disabled = $path . '.disabled';
+    if (@rename($path, $disabled)) return;
+    @chmod($path, 0000);
 }
 ?>
 <!DOCTYPE html>
