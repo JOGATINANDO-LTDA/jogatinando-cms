@@ -69,23 +69,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $pdo2 = new PDO($dsn, $tUser, $tPass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
                 $tables = $pdo2->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
 
-                $testResult['status'] = 'existing';
-                $testResult['user_count'] = 0;
-                $testResult['username'] = '—';
-                $testResult['site_name'] = 'CMS de Jogos';
+                $userCount = 0;
+                $username = '—';
+                $siteName = 'CMS de Jogos';
                 if (in_array('users', $tables)) {
-                    $testResult['user_count'] = (int)$pdo2->query("SELECT COUNT(*) FROM users")->fetchColumn();
+                    $userCount = (int)$pdo2->query("SELECT COUNT(*) FROM users")->fetchColumn();
                     $uname = $pdo2->query("SELECT username FROM users ORDER BY id LIMIT 1")->fetchColumn();
-                    if ($uname) $testResult['username'] = $uname;
+                    if ($uname) $username = $uname;
                 }
                 if (in_array('site_settings', $tables)) {
                     $sn = $pdo2->query("SELECT value FROM site_settings WHERE `key` = 'site_name'")->fetchColumn();
-                    if ($sn) $testResult['site_name'] = $sn;
+                    if ($sn) $siteName = $sn;
                 }
+
+                $testResult['status'] = $userCount > 0 ? 'existing' : 'new';
+                $testResult['user_count'] = $userCount;
+                $testResult['username'] = $username;
+                $testResult['site_name'] = $siteName;
                 $_SESSION['mysql_test'] = $testResult;
 
                 $msg = 'Conexão OK. Banco ' . $tName . ' existe';
-                if ($testResult['user_count'] > 0) {
+                if ($userCount > 0) {
                     $msg .= ' — já possui um CEO cadastrado.';
                 } else {
                     $msg .= ', sem dados do CMS.';
