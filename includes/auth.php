@@ -15,12 +15,14 @@ function requireLogin() {
 }
 
 function login($username, $password) {
-    $stmt = getDB()->prepare("SELECT password_hash FROM users WHERE username = ?");
+    $stmt = getDB()->prepare("SELECT id, password_hash, avatar_url FROM users WHERE username = ?");
     $stmt->execute([$username]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
     if ($user && password_verify($password, $user['password_hash'])) {
         $_SESSION['admin_logged_in'] = true;
         $_SESSION['admin_username'] = $username;
+        $_SESSION['admin_user_id'] = (int)$user['id'];
+        $_SESSION['admin_avatar_url'] = $user['avatar_url'] ?? '';
         return true;
     }
     return false;

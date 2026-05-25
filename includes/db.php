@@ -58,8 +58,9 @@ function getDB() {
     return $db;
 }
 
-function getDbTables($db) {
-    if (getDbType() === 'mysql') {
+function getDbTables($db, $type = null) {
+    $type = $type ?? getDbType();
+    if ($type === 'mysql') {
         $stmt = $db->query("SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE()");
         return $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
@@ -86,8 +87,8 @@ function dbInsertReplace($db, $table, $columns, $values) {
     return $stmt->execute($values);
 }
 
-function dbMigrate($db) {
-    $type = getDbType();
+function dbMigrate($db, $type = null) {
+    $type = $type ?? getDbType();
     $pkType = $type === 'mysql' ? 'INT' : 'INTEGER';
 
     $db->exec("CREATE TABLE IF NOT EXISTS schema_version (
@@ -104,7 +105,7 @@ function dbMigrate($db) {
 
     // Detect existing DB without schema_version entries
     if ($currentVersion === 0) {
-        $tables = getDbTables($db);
+        $tables = getDbTables($db, $type);
         $coreTables = ['games', 'banners', 'users', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings'];
         $hasExistingData = count(array_intersect($tables, $coreTables)) > 0;
 
@@ -135,6 +136,7 @@ function dbMigrate($db) {
 function getMigrationList() {
     return [
         1 => 'create_all_tables',
+        2 => 'add_user_avatar',
     ];
 }
 
