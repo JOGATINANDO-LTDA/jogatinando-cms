@@ -35,7 +35,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $stmt->execute([$userId]);
     $current = $stmt->fetchColumn();
     if ($current) {
-        deleteFile(str_replace(SITE_URL . '/', ROOT_PATH . '/', $current));
+        $path = str_starts_with($current, '/') ? ROOT_PATH . $current : str_replace(SITE_URL . '/', ROOT_PATH . '/', $current);
+        deleteFile($path);
     }
     $stmt = $db->prepare("UPDATE users SET avatar_url = '' WHERE id = ?");
     $stmt->execute([$userId]);

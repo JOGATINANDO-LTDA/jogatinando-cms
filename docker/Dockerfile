@@ -30,6 +30,10 @@ RUN mkdir -p /var/www/html/data /var/www/html/uploads && \
     chown -R www-data:www-data /var/www/html/data /var/www/html/uploads && \
     chmod -R 755 /var/www/html/data /var/www/html/uploads
 
+# Make install.php owned by www-data so PHP can disable it after install
+RUN chown www-data:www-data /var/www/html/install.php && \
+    chmod 644 /var/www/html/install.php
+
 # PHP upload limits for game archives (100MB)
 RUN echo "post_max_size = 110M" >> /usr/local/etc/php/conf.d/uploads.ini && \
     echo "upload_max_filesize = 100M" >> /usr/local/etc/php/conf.d/uploads.ini && \
