@@ -11,7 +11,7 @@ if (!defined('DATA_PATH')) define('DATA_PATH', ROOT_PATH . '/data');
 if (!defined('UPLOAD_PATH')) define('UPLOAD_PATH', ROOT_PATH . '/uploads');
 if (!defined('DB_PATH')) define('DB_PATH', DATA_PATH . '/jogatinando.db');
 
-define('CMS_VERSION', '1.0.0');
+define('CMS_VERSION', '1.1.0');
 define('LOCAL_CONFIG', DATA_PATH . '/config.local.php');
 
 // Load local config from data/ first

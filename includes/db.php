@@ -137,6 +137,7 @@ function getMigrationList() {
     return [
         1 => 'create_all_tables',
         2 => 'add_user_avatar',
+        3 => 'add_user_role',
     ];
 }
 

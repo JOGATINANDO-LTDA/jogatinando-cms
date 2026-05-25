@@ -227,12 +227,24 @@ function migration_002($db, $type) {
     }
 }
 
+function migration_003($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users ADD COLUMN role VARCHAR(50) NOT NULL DEFAULT 'moderator' AFTER avatar_url");
+        } else {
+            $db->exec("ALTER TABLE users ADD COLUMN role TEXT NOT NULL DEFAULT 'moderator'");
+        }
+    } catch (Exception $e) {
+        // Column may already exist
+    }
+}
+
 function dbSeed($db, $type) {
     // Seed default admin user
     $stmt = $db->query("SELECT COUNT(*) as cnt FROM users");
     $row = $stmt->fetch();
     if ($row['cnt'] == 0) {
-        $stmt = $db->prepare("INSERT INTO users (username, password_hash) VALUES (?, ?)");
+        $stmt = $db->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'ceo')");
         $stmt->execute([ADMIN_USERNAME, ADMIN_PASSWORD_HASH]);
     }
 
