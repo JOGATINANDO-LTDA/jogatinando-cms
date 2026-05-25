@@ -13,9 +13,6 @@ RewriteEngine On
     FcgidMaxRequestLen 115343360
 </IfModule>
 
-# Game player: /{engine}/{slug} → game.php?engine=$1&slug=$2
-RewriteRule ^([a-zA-Z0-9-]+)/([a-zA-Z0-9-]+)$ game.php?engine=$1&slug=$2 [L,QSA]
-
 # Front controller
 RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
@@ -23,8 +20,3 @@ RewriteRule ^(.*)$ index.php [L,QSA]
 
 # Game player: /{engine}/{slug} → game.php?engine=$1&slug=$2
 RewriteRule ^([a-zA-Z0-9-]+)/([a-zA-Z0-9-]+)$ game.php?engine=$1&slug=$2 [L,QSA]
-
-# Front controller
-RewriteCond %{REQUEST_FILENAME} !-f
-RewriteCond %{REQUEST_FILENAME} !-d
-RewriteRule ^(.*)$ index.php [L,QSA]
