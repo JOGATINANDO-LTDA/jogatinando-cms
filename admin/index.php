@@ -126,6 +126,24 @@ $recentGames = dbQuery("SELECT * FROM games ORDER BY created_at DESC LIMIT 5");
     </div>
 </div>
 
+<?php
+$pendingUsers = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending'")->fetchColumn();
+$userLevel = $_SESSION['admin_role_level'] ?? 'moderator';
+$canManageUsers = getRoleLevelRank($userLevel) >= 1;
+?>
+<?php if ($pendingUsers > 0 && $canManageUsers): ?>
+<div style="margin-bottom: 24px; padding: 16px 20px; background: oklch(68% 0.16 220 / 0.1); border: 1px solid oklch(68% 0.16 220 / 0.3); border-radius: 8px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div style="display:flex;align-items:center;gap:12px;">
+        <span style="font-size:24px;">⏳</span>
+        <div>
+            <strong style="color:var(--fg);font-size:15px;"><?= $pendingUsers ?> usuário(s) pendente(s)</strong>
+            <p style="color:var(--fg-muted);font-size:13px;">Aguardando ativação via email.</p>
+        </div>
+    </div>
+    <a href="users" class="btn btn-outline btn-sm" style="padding:8px 20px;">Gerenciar</a>
+</div>
+<?php endif; ?>
+
 <?php if (!empty($recentGames)): ?>
 <div class="card">
     <div class="card-header">

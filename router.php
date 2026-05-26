@@ -6,6 +6,13 @@ $uri = $uri ?: '/';
 
 // ---- Public routes (before install check) ----
 
+if ($uri === '/admin/setup-password') {
+    require __DIR__ . '/admin/setup-password.php';
+    exit;
+}
+
+
+
 if ($uri === '/install') {
     $_SERVER['PHP_SELF'] = '/install.php';
     require __DIR__ . '/install.php';

@@ -138,6 +138,8 @@ function getMigrationList() {
         1 => 'create_all_tables',
         2 => 'add_user_avatar',
         3 => 'add_user_role',
+        4 => 'create_roles_table',
+        5 => 'add_user_setup_fields',
     ];
 }
 

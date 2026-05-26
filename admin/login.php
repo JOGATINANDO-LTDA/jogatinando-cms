@@ -8,14 +8,25 @@ if (isLoggedIn()) {
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'] ?? '';
+    $username = trim($_POST['username'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if (login($username, $password)) {
-        header('Location: ' . ADMIN_URL . '/dashboard');
-        exit;
+    $db = getDB();
+    if ($db) {
+        $stmt = $db->prepare("SELECT status FROM users WHERE username = ?");
+        $stmt->execute([$username]);
+        $userStatus = $stmt->fetchColumn();
+
+        if ($userStatus === 'pending') {
+            $error = 'Conta pendente de ativação. Acesse o link enviado por email para definir sua senha.';
+        } elseif (login($username, $password)) {
+            header('Location: ' . ADMIN_URL . '/dashboard');
+            exit;
+        } else {
+            $error = 'Usuário ou senha incorretos.';
+        }
     } else {
-        $error = 'Usuário ou senha incorretos.';
+        $error = 'Erro de conexão com o banco de dados.';
     }
 }
 ?>

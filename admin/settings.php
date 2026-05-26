@@ -50,6 +50,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+// Password change
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'change_password') {
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+
+    $currentPass = $_POST['current_password'] ?? '';
+    $newPass = $_POST['new_password'] ?? '';
+    $confirmPass = $_POST['confirm_password'] ?? '';
+
+    $stmt = $db->prepare("SELECT password_hash FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $currentHash = $stmt->fetchColumn();
+
+    if (!password_verify($currentPass, $currentHash)) {
+        flashMessage('error', 'Senha atual incorreta.');
+    } elseif (strlen($newPass) < 6) {
+        flashMessage('error', 'A nova senha deve ter no mínimo 6 caracteres.');
+    } elseif ($newPass !== $confirmPass) {
+        flashMessage('error', 'As senhas não conferem.');
+    } else {
+        $newHash = password_hash($newPass, PASSWORD_DEFAULT);
+        $stmt = $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?");
+        $stmt->execute([$newHash, $userId]);
+        flashMessage('success', 'Senha alterada com sucesso!');
+    }
+    ob_end_clean();
+    header('Location: settings');
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
 
@@ -84,7 +113,7 @@ foreach ($keys as $key) {
 // Current user data for profile card
 $userData = null;
 $db = getDB();
-$stmt = $db->prepare("SELECT username, avatar_url FROM users WHERE id = ?");
+$stmt = $db->prepare("SELECT u.username, u.avatar_url, r.name as role_name, r.level as role_level FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = ?");
 $stmt->execute([$userId]);
 $userData = $stmt->fetch(PDO::FETCH_ASSOC);
 $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
@@ -107,7 +136,11 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
                 </div>
             </div>
             <div style="flex:1;min-width:200px;">
-                <p style="margin-bottom:4px;"><strong style="color:var(--fg)"><?= e($userData['username'] ?? '') ?></strong></p>
+                <p style="margin-bottom:4px;"><strong style="color:var(--fg)"><?= e($userData['username'] ?? '') ?></strong>
+                    <?php if (isset($userData['role_name'])): ?>
+                    <span class="<?= $userData['role_level'] === 'ceo' ? 'badge badge-featured' : ($userData['role_level'] === 'chief' ? 'badge badge-active' : 'badge badge-inactive') ?>" style="margin-left:8px;font-size:11px;"><?= e($userData['role_name']) ?></span>
+                    <?php endif; ?>
+                </p>
                 <p style="font-size:13px;color:var(--fg-muted);margin-bottom:12px;">Seu perfil de acesso ao painel administrativo.</p>
                 <form method="POST" enctype="multipart/form-data" style="display:inline-block;">
                     <input type="hidden" name="action" value="save_avatar">
@@ -126,6 +159,27 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
                 </form>
                 <?php endif; ?>
             </div>
+        </div>
+
+        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
+            <button class="btn btn-outline btn-sm" onclick="document.getElementById('passwordForm').classList.toggle('hidden'); this.classList.toggle('hidden')">Alterar Senha</button>
+            <form id="passwordForm" method="POST" class="hidden" style="margin-top: 16px; max-width: 400px;">
+                <input type="hidden" name="action" value="change_password">
+                <?= csrfField() ?>
+                <div class="form-group">
+                    <label for="current_password">Senha Atual *</label>
+                    <input type="password" id="current_password" name="current_password" required placeholder="Sua senha atual">
+                </div>
+                <div class="form-group">
+                    <label for="new_password">Nova Senha *</label>
+                    <input type="password" id="new_password" name="new_password" required minlength="6" placeholder="Mínimo 6 caracteres">
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password">Confirmar Nova Senha *</label>
+                    <input type="password" id="confirm_password" name="confirm_password" required minlength="6" placeholder="Repita a nova senha">
+                </div>
+                <button type="submit" class="btn btn-gold btn-sm">Salvar Nova Senha</button>
+            </form>
         </div>
     </div>
 </div>
@@ -200,22 +254,15 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
                     $user = $_POST['db_user'] ?? 'root';
                     $pass = $_POST['db_pass'] ?? '';
 
-                    $dsnNoDb = "mysql:host=$host;port=$port;charset=utf8mb4";
-                    try {
-                        $pdo = new PDO($dsnNoDb, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-                        $pdo->exec("CREATE DATABASE IF NOT EXISTS `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
-                        $pdo = null;
-                    } catch (Exception $_) {
-                        // User may not have CREATE privilege — db may already exist
+                    // === FASE 1: Ler SQLite antes de tocar no MySQL ===
+                    $sqlite = getDB();
+                    $migrateTables = ['users', 'banners', 'games', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings'];
+                    $tableData = [];
+                    foreach ($migrateTables as $table) {
+                        $rows = $sqlite->query("SELECT * FROM `$table`")->fetchAll(PDO::FETCH_ASSOC);
+                        $tableData[$table] = $rows;
                     }
-                    $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
-                    $mysql = new PDO($dsn, $user, $pass, [
-                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-                        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4",
-                    ]);
 
-                    // Validar credenciais do admin antes de começar
                     $adminUser = trim($_POST['admin_user'] ?? '');
                     $adminPass = $_POST['admin_pass'] ?? '';
                     if ($adminUser === '' || $adminPass === '') {
@@ -223,42 +270,65 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
                     }
                     $adminHash = password_hash($adminPass, PASSWORD_DEFAULT);
 
-                    require_once ROOT_PATH . '/includes/migrations.php';
+                    // === FASE 2: Conectar MySQL sem criar DB ainda ===
+                    $dsnNoDb = "mysql:host=$host;port=$port;charset=utf8mb4";
+                    $pdo = new PDO($dsnNoDb, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                    $stmt = $pdo->query("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = " . $pdo->quote($name));
+                    $dbExistedAntes = (bool)$stmt->fetchColumn();
 
-                    // Cria schema via dbMigrate (roda TODAS as migrations pendentes)
-                    dbMigrate($mysql, 'mysql');
-
-                    $mysql->exec("SET FOREIGN_KEY_CHECKS = 0");
-                    foreach (['users', 'banners', 'games', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings'] as $t) {
-                        $mysql->exec("TRUNCATE TABLE `$t`");
+                    if (!$dbExistedAntes) {
+                        $pdo->exec("CREATE DATABASE `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
                     }
-                    $mysql->exec("SET FOREIGN_KEY_CHECKS = 1");
+                    $pdo = null;
 
-                    // Transação — cópia dos dados + admin
-                    $mysql->beginTransaction();
+                    $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
+                    $mysql = new PDO($dsn, $user, $pass, [
+                        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+                        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+                        PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES utf8mb4",
+                    ]);
+
+                    // === FASE 3: Migração + cópia ===
                     try {
+                        require_once ROOT_PATH . '/includes/migrations.php';
+                        dbMigrate($mysql, 'mysql');
 
-                        $stmtUpd = $mysql->prepare("UPDATE users SET username = ?, password_hash = ? WHERE id = 1");
+                        $ceoRoleId = $mysql->query("SELECT id FROM roles WHERE name = 'CEO Administrador'")->fetchColumn();
 
-                        $sqlite = getDB();
-                        foreach (['users', 'banners', 'games', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings'] as $table) {
-                            $rows = $sqlite->query("SELECT * FROM `$table`")->fetchAll(PDO::FETCH_ASSOC);
-                            if (empty($rows)) continue;
-                            $columns = array_keys($rows[0]);
-                            $placeholders = implode(', ', array_fill(0, count($columns), '?'));
-                            $cols = implode(', ', array_map(fn($c) => "`$c`", $columns));
-                            $stmt = $mysql->prepare("INSERT INTO `$table` ($cols) VALUES ($placeholders)");
-                            foreach ($rows as $row) {
-                                $stmt->execute(array_values($row));
+                        $mysql->beginTransaction();
+                        try {
+                            $mysql->exec("SET FOREIGN_KEY_CHECKS = 0");
+                            foreach ($migrateTables as $table) {
+                                $mysql->exec("DELETE FROM `$table`");
                             }
+
+                            foreach ($tableData as $table => $rows) {
+                                if (empty($rows)) continue;
+                                $columns = array_keys($rows[0]);
+                                $placeholders = implode(', ', array_fill(0, count($columns), '?'));
+                                $cols = implode(', ', array_map(fn($c) => "`$c`", $columns));
+                                $stmt = $mysql->prepare("INSERT INTO `$table` ($cols) VALUES ($placeholders)");
+                                foreach ($rows as $row) {
+                                    $stmt->execute(array_values($row));
+                                }
+                            }
+
+                            $stmtUpd = $mysql->prepare("UPDATE users SET username = ?, password_hash = ?, role_id = ? WHERE id = 1");
+                            $stmtUpd->execute([$adminUser, $adminHash, $ceoRoleId]);
+
+                            $mysql->exec("SET FOREIGN_KEY_CHECKS = 1");
+                            $mysql->commit();
+                        } catch (Exception $e) {
+                            $mysql->rollBack();
+                            throw $e;
                         }
-
-                        // Atualizar admin após copiar dados dos usuários
-                        $stmtUpd->execute([$adminUser, $adminHash]);
-
-                        $mysql->commit();
                     } catch (Exception $e) {
-                        $mysql->rollBack();
+                        // Limpeza: se CRIAMOS o DB, dropamos ele
+                        if (!$dbExistedAntes) {
+                            $cleanup = new PDO($dsnNoDb, $user, $pass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                            $cleanup->exec("DROP DATABASE IF EXISTS `$name`");
+                            $cleanup = null;
+                        }
                         throw $e;
                     }
 

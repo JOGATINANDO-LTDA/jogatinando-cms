@@ -239,13 +239,134 @@ function migration_003($db, $type) {
     }
 }
 
+function migration_005($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users ADD COLUMN email VARCHAR(255) DEFAULT '' AFTER username");
+        } else {
+            $cols = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('email', $cols)) {
+                $db->exec("ALTER TABLE users ADD COLUMN email TEXT DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active' AFTER role_id");
+        } else {
+            $cols = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('status', $cols)) {
+                $db->exec("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+            }
+        }
+    } catch (Exception $e) {}
+
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users ADD COLUMN setup_token VARCHAR(64) DEFAULT NULL AFTER status");
+            $db->exec("ALTER TABLE users ADD COLUMN setup_token_expires DATETIME DEFAULT NULL AFTER setup_token");
+        } else {
+            $cols = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('setup_token', $cols)) {
+                $db->exec("ALTER TABLE users ADD COLUMN setup_token TEXT DEFAULT NULL");
+                $db->exec("ALTER TABLE users ADD COLUMN setup_token_expires TEXT DEFAULT NULL");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_004($db, $type) {
+    // Create roles table
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS roles (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(100) NOT NULL UNIQUE,
+            level VARCHAR(20) NOT NULL DEFAULT 'moderator',
+            description TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS roles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            level TEXT NOT NULL DEFAULT 'moderator',
+            description TEXT DEFAULT '',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
+
+    // Seed default roles
+    $count = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();
+    if ($count == 0) {
+        $stmt = $db->prepare("INSERT INTO roles (name, level, description) VALUES (?, ?, ?)");
+        $stmt->execute(['CEO Administrador', 'ceo', 'Administrador master do sistema — controle total sobre todas as operações']);
+        $stmt->execute(['CEO Sócio', 'ceo', 'Sócio com poderes administrativos — pode criar cargos de nível chief e moderator']);
+        $stmt->execute(['CEO Investidor', 'ceo', 'Investidor com poderes administrativos — pode criar cargos de nível chief e moderator']);
+        $stmt->execute(['CTO', 'chief', 'Chief Technology Officer — gerencia conteúdo, jogos e cargos moderator']);
+        $stmt->execute(['CMO', 'chief', 'Chief Marketing Officer — gerencia conteúdo, blog e cargos moderator']);
+        $stmt->execute(['Moderator', 'moderator', 'Gerenciamento operacional da plataforma — conteúdo e suporte']);
+    }
+
+    // Add role_id to users
+    $needsRoleId = true;
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users ADD COLUMN role_id INT DEFAULT NULL AFTER role");
+        } else {
+            // SQLite: check if column exists first
+            $cols = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (in_array('role_id', $cols)) {
+                $needsRoleId = false;
+            } else {
+                $db->exec("ALTER TABLE users ADD COLUMN role_id INTEGER DEFAULT NULL");
+            }
+        }
+    } catch (Exception $e) {
+        $needsRoleId = false;
+    }
+
+    if ($needsRoleId) {
+        try {
+            $ceoId = $db->query("SELECT id FROM roles WHERE name = 'CEO Administrador'")->fetchColumn();
+            $ctoId = $db->query("SELECT id FROM roles WHERE name = 'CTO'")->fetchColumn();
+            $modId = $db->query("SELECT id FROM roles WHERE name = 'Moderator'")->fetchColumn();
+
+            $db->prepare("UPDATE users SET role_id = ? WHERE role = 'ceo' AND (role_id IS NULL OR role_id = 0)")->execute([$ceoId]);
+            $db->prepare("UPDATE users SET role_id = ? WHERE role = 'chief' AND (role_id IS NULL OR role_id = 0)")->execute([$ctoId]);
+            $db->prepare("UPDATE users SET role_id = ? WHERE (role = 'moderator' OR role_id IS NULL OR role_id = 0) AND role != 'ceo' AND role != 'chief'")->execute([$modId]);
+        } catch (Exception $e) {
+            // Migration may run in stages — ignore
+        }
+    }
+}
+
 function dbSeed($db, $type) {
+    // Seed default roles
+    $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();
+    if ($roleCount == 0) {
+        $stmt = $db->prepare("INSERT INTO roles (name, level, description) VALUES (?, ?, ?)");
+        $stmt->execute(['CEO Administrador', 'ceo', 'Administrador master do sistema — controle total sobre todas as operações']);
+        $stmt->execute(['CEO Sócio', 'ceo', 'Sócio com poderes administrativos — pode criar cargos de nível chief e moderator']);
+        $stmt->execute(['CEO Investidor', 'ceo', 'Investidor com poderes administrativos — pode criar cargos de nível chief e moderator']);
+        $stmt->execute(['CTO', 'chief', 'Chief Technology Officer — gerencia conteúdo, jogos e cargos moderator']);
+        $stmt->execute(['CMO', 'chief', 'Chief Marketing Officer — gerencia conteúdo, blog e cargos moderator']);
+        $stmt->execute(['Moderator', 'moderator', 'Gerenciamento operacional da plataforma — conteúdo e suporte']);
+    }
+
     // Seed default admin user
     $stmt = $db->query("SELECT COUNT(*) as cnt FROM users");
     $row = $stmt->fetch();
     if ($row['cnt'] == 0) {
-        $stmt = $db->prepare("INSERT INTO users (username, password_hash, role) VALUES (?, ?, 'ceo')");
-        $stmt->execute([ADMIN_USERNAME, ADMIN_PASSWORD_HASH]);
+        $ceoRoleId = $db->query("SELECT id FROM roles WHERE name = 'CEO Administrador'")->fetchColumn();
+        $stmt = $db->prepare("INSERT INTO users (username, password_hash, role, role_id) VALUES (?, ?, 'ceo', ?)");
+        $stmt->execute([ADMIN_USERNAME, ADMIN_PASSWORD_HASH, $ceoRoleId]);
+    } else {
+        // Ensure admin user has role_id set
+        $ceoRoleId = $db->query("SELECT id FROM roles WHERE name = 'CEO Administrador'")->fetchColumn();
+        if ($ceoRoleId) {
+            $db->prepare("UPDATE users SET role_id = ? WHERE id = 1 AND (role_id IS NULL OR role_id = 0)")->execute([$ceoRoleId]);
+        }
     }
 
     // Seed default settings
