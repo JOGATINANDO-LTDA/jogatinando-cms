@@ -6,8 +6,6 @@ require_once __DIR__ . '/../includes/header.php';
 $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
-$engines = ['GDevelop', 'Godot', 'RPG Maker', 'Unity', 'Unreal Engine', 'Construct', 'Defold', 'Game Maker', 'Ren\'py', 'Pixel Game Maker MV', 'RPG Paper Maker', 'Outra'];
-
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Detect oversized upload (POST empty due to exceeding post_max_size)
@@ -132,9 +130,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($_POST['action'] === 'toggle') {
-        $game = dbQueryOne("SELECT active FROM games WHERE id = ?", [$id]);
+        $game = dbQueryOne("SELECT g.active, COALESCE(e.active, 0) as engine_active FROM games g LEFT JOIN engines e ON g.engine = e.name WHERE g.id = ?", [$id]);
         if ($game) {
-            dbExec("UPDATE games SET active = ? WHERE id = ?", [1 - $game['active'], $id]);
+            if (!$game['engine_active']) {
+                flashMessage('error', 'Engine inativa — ative a engine antes de alterar o status do jogo.');
+            } else {
+                dbExec("UPDATE games SET active = ? WHERE id = ?", [1 - $game['active'], $id]);
+            }
         }
         ob_end_clean();
         header('Location: games');
@@ -208,9 +210,20 @@ if ($action === 'new' || $action === 'edit') {
                     <label for="engine">Engine *</label>
                     <select id="engine" name="engine" required>
                         <option value="">Selecione...</option>
-                        <?php foreach ($engines as $eng): ?>
-                            <option value="<?= e($eng) ?>" <?= ($game['engine'] ?? '') === $eng ? 'selected' : '' ?>><?= e($eng) ?></option>
-                        <?php endforeach; ?>
+                        <?php
+                        $allEngines = getEngines();
+                        $currentEngine = $game['engine'] ?? '';
+                        $hasCurrent = false;
+                        foreach ($allEngines as $eng) {
+                            if ($eng['name'] === $currentEngine) $hasCurrent = true;
+                            if (!$eng['active'] && $eng['name'] !== $currentEngine) continue;
+                            echo '<option value="' . e($eng['name']) . '" ' . ($currentEngine === $eng['name'] ? 'selected' : '') . '>'
+                                . e($eng['icon'] ?? '') . ' ' . e($eng['name']) . '</option>';
+                        }
+                        if ($currentEngine && !$hasCurrent && $currentEngine !== 'Outra') {
+                            echo '<option value="' . e($currentEngine) . '" selected>' . e($currentEngine) . ' (inativa)</option>';
+                        }
+                        ?>
                     </select>
                 </div>
             </div>
@@ -386,7 +399,7 @@ if ($action === 'new' || $action === 'edit') {
     </script>
     <?php
 } else {
-    $games = dbQuery("SELECT * FROM games ORDER BY sort_order ASC, id DESC");
+    $games = dbQuery("SELECT g.*, COALESCE(e.active, 0) as engine_active FROM games g LEFT JOIN engines e ON g.engine = e.name ORDER BY g.sort_order ASC, g.id DESC");
     ?>
     <div class="card">
         <div class="card-header">
@@ -420,10 +433,12 @@ if ($action === 'new' || $action === 'edit') {
                         <?php foreach ($games as $g): ?>
                         <tr>
                             <td><strong style="color:var(--fg)"><?= e($g['title']) ?></strong></td>
-                            <td><?= e($g['engine']) ?></td>
+                            <td><span class="game-engine-badge" style="background:<?= getEngineColor($g['engine']) ?>"><?= getEngineIcon($g['engine']) ?> <?= e($g['engine']) ?></span></td>
                             <td class="hide-tablet"><?= $g['game_path'] ? '📦 ' . e($g['game_path']) : '—' ?></td>
                             <td>
-                                <?php if ($g['active']): ?>
+                                <?php if (!$g['engine_active']): ?>
+                                    <span class="badge badge-inactive">Engine Inativa</span>
+                                <?php elseif ($g['active']): ?>
                                     <span class="badge badge-active">Ativo</span>
                                 <?php else: ?>
                                     <span class="badge badge-inactive">Inativo</span>
@@ -449,7 +464,7 @@ if ($action === 'new' || $action === 'edit') {
                                     <input type="hidden" name="action" value="toggle">
                                     <input type="hidden" name="id" value="<?= $g['id'] ?>">
                                     <?= csrfField() ?>
-                                    <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $g['active'] ? 'Desativar' : 'Ativar' ?>"><?= $g['active'] ? '🔴' : '🟢' ?></button>
+                                    <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $g['engine_active'] ? ($g['active'] ? 'Desativar' : 'Ativar') : 'Engine inativa — use Engines para ativar' ?>" <?= $g['engine_active'] ? '' : 'disabled style="opacity:0.4;cursor:not-allowed"' ?>><?= $g['active'] && $g['engine_active'] ? '🔴' : '🟢' ?></button>
                                 </form>
                                 <a href="games?action=edit&id=<?= $g['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
                                 <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este jogo? O arquivo ZIP também será removido.')">

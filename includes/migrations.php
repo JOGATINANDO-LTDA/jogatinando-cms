@@ -341,6 +341,68 @@ function migration_004($db, $type) {
     }
 }
 
+function migration_006($db, $type) {
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS engines (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL UNIQUE,
+            slug VARCHAR(255) NOT NULL UNIQUE,
+            icon VARCHAR(50) NOT NULL DEFAULT '🎮',
+            color VARCHAR(50) NOT NULL DEFAULT 'oklch(68% 0.16 220)',
+            active INT DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS engines (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL UNIQUE,
+            slug TEXT NOT NULL UNIQUE,
+            icon TEXT NOT NULL DEFAULT '🎮',
+            color TEXT NOT NULL DEFAULT 'oklch(68% 0.16 220)',
+            active INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
+
+    // Seed engines if table is empty
+    $count = $db->query("SELECT COUNT(*) FROM engines")->fetchColumn();
+    if ($count == 0) {
+        $stmt = $db->prepare("INSERT INTO engines (name, slug, icon, color, active) VALUES (?, ?, ?, ?, ?)");
+        $stmt->execute(['GDevelop', 'gdevelop', '🎮', 'oklch(55% 0.15 145)', 1]);
+        $stmt->execute(['Godot', 'godot', '🤖', 'oklch(65% 0.18 145)', 0]);
+        $stmt->execute(['RPG Maker', 'rpgmaker', '⚔️', 'oklch(72% 0.14 85)', 0]);
+        $stmt->execute(['Unity', 'unity', '🔷', 'oklch(55% 0.02 250)', 0]);
+        $stmt->execute(['Unreal Engine', 'unrealengine', '🔶', 'oklch(35% 0.02 250)', 0]);
+        $stmt->execute(['Construct', 'construct', '🏗️', 'oklch(70% 0.16 30)', 0]);
+        $stmt->execute(['Defold', 'defold', '📦', 'oklch(60% 0.18 120)', 0]);
+        $stmt->execute(['Game Maker', 'gamemaker', '🎯', 'oklch(65% 0.18 200)', 0]);
+        $stmt->execute(["Ren'py", 'renpy', '💬', 'oklch(60% 0.18 340)', 0]);
+        $stmt->execute(['Pixel Game Maker MV', 'pixelgamemakermv', '👾', 'oklch(70% 0.16 160)', 0]);
+        $stmt->execute(['RPG Paper Maker', 'rpgpapermaker', '📜', 'oklch(68% 0.14 70)', 0]);
+    }
+}
+
+function migration_007($db, $type) {
+    $count = $db->query("SELECT COUNT(*) FROM engines")->fetchColumn();
+    if ($count > 0) return;
+    $stmt = $db->prepare("INSERT INTO engines (name, slug, icon, color, active) VALUES (?, ?, ?, ?, ?)");
+    $stmt->execute(['GDevelop', 'gdevelop', '🎮', 'oklch(55% 0.15 145)', 1]);
+    $stmt->execute(['Godot', 'godot', '🤖', 'oklch(65% 0.18 145)', 0]);
+    $stmt->execute(['RPG Maker', 'rpgmaker', '⚔️', 'oklch(72% 0.14 85)', 0]);
+    $stmt->execute(['Unity', 'unity', '🔷', 'oklch(55% 0.02 250)', 0]);
+    $stmt->execute(['Unreal Engine', 'unrealengine', '🔶', 'oklch(35% 0.02 250)', 0]);
+    $stmt->execute(['Construct', 'construct', '🏗️', 'oklch(70% 0.16 30)', 0]);
+    $stmt->execute(['Defold', 'defold', '📦', 'oklch(60% 0.18 120)', 0]);
+    $stmt->execute(['Game Maker', 'gamemaker', '🎯', 'oklch(65% 0.18 200)', 0]);
+    $stmt->execute(["Ren'py", 'renpy', '💬', 'oklch(60% 0.18 340)', 0]);
+    $stmt->execute(['Pixel Game Maker MV', 'pixelgamemakermv', '👾', 'oklch(70% 0.16 160)', 0]);
+    $stmt->execute(['RPG Paper Maker', 'rpgpapermaker', '📜', 'oklch(68% 0.14 70)', 0]);
+}
+
+function migration_008($db, $type) {
+    $db->exec("DELETE FROM engines WHERE name = 'Outra'");
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();

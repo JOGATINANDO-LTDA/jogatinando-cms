@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
     $cEngineOther = trim($_POST['c_engine_other'] ?? '');
     $cMessage = trim($_POST['c_message'] ?? '');
 
-    $validEngines = ['GDevelop', 'Godot', 'RPG Maker', 'Unity', 'Unreal Engine', 'Construct', 'Defold', 'Game Maker', 'Ren\'py', 'Pixel Game Maker MV', 'RPG Paper Maker', 'Outra'];
+    $validEngines = array_merge(array_column(getEngines(), 'name'), ['Outra']);
 
     if (empty($cName) || empty($cEmail) || empty($cMessage)) {
         $contactError = 'Preencha todos os campos obrigatórios.';
@@ -60,7 +60,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
 }
 
 $banners = dbQuery("SELECT * FROM banners WHERE active = 1 ORDER BY sort_order ASC");
-$games = dbQuery("SELECT * FROM games WHERE active = 1 ORDER BY featured DESC, sort_order ASC");
+$activeEngineNames = array_column(dbQuery("SELECT name FROM engines WHERE active = 1"), 'name');
+$games = !empty($activeEngineNames)
+    ? dbQuery("SELECT * FROM games WHERE active = 1 AND engine IN (" . implode(',', array_fill(0, count($activeEngineNames), '?')) . ") ORDER BY featured DESC, sort_order ASC", $activeEngineNames)
+    : [];
 $blogPosts = dbQuery("SELECT * FROM blog_posts WHERE active = 1 ORDER BY published_at DESC LIMIT 3");
 $testimonials = dbQuery("SELECT * FROM testimonials WHERE active = 1 ORDER BY sort_order ASC");
 $faqItems = dbQuery("SELECT * FROM faq_items WHERE active = 1 ORDER BY sort_order ASC");
@@ -77,27 +80,6 @@ $twitchUrl = getSetting('twitch_url', '');
 $blogUrl = getSetting('blog_url', '');
 $footerDescription = getSetting('footer_description', '');
 
-function engineBadgeClass($engine) {
-    $map = [
-        'GDevelop' => 'badge-gdevelop',
-        'Godot' => 'badge-godot',
-        'RPG Maker' => 'badge-rpgmaker',
-        'Unity' => 'badge-unity',
-        'Unreal Engine' => 'badge-unreal',
-    ];
-    return $map[$engine] ?? 'badge-other';
-}
-
-function engineBadgeStyle($engine) {
-    $map = [
-        'GDevelop' => 'background: oklch(55% 0.15 145); color: #fff;',
-        'Godot' => 'background: oklch(55% 0.15 200); color: #fff;',
-        'RPG Maker' => 'background: oklch(55% 0.15 30); color: #fff;',
-        'Unity' => 'background: oklch(45% 0.12 250); color: #fff;',
-        'Unreal Engine' => 'background: oklch(35% 0.08 260); color: #fff;',
-    ];
-    return $map[$engine] ?? 'background: oklch(50% 0.12 85); color: var(--bg-deep);';
-}
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -236,7 +218,7 @@ function engineBadgeStyle($engine) {
                             <?php if ($game['featured'] || $game['engine']): ?>
                             <div class="game-badges">
                                 <?php if ($game['featured']): ?><span class="game-badge-featured">Destaque</span><?php endif; ?>
-                                <span class="game-engine-badge engine-<?= strtolower(preg_replace('/[^a-zA-Z]/', '', $game['engine'])) ?>"><?= e($game['engine']) ?></span>
+                                <span class="game-engine-badge" style="background:<?= getEngineColor($game['engine']) ?>"><?= getEngineIcon($game['engine']) ?> <?= e($game['engine']) ?></span>
                             </div>
                             <?php endif; ?>
                         </div>
@@ -442,18 +424,10 @@ function engineBadgeStyle($engine) {
                             <label for="c_engine">Engine do Projeto *</label>
                             <select id="c_engine" name="c_engine" required>
                                 <option value="">Selecione uma engine</option>
-                                <option value="GDevelop">GDevelop</option>
-                                <option value="Godot">Godot</option>
-                                <option value="RPG Maker">RPG Maker</option>
-                                <option value="Unity">Unity</option>
-                                <option value="Unreal Engine">Unreal Engine</option>
-                                <option value="Construct">Construct</option>
-                                <option value="Defold">Defold</option>
-                                <option value="Game Maker">Game Maker</option>
-                                <option value="Ren'py">Ren'py</option>
-                                <option value="Pixel Game Maker MV">Pixel Game Maker MV</option>
-                                <option value="RPG Paper Maker">RPG Paper Maker</option>
-                                <option value="Outra">Outra</option>
+                                <?php foreach (getEngines() as $eng): ?>
+                                <option value="<?= e($eng['name']) ?>"><?= e($eng['icon'] ?? '') ?> <?= e($eng['name']) ?></option>
+                                <?php endforeach; ?>
+                                <option value="Outra">🎮 Outra</option>
                             </select>
                         </div>
                         <div class="form-group" id="engineOtherGroup" style="display:none">

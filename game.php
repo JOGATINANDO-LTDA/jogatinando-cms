@@ -5,19 +5,19 @@ $engine = $_GET['engine'] ?? '';
 $slug = $_GET['slug'] ?? '';
 
 if (!$engine || !$slug) {
-    http_response_code(404);
-    die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Jogo não encontrado</h1>');
+    header('Location: /');
+    exit;
 }
 
 try {
-    $game = dbQueryOne("SELECT * FROM games WHERE LOWER(engine) = LOWER(?) AND slug = ? AND active = 1", [$engine, $slug]);
+    $game = dbQueryOne("SELECT * FROM games WHERE LOWER(engine) = LOWER(?) AND slug = ? AND active = 1 AND engine IN (SELECT name FROM engines WHERE active = 1)", [$engine, $slug]);
 } catch (Exception $ex) {
     die('DB Error: ' . $ex->getMessage());
 }
 
 if (!$game || !$game['game_path']) {
-    http_response_code(404);
-    die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Jogo não encontrado</h1>');
+    header('Location: /');
+    exit;
 }
 
 $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
@@ -28,7 +28,6 @@ if (!file_exists($gameDir . '/index.html')) {
     die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Arquivo do jogo não encontrado.</h1>');
 }
 
-$engineSlug = generateSlug($game['engine']);
 $orientation = $game['orientation'] ?? 'auto';
 ?>
 <!DOCTYPE html>
@@ -99,7 +98,7 @@ $orientation = $game['orientation'] ?? 'auto';
                 <div class="game-info-main">
                     <div class="game-info-header">
                         <div class="game-info-badges">
-                            <span class="game-engine-badge engine-<?= $engineSlug ?>"><?= e($game['engine']) ?></span>
+                            <span class="game-engine-badge" style="background:<?= getEngineColor($game['engine']) ?>"><?= getEngineIcon($game['engine']) ?> <?= e($game['engine']) ?></span>
                             <?php if ($game['featured']): ?><span class="game-badge-featured">Destaque</span><?php endif; ?>
                         </div>
                         <h1><?= e($game['title']) ?></h1>
