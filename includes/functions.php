@@ -109,6 +109,7 @@ function generateSlug($text) {
     $text = preg_replace('/[òóôõö]/', 'o', $text);
     $text = preg_replace('/[ùúûü]/', 'u', $text);
     $text = preg_replace('/[ç]/', 'c', $text);
+    $text = preg_replace("/['\"`´‘’ʻ`]/", '', $text);
     $text = preg_replace('/[^a-z0-9]+/', '-', $text);
     $text = trim($text, '-');
     return $text;

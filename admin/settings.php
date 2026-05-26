@@ -7,7 +7,7 @@ $userId = $_SESSION['admin_user_id'] ?? 0;
 
 // Avatar upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_avatar') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings.php'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
 
     if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
         $result = uploadFile($_FILES['avatar'], 'avatars', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
@@ -22,13 +22,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     }
     ob_end_clean();
-    header('Location: settings.php');
+    header('Location: settings');
     exit;
 }
 
 // Avatar remove
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'remove_avatar') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings.php'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
 
     $db = getDB();
     $stmt = $db->prepare("SELECT avatar_url FROM users WHERE id = ?");
@@ -46,12 +46,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $_SESSION['admin_avatar_url'] = '';
     flashMessage('success', 'Foto de perfil removida.');
     ob_end_clean();
-    header('Location: settings.php');
+    header('Location: settings');
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings.php'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
 
     $settings = [
         'site_name' => trim($_POST['site_name']),
@@ -71,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
     flashMessage('success', 'Configurações salvas!');
     ob_end_clean();
-    header('Location: settings.php');
+    header('Location: settings');
     exit;
 }
 
@@ -225,20 +225,18 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
 
                     require_once ROOT_PATH . '/includes/migrations.php';
 
-                    // DDL (auto-commit) — cria tabelas e limpa dados anteriores
-                    migration_001($mysql, 'mysql');
-                    migration_002($mysql, 'mysql');
+                    // Cria schema via dbMigrate (roda TODAS as migrations pendentes)
+                    dbMigrate($mysql, 'mysql');
+
                     $mysql->exec("SET FOREIGN_KEY_CHECKS = 0");
-                    foreach (['users', 'banners', 'games', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings', 'schema_version'] as $t) {
+                    foreach (['users', 'banners', 'games', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings'] as $t) {
                         $mysql->exec("TRUNCATE TABLE `$t`");
                     }
                     $mysql->exec("SET FOREIGN_KEY_CHECKS = 1");
 
-                    // Transação — cópia dos dados + admin + schema_version
+                    // Transação — cópia dos dados + admin
                     $mysql->beginTransaction();
                     try {
-                        $mysql->exec("INSERT INTO schema_version (version, name) VALUES (1, 'create_all_tables')");
-                        $mysql->exec("INSERT INTO schema_version (version, name) VALUES (2, 'add_user_avatar')");
 
                         $stmtUpd = $mysql->prepare("UPDATE users SET username = ?, password_hash = ? WHERE id = 1");
 
@@ -336,7 +334,7 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
         </form>
         <?php endif; ?>
         <?php if ($migrateRedirect): ?>
-        <script>setTimeout(function(){window.location.href='login.php'},2500);</script>
+        <script>setTimeout(function(){window.location.href='/admin/login'},2500);</script>
         <?php endif; ?>
     </div>
 </div>

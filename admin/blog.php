@@ -10,7 +10,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: blog.php');
+        header('Location: blog');
         exit;
     }
 
@@ -25,10 +25,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
             $result = uploadFile($_FILES['thumbnail'], 'blog', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
             if ($result['success']) $thumbnail_url = $result['url'];
-            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: blog.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: blog?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         }
 
-        if (empty($title)) { flashMessage('error', 'Título é obrigatório.'); ob_end_clean(); header('Location: blog.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+        if (empty($title)) { flashMessage('error', 'Título é obrigatório.'); ob_end_clean(); header('Location: blog?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
 
         if ($id > 0) {
             if (!$thumbnail_url) { $existing = dbQueryOne("SELECT thumbnail_url FROM blog_posts WHERE id = ?", [$id]); $thumbnail_url = $existing['thumbnail_url']; }
@@ -39,21 +39,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'Post criado!');
         }
         ob_end_clean();
-        header('Location: blog.php'); exit;
+        header('Location: blog'); exit;
     }
 
-    if ($_POST['action'] === 'delete') { dbDelete('blog_posts', $id); flashMessage('success', 'Post excluído.'); ob_end_clean(); header('Location: blog.php'); exit; }
-    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM blog_posts WHERE id = ?", [$id]); if ($r) dbExec("UPDATE blog_posts SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: blog.php'); exit; }
+    if ($_POST['action'] === 'delete') { dbDelete('blog_posts', $id); flashMessage('success', 'Post excluído.'); ob_end_clean(); header('Location: blog'); exit; }
+    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM blog_posts WHERE id = ?", [$id]); if ($r) dbExec("UPDATE blog_posts SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: blog'); exit; }
 }
 
 if ($action === 'new' || $action === 'edit') {
     $post = $id > 0 ? dbQueryOne("SELECT * FROM blog_posts WHERE id = ?", [$id]) : null;
-    if ($action === 'edit' && !$post) { flashMessage('error', 'Post não encontrado.'); header('Location: blog.php'); exit; }
+    if ($action === 'edit' && !$post) { flashMessage('error', 'Post não encontrado.'); header('Location: blog'); exit; }
     ?>
     <div class="card">
         <div class="card-header">
             <h2 class="card-title"><?= $action === 'new' ? 'Novo Post' : 'Editar Post' ?></h2>
-            <a href="blog.php" class="btn btn-outline btn-sm">← Voltar</a>
+            <a href="blog" class="btn btn-outline btn-sm">← Voltar</a>
         </div>
         <div class="card-body">
         <form method="POST" enctype="multipart/form-data">
@@ -109,7 +109,7 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-gold">Salvar Post</button>
-                <a href="blog.php" class="btn btn-outline">Cancelar</a>
+                <a href="blog" class="btn btn-outline">Cancelar</a>
             </div>
         </form>
         </div>
@@ -121,7 +121,7 @@ if ($action === 'new' || $action === 'edit') {
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">Posts do Blog</h2>
-            <a href="blog.php?action=new" class="btn btn-gold btn-sm">+ Novo Post</a>
+            <a href="blog?action=new" class="btn btn-gold btn-sm">+ Novo Post</a>
         </div>
         <?php if (empty($posts)): ?>
             <div class="card-body">
@@ -146,7 +146,7 @@ if ($action === 'new' || $action === 'edit') {
                             <td><?= timeAgo($p['created_at']) ?></td>
                             <td class="actions">
                                 <form method="POST" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $p['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $p['active'] ? '🔴' : '🟢' ?></button></form>
-                                <a href="blog.php?action=edit&id=<?= $p['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
+                                <a href="blog?action=edit&id=<?= $p['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
                                 <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este post?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $p['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
                             </td>
                         </tr>

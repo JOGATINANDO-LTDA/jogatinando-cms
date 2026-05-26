@@ -6,11 +6,11 @@ $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: faq.php'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: faq'); exit; }
     if ($_POST['action'] === 'save') {
         $question = trim($_POST['question']); $answer = trim($_POST['answer']);
         $sort_order = (int)($_POST['sort_order'] ?? 0); $active = isset($_POST['active']) ? 1 : 0;
-        if (empty($question) || empty($answer)) { flashMessage('error', 'Pergunta e resposta são obrigatórias.'); ob_end_clean(); header('Location: faq.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+        if (empty($question) || empty($answer)) { flashMessage('error', 'Pergunta e resposta são obrigatórias.'); ob_end_clean(); header('Location: faq?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         if ($id > 0) {
             dbExec("UPDATE faq_items SET question=?, answer=?, sort_order=?, active=? WHERE id=?", [$question, $answer, $sort_order, $active, $id]);
             flashMessage('success', 'FAQ atualizada!');
@@ -19,18 +19,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'FAQ criada!');
         }
         ob_end_clean();
-        header('Location: faq.php'); exit;
+        header('Location: faq'); exit;
     }
-    if ($_POST['action'] === 'delete') { dbDelete('faq_items', $id); flashMessage('success', 'FAQ excluída.'); ob_end_clean(); header('Location: faq.php'); exit; }
-    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM faq_items WHERE id = ?", [$id]); if ($r) dbExec("UPDATE faq_items SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: faq.php'); exit; }
+    if ($_POST['action'] === 'delete') { dbDelete('faq_items', $id); flashMessage('success', 'FAQ excluída.'); ob_end_clean(); header('Location: faq'); exit; }
+    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM faq_items WHERE id = ?", [$id]); if ($r) dbExec("UPDATE faq_items SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: faq'); exit; }
 }
 
 if ($action === 'new' || $action === 'edit') {
     $item = $id > 0 ? dbQueryOne("SELECT * FROM faq_items WHERE id = ?", [$id]) : null;
-    if ($action === 'edit' && !$item) { flashMessage('error', 'Não encontrada.'); ob_end_clean(); header('Location: faq.php'); exit; }
+    if ($action === 'edit' && !$item) { flashMessage('error', 'Não encontrada.'); ob_end_clean(); header('Location: faq'); exit; }
     ?>
     <div class="card">
-        <div class="card-header"><h2 class="card-title"><?= $action === 'new' ? 'Nova FAQ' : 'Editar FAQ' ?></h2><a href="faq.php" class="btn btn-outline btn-sm">← Voltar</a></div>
+        <div class="card-header"><h2 class="card-title"><?= $action === 'new' ? 'Nova FAQ' : 'Editar FAQ' ?></h2><a href="faq" class="btn btn-outline btn-sm">← Voltar</a></div>
         <div class="card-body">
         <form method="POST">
             <input type="hidden" name="action" value="save"><?php if ($id > 0): ?><input type="hidden" name="id" value="<?= $id ?>"><?php endif; ?><?= csrfField() ?>
@@ -46,7 +46,7 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-group"><label for="sort_order">Ordem</label><input type="number" id="sort_order" name="sort_order" value="<?= (int)($item['sort_order'] ?? 0) ?>"></div>
                 <div class="form-group"><div class="toggle-group" style="margin-top:28px"><input type="checkbox" id="active" name="active" <?= ($item['active'] ?? 1) ? 'checked' : '' ?>><label for="active">Ativa</label></div></div>
             </div>
-            <div class="form-actions"><button type="submit" class="btn btn-gold">Salvar</button><a href="faq.php" class="btn btn-outline">Cancelar</a></div>
+            <div class="form-actions"><button type="submit" class="btn btn-gold">Salvar</button><a href="faq" class="btn btn-outline">Cancelar</a></div>
         </form>
         </div>
     </div>
@@ -55,7 +55,7 @@ if ($action === 'new' || $action === 'edit') {
     $items = dbQuery("SELECT * FROM faq_items ORDER BY sort_order ASC");
     ?>
     <div class="card">
-        <div class="card-header"><h2 class="card-title">Perguntas Frequentes</h2><a href="faq.php?action=new" class="btn btn-gold btn-sm">+ Nova FAQ</a></div>
+        <div class="card-header"><h2 class="card-title">Perguntas Frequentes</h2><a href="faq?action=new" class="btn btn-gold btn-sm">+ Nova FAQ</a></div>
         <?php if (empty($items)): ?><div class="card-body"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><p>Nenhuma FAQ cadastrada.</p></div></div>
         <?php else: ?>
             <div class="table-wrapper">
@@ -70,7 +70,7 @@ if ($action === 'new' || $action === 'edit') {
                             <td><?= $f['active'] ? '<span class="badge badge-active">Ativa</span>' : '<span class="badge badge-inactive">Inativa</span>' ?></td>
                             <td class="actions">
                                 <form method="POST" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $f['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $f['active'] ? '🔴' : '🟢' ?></button></form>
-                                <a href="faq.php?action=edit&id=<?= $f['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
+                                <a href="faq?action=edit&id=<?= $f['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
                                 <form method="POST" style="display:inline" onsubmit="return confirm('Excluir?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $f['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
                             </td>
                         </tr><?php endforeach; ?>

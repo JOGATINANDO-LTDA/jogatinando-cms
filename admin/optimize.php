@@ -49,7 +49,7 @@ require_once __DIR__ . '/../includes/header.php';
 <div class="card">
     <div class="card-header">
         <h2 class="card-title">🔧 Otimizador de Jogos HTML5</h2>
-        <a href="games.php" class="btn btn-outline btn-sm">← Voltar aos Jogos</a>
+        <a href="games" class="btn btn-outline btn-sm">← Voltar aos Jogos</a>
     </div>
     <div class="card-body">
         <div class="optimizer-summary">

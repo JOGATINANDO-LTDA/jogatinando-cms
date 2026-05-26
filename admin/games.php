@@ -15,7 +15,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $serverLimit = @ini_get('post_max_size') ?: '30M';
         flashMessage('error', "Arquivo excede o limite do servidor ($serverLimit). Contate a hospedagem para aumentar post_max_size.");
         ob_end_clean();
-        header('Location: games.php');
+        header('Location: games');
         exit;
     }
 
@@ -29,14 +29,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('error', 'Erro no upload do arquivo.');
         }
         ob_end_clean();
-        header('Location: games.php');
+        header('Location: games');
         exit;
     }
 
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: games.php');
+        header('Location: games');
         exit;
     }
 
@@ -59,7 +59,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $thumbnail_url = $result['url'];
             } else {
                 flashMessage('error', $result['message']);
-                header('Location: games.php?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                header('Location: games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -76,7 +76,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: games.php?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                header('Location: games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($title)) {
             flashMessage('error', 'Título é obrigatório.');
             ob_end_clean();
-            header('Location: games.php?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            header('Location: games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
             exit;
         }
 
@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('error', 'Erro ao salvar: ' . $ex->getMessage());
         }
         ob_end_clean();
-        header('Location: games.php');
+        header('Location: games');
         exit;
     }
 
@@ -127,7 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('success', 'Jogo excluído.');
         }
         ob_end_clean();
-        header('Location: games.php');
+        header('Location: games');
         exit;
     }
 
@@ -137,7 +137,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             dbExec("UPDATE games SET active = ? WHERE id = ?", [1 - $game['active'], $id]);
         }
         ob_end_clean();
-        header('Location: games.php');
+        header('Location: games');
         exit;
     }
 }
@@ -146,14 +146,14 @@ if ($action === 'new' || $action === 'edit') {
     $game = $id > 0 ? dbQueryOne("SELECT * FROM games WHERE id = ?", [$id]) : null;
     if ($action === 'edit' && !$game) {
         flashMessage('error', 'Jogo não encontrado.');
-        header('Location: games.php');
+        header('Location: games');
         exit;
     }
     ?>
     <div class="card">
         <div class="card-header">
             <h2 class="card-title"><?= $action === 'new' ? 'Novo Jogo' : 'Editar Jogo' ?></h2>
-            <a href="games.php" class="btn btn-outline btn-sm">← Voltar</a>
+            <a href="games" class="btn btn-outline btn-sm">← Voltar</a>
         </div>
         <div class="card-body">
         <!-- Server capabilities -->
@@ -293,7 +293,7 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-gold" id="submitBtn">Salvar Jogo</button>
-                <a href="games.php" class="btn btn-outline">Cancelar</a>
+                <a href="games" class="btn btn-outline">Cancelar</a>
             </div>
         </form>
         </div>
@@ -391,7 +391,7 @@ if ($action === 'new' || $action === 'edit') {
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">Todos os Jogos</h2>
-            <a href="games.php?action=new" class="btn btn-gold btn-sm">+ Novo Jogo</a>
+            <a href="games?action=new" class="btn btn-gold btn-sm">+ Novo Jogo</a>
         </div>
         <?php if (empty($games)): ?>
             <div class="card-body">
@@ -451,7 +451,7 @@ if ($action === 'new' || $action === 'edit') {
                                     <?= csrfField() ?>
                                     <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $g['active'] ? 'Desativar' : 'Ativar' ?>"><?= $g['active'] ? '🔴' : '🟢' ?></button>
                                 </form>
-                                <a href="games.php?action=edit&id=<?= $g['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
+                                <a href="games?action=edit&id=<?= $g['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
                                 <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este jogo? O arquivo ZIP também será removido.')">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="id" value="<?= $g['id'] ?>">

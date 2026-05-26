@@ -6,7 +6,7 @@ $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: testimonials.php'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: testimonials'); exit; }
     if ($_POST['action'] === 'save') {
         $name = trim($_POST['name']); $role = trim($_POST['role']); $quote = trim($_POST['quote']);
         $sort_order = (int)($_POST['sort_order'] ?? 0); $active = isset($_POST['active']) ? 1 : 0;
@@ -14,9 +14,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
             $result = uploadFile($_FILES['avatar'], 'avatars', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
             if ($result['success']) $avatar_url = $result['url'];
-            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: testimonials.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: testimonials?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         }
-        if (empty($name) || empty($quote)) { flashMessage('error', 'Nome e depoimento são obrigatórios.'); ob_end_clean(); header('Location: testimonials.php?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+        if (empty($name) || empty($quote)) { flashMessage('error', 'Nome e depoimento são obrigatórios.'); ob_end_clean(); header('Location: testimonials?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         if ($id > 0) {
             if (!$avatar_url) { $existing = dbQueryOne("SELECT avatar_url FROM testimonials WHERE id = ?", [$id]); $avatar_url = $existing['avatar_url']; }
             dbExec("UPDATE testimonials SET name=?, role=?, quote=?, avatar_url=?, sort_order=?, active=? WHERE id=?", [$name, $role, $quote, $avatar_url, $sort_order, $active, $id]);
@@ -26,18 +26,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'Depoimento criado!');
         }
         ob_end_clean();
-        header('Location: testimonials.php'); exit;
+        header('Location: testimonials'); exit;
     }
-    if ($_POST['action'] === 'delete') { dbDelete('testimonials', $id); flashMessage('success', 'Depoimento excluído.'); ob_end_clean(); header('Location: testimonials.php'); exit; }
-    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM testimonials WHERE id = ?", [$id]); if ($r) dbExec("UPDATE testimonials SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: testimonials.php'); exit; }
+    if ($_POST['action'] === 'delete') { dbDelete('testimonials', $id); flashMessage('success', 'Depoimento excluído.'); ob_end_clean(); header('Location: testimonials'); exit; }
+    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM testimonials WHERE id = ?", [$id]); if ($r) dbExec("UPDATE testimonials SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: testimonials'); exit; }
 }
 
 if ($action === 'new' || $action === 'edit') {
     $item = $id > 0 ? dbQueryOne("SELECT * FROM testimonials WHERE id = ?", [$id]) : null;
-    if ($action === 'edit' && !$item) { flashMessage('error', 'Não encontrado.'); ob_end_clean(); header('Location: testimonials.php'); exit; }
+    if ($action === 'edit' && !$item) { flashMessage('error', 'Não encontrado.'); ob_end_clean(); header('Location: testimonials'); exit; }
     ?>
     <div class="card">
-        <div class="card-header"><h2 class="card-title"><?= $action === 'new' ? 'Novo Depoimento' : 'Editar Depoimento' ?></h2><a href="testimonials.php" class="btn btn-outline btn-sm">← Voltar</a></div>
+        <div class="card-header"><h2 class="card-title"><?= $action === 'new' ? 'Novo Depoimento' : 'Editar Depoimento' ?></h2><a href="testimonials" class="btn btn-outline btn-sm">← Voltar</a></div>
         <div class="card-body">
         <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="action" value="save"><?php if ($id > 0): ?><input type="hidden" name="id" value="<?= $id ?>"><?php endif; ?><?= csrfField() ?>
@@ -65,7 +65,7 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-group"><label for="sort_order">Ordem</label><input type="number" id="sort_order" name="sort_order" value="<?= (int)($item['sort_order'] ?? 0) ?>"></div>
                 <div class="form-group"><div class="toggle-group" style="margin-top:28px"><input type="checkbox" id="active" name="active" <?= ($item['active'] ?? 1) ? 'checked' : '' ?>><label for="active">Ativo</label></div></div>
             </div>
-            <div class="form-actions"><button type="submit" class="btn btn-gold">Salvar</button><a href="testimonials.php" class="btn btn-outline">Cancelar</a></div>
+            <div class="form-actions"><button type="submit" class="btn btn-gold">Salvar</button><a href="testimonials" class="btn btn-outline">Cancelar</a></div>
         </form>
         </div>
     </div>
@@ -74,7 +74,7 @@ if ($action === 'new' || $action === 'edit') {
     $items = dbQuery("SELECT * FROM testimonials ORDER BY sort_order ASC");
     ?>
     <div class="card">
-        <div class="card-header"><h2 class="card-title">Depoimentos</h2><a href="testimonials.php?action=new" class="btn btn-gold btn-sm">+ Novo</a></div>
+        <div class="card-header"><h2 class="card-title">Depoimentos</h2><a href="testimonials?action=new" class="btn btn-gold btn-sm">+ Novo</a></div>
         <?php if (empty($items)): ?><div class="card-body"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><p>Nenhum depoimento cadastrado.</p></div></div>
         <?php else: ?>
             <div class="table-wrapper">
@@ -89,7 +89,7 @@ if ($action === 'new' || $action === 'edit') {
                             <td><?= $t['active'] ? '<span class="badge badge-active">Ativo</span>' : '<span class="badge badge-inactive">Inativo</span>' ?></td>
                             <td class="actions">
                                 <form method="POST" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $t['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $t['active'] ? '🔴' : '🟢' ?></button></form>
-                                <a href="testimonials.php?action=edit&id=<?= $t['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
+                                <a href="testimonials?action=edit&id=<?= $t['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
                                 <form method="POST" style="display:inline" onsubmit="return confirm('Excluir?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $t['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
                             </td>
                         </tr><?php endforeach; ?>

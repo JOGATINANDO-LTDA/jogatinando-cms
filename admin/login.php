@@ -2,7 +2,7 @@
 require_once '../config.php';
 
 if (isLoggedIn()) {
-    header('Location: ' . ADMIN_URL . '/index.php');
+    header('Location: ' . ADMIN_URL . '/dashboard');
     exit;
 }
 
@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $password = $_POST['password'] ?? '';
 
     if (login($username, $password)) {
-        header('Location: ' . ADMIN_URL . '/index.php');
+        header('Location: ' . ADMIN_URL . '/dashboard');
         exit;
     } else {
         $error = 'Usuário ou senha incorretos.';

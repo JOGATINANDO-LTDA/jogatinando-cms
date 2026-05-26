@@ -4,7 +4,7 @@ $pageTitle = 'Usuários';
 require_once __DIR__ . '/../includes/header.php';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: users.php'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: users'); exit; }
 
     if ($_POST['action'] === 'create') {
         $username = trim($_POST['username'] ?? '');
@@ -24,20 +24,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
         ob_end_clean();
-        header('Location: users.php');
+        header('Location: users');
         exit;
     }
 
     if ($_POST['action'] === 'delete') {
         $id = (int)$_POST['id'];
-        if ($id <= 1) { flashMessage('error', 'O usuário master (ID 1) não pode ser excluído.'); ob_end_clean(); header('Location: users.php'); exit; }
-        if ($id === 1) { flashMessage('error', 'Você não pode excluir seu próprio usuário.'); ob_end_clean(); header('Location: users.php'); exit; }
+        if ($id <= 1) { flashMessage('error', 'O usuário master (ID 1) não pode ser excluído.'); ob_end_clean(); header('Location: users'); exit; }
+        if ($id === 1) { flashMessage('error', 'Você não pode excluir seu próprio usuário.'); ob_end_clean(); header('Location: users'); exit; }
         $user = dbQueryOne("SELECT username FROM users WHERE id = ?", [$id]);
-        if (!$user) { flashMessage('error', 'Usuário não encontrado.'); ob_end_clean(); header('Location: users.php'); exit; }
+        if (!$user) { flashMessage('error', 'Usuário não encontrado.'); ob_end_clean(); header('Location: users'); exit; }
         dbDelete('users', $id);
         flashMessage('success', "Usuário '{$user['username']}' excluído.");
         ob_end_clean();
-        header('Location: users.php');
+        header('Location: users');
         exit;
     }
 }

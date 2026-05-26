@@ -9,7 +9,7 @@ function isLoggedIn() {
 
 function requireLogin() {
     if (!isLoggedIn()) {
-        header('Location: ' . ADMIN_URL . '/login.php');
+        header('Location: ' . ADMIN_URL . '/login');
         exit;
     }
 }
@@ -30,7 +30,7 @@ function login($username, $password) {
 
 function redirectOrError($msg, $detail) {
     if (file_exists(ROOT_PATH . '/install.php')) {
-        header('Location: /install.php');
+        header('Location: /install');
         exit;
     }
     http_response_code(500);
@@ -73,7 +73,7 @@ function requireInstalled() {
 
 function logout() {
     session_destroy();
-    header('Location: ' . ADMIN_URL . '/login.php');
+    header('Location: ' . ADMIN_URL . '/login');
     exit;
 }
 

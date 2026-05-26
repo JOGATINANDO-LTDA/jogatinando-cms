@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: banners.php');
+        header('Location: banners');
         exit;
     }
 
@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: banners.php?action=new');
+                header('Location: banners?action=new');
                 exit;
             }
         }
@@ -42,7 +42,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (empty($title)) {
             flashMessage('error', 'Título é obrigatório.');
             ob_end_clean();
-            header('Location: banners.php?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            header('Location: banners?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
             exit;
         }
 
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'Banner criado com sucesso!');
         }
         ob_end_clean();
-        header('Location: banners.php');
+        header('Location: banners');
         exit;
     }
 
@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'Banner excluído.');
         }
         ob_end_clean();
-        header('Location: banners.php');
+        header('Location: banners');
         exit;
     }
 
@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             dbExec("UPDATE banners SET active = ? WHERE id = ?", [1 - $banner['active'], $id]);
         }
         ob_end_clean();
-        header('Location: banners.php');
+        header('Location: banners');
         exit;
     }
 }
@@ -94,14 +94,14 @@ if ($action === 'new' || $action === 'edit') {
     if ($action === 'edit' && !$banner) {
         flashMessage('error', 'Banner não encontrado.');
         ob_end_clean();
-        header('Location: banners.php');
+        header('Location: banners');
         exit;
     }
     ?>
     <div class="card">
         <div class="card-header">
             <h2 class="card-title"><?= $action === 'new' ? 'Novo Banner' : 'Editar Banner' ?></h2>
-            <a href="banners.php" class="btn btn-outline btn-sm">← Voltar</a>
+            <a href="banners" class="btn btn-outline btn-sm">← Voltar</a>
         </div>
         <div class="card-body">
         <form method="POST" enctype="multipart/form-data">
@@ -177,7 +177,7 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-actions">
                 <button type="submit" class="btn btn-gold">Salvar Banner</button>
-                <a href="banners.php" class="btn btn-outline">Cancelar</a>
+                <a href="banners" class="btn btn-outline">Cancelar</a>
             </div>
         </form>
         </div>
@@ -189,7 +189,7 @@ if ($action === 'new' || $action === 'edit') {
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">Todos os Banners</h2>
-            <a href="banners.php?action=new" class="btn btn-gold btn-sm">+ Novo Banner</a>
+            <a href="banners?action=new" class="btn btn-gold btn-sm">+ Novo Banner</a>
         </div>
         <?php if (empty($banners)): ?>
             <div class="card-body">
@@ -234,7 +234,7 @@ if ($action === 'new' || $action === 'edit') {
                                     <?= csrfField() ?>
                                     <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $b['active'] ? 'Desativar' : 'Ativar' ?>"><?= $b['active'] ? '🔴' : '🟢' ?></button>
                                 </form>
-                                <a href="banners.php?action=edit&id=<?= $b['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
+                                <a href="banners?action=edit&id=<?= $b['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
                                 <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este banner?')">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="id" value="<?= $b['id'] ?>">
