@@ -34,6 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             dbInit(null, null, null, 'sqlite');
             writeLocalConfig('sqlite');
             $message = 'success';
+            session_destroy();
             disableInstallFile();
         } catch (Exception $ex) {
             $message = 'error: ' . $ex->getMessage();
@@ -176,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $mysql->exec("REPLACE INTO site_settings (`key`, `value`) VALUES ('site_name', " . $mysql->quote($siteName) . ")");
             }
             $message = 'success';
-            $_SESSION['mysql_test'] = null;
+            session_destroy();
             writeLocalConfig('mysql', $host, $port, $name, $dbUser, $dbPass);
             disableInstallFile();
         } catch (Exception $ex) {
