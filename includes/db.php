@@ -140,6 +140,8 @@ function getMigrationList() {
         3 => 'add_user_role',
         4 => 'create_roles_table',
         5 => 'add_user_setup_fields',
+        6 => 'create_engines_table',
+        7 => 'seed_engines_data',
     ];
 }
 

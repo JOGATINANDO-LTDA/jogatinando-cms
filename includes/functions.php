@@ -206,37 +206,40 @@ function renderFlash() {
     return '';
 }
 
+function getEngines($activeOnly = false) {
+    static $all = null, $active = null;
+    if ($all === null) {
+        $db = getDB();
+        $all = $db ? dbQuery("SELECT * FROM engines ORDER BY name") : [];
+        $active = [];
+        foreach ($all as $e) {
+            if ($e['active']) $active[] = $e;
+        }
+    }
+    return $activeOnly ? $active : $all;
+}
+
 function getEngineIcon($engine) {
-    $icons = [
-        'GDevelop' => '🎮',
-        'Godot' => '🤖',
-        'RPG Maker' => '⚔️',
-        'Unity' => '🔷',
-        'Unreal Engine' => '🔶',
-        'Construct' => '🏗️',
-        'Defold' => '📦',
-        'Game Maker' => '🎯',
-        'Ren\'py' => '💬',
-        'Pixel Game Maker MV' => '👾',
-        'RPG Paper Maker' => '📜',
-    ];
+    static $icons = null;
+    if ($icons === null) {
+        $engines = getEngines();
+        $icons = [];
+        foreach ($engines as $e) {
+            $icons[$e['name']] = $e['icon'];
+        }
+    }
     return $icons[$engine] ?? '🎮';
 }
 
 function getEngineColor($engine) {
-    $colors = [
-        'GDevelop' => 'oklch(68% 0.16 220)',
-        'Godot' => 'oklch(65% 0.18 145)',
-        'RPG Maker' => 'oklch(72% 0.14 85)',
-        'Unity' => 'oklch(55% 0.02 250)',
-        'Unreal Engine' => 'oklch(35% 0.02 250)',
-        'Construct' => 'oklch(70% 0.16 30)',
-        'Defold' => 'oklch(60% 0.18 120)',
-        'Game Maker' => 'oklch(65% 0.18 200)',
-        'Ren\'py' => 'oklch(60% 0.18 340)',
-        'Pixel Game Maker MV' => 'oklch(70% 0.16 160)',
-        'RPG Paper Maker' => 'oklch(68% 0.14 70)',
-    ];
+    static $colors = null;
+    if ($colors === null) {
+        $engines = getEngines();
+        $colors = [];
+        foreach ($engines as $e) {
+            $colors[$e['name']] = $e['color'];
+        }
+    }
     return $colors[$engine] ?? 'oklch(68% 0.16 220)';
 }
 
