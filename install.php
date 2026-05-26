@@ -258,7 +258,7 @@ function disableInstallFile() {
         <?php if ($message === 'success'): ?>
             <div class="status success">Banco de dados inicializado com sucesso!</div>
             <p>Dados padrão inseridos: banners, jogos, depoimentos, FAQ e equipe.</p>
-            <a href="admin/login.php" class="btn btn-gold">Acessar Painel Admin</a>
+            <a href="/admin/login" class="btn btn-gold">Acessar Painel Admin</a>
             <a href="/" class="btn btn-outline">Ver Site</a>
 
         <?php else:

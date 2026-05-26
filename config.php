@@ -53,7 +53,7 @@ if (defined('CMS_INSTALL_VERSION') && CMS_INSTALL_VERSION !== CMS_VERSION) {
     }
     if ($vAction === 'fresh') {
         unlink(LOCAL_CONFIG);
-        header('Location: /install.php');
+        header('Location: /install');
         exit;
     }
     ?><!DOCTYPE html>
