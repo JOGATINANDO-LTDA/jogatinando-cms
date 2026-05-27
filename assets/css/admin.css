@@ -750,6 +750,18 @@ tbody tr:last-child td { border-bottom: none; }
   border: 1px solid oklch(55% 0.12 85 / 0.2);
 }
 
+.badge-autoral {
+  background: oklch(45% 0.15 260 / 0.2);
+  color: oklch(70% 0.15 260);
+  border: 1px solid oklch(45% 0.15 260 / 0.2);
+}
+
+.badge-client {
+  background: oklch(45% 0.15 320 / 0.2);
+  color: oklch(70% 0.15 320);
+  border: 1px solid oklch(45% 0.15 320 / 0.2);
+}
+
 .badge-optimized {
   background: oklch(60% 0.15 150 / 0.15);
   color: oklch(70% 0.15 150);

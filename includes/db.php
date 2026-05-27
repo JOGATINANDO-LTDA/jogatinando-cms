@@ -142,6 +142,10 @@ function getMigrationList() {
         5 => 'add_user_setup_fields',
         6 => 'create_engines_table',
         7 => 'seed_engines_data',
+        8 => 'clean_engine_outra',
+        9 => 'add_game_fields_platforms',
+        10 => 'create_game_templates',
+        11 => 'create_retro_games',
     ];
 }
 

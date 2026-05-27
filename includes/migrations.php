@@ -403,6 +403,182 @@ function migration_008($db, $type) {
     $db->exec("DELETE FROM engines WHERE name = 'Outra'");
 }
 
+function migration_009($db, $type) {
+    // Add game_type and is_web_playable to games
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN game_type VARCHAR(50) NOT NULL DEFAULT 'autoral' AFTER orientation");
+        } else {
+            $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('game_type', $cols)) {
+                $db->exec("ALTER TABLE games ADD COLUMN game_type TEXT NOT NULL DEFAULT 'autoral'");
+            }
+        }
+    } catch (Exception $e) {}
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN is_web_playable INT NOT NULL DEFAULT 1 AFTER game_type");
+        } else {
+            $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('is_web_playable', $cols)) {
+                $db->exec("ALTER TABLE games ADD COLUMN is_web_playable INTEGER NOT NULL DEFAULT 1");
+            }
+        }
+    } catch (Exception $e) {}
+
+    // Create store_platforms table
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS store_platforms (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) NOT NULL UNIQUE,
+            icon VARCHAR(50) NOT NULL DEFAULT '\xF0\x9F\x9B\x92',
+            active INT DEFAULT 1,
+            sort_order INT DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS store_platforms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            icon TEXT NOT NULL DEFAULT '\xF0\x9F\x9B\x92',
+            active INTEGER DEFAULT 1,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
+
+    // Create game_links table
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS game_links (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            game_id INT NOT NULL,
+            platform_id INT NOT NULL,
+            url VARCHAR(500) NOT NULL,
+            sort_order INT DEFAULT 0,
+            FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+            FOREIGN KEY (platform_id) REFERENCES store_platforms(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS game_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_id INTEGER NOT NULL,
+            platform_id INTEGER NOT NULL,
+            url TEXT NOT NULL,
+            sort_order INTEGER DEFAULT 0,
+            FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+            FOREIGN KEY (platform_id) REFERENCES store_platforms(id) ON DELETE CASCADE
+        )");
+    }
+
+    // Seed store platforms
+    $count = $db->query("SELECT COUNT(*) FROM store_platforms")->fetchColumn();
+    if ($count == 0) {
+        $platforms = [
+            ['Steam', 'steam', '\xF0\x9F\x94\xA5', 1],
+            ['Epic Games', 'epic', '\xE2\x9C\xA8', 1],
+            ['GOG', 'gog', '\xF0\x9F\x93\xA6', 1],
+            ['itch.io', 'itchio', '\xF0\x9F\x94\xB4', 1],
+            ['gd.games', 'gdgames', '\xF0\x9F\x8E\xAE', 1],
+            ['Nintendo eShop', 'nintendo', '\xF0\x9F\x8E\xAF', 0],
+            ['PlayStation Store', 'playstation', '\xF0\x9F\x8E\xAE', 0],
+            ['Xbox Store', 'xbox', '\xF0\x9F\x8E\xAE', 0],
+            ['Google Play', 'googleplay', '\xF0\x9F\x93\xB1', 0],
+            ['App Store', 'appstore', '\xF0\x9F\x93\xB1', 0],
+            ['Amazon', 'amazon', '\xF0\x9F\x93\xA6', 0],
+        ];
+        $stmt = $db->prepare("INSERT INTO store_platforms (name, slug, icon, active) VALUES (?, ?, ?, ?)");
+        foreach ($platforms as $p) {
+            $stmt->execute($p);
+        }
+    }
+}
+
+function migration_010($db, $type) {
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS game_templates (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) DEFAULT '',
+            engine VARCHAR(255) NOT NULL,
+            description TEXT,
+            language VARCHAR(100) DEFAULT '',
+            language_version VARCHAR(50) DEFAULT '',
+            store_url VARCHAR(500) DEFAULT '',
+            game_path VARCHAR(255) DEFAULT '',
+            thumbnail_url VARCHAR(255) DEFAULT '',
+            features TEXT,
+            requirements TEXT,
+            featured INT DEFAULT 0,
+            active INT DEFAULT 1,
+            sort_order INT DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS game_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            slug TEXT DEFAULT '',
+            engine TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            language TEXT DEFAULT '',
+            language_version TEXT DEFAULT '',
+            store_url TEXT DEFAULT '',
+            game_path TEXT DEFAULT '',
+            thumbnail_url TEXT DEFAULT '',
+            features TEXT DEFAULT '',
+            requirements TEXT DEFAULT '',
+            featured INTEGER DEFAULT 0,
+            active INTEGER DEFAULT 1,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
+}
+
+function migration_011($db, $type) {
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS retro_games (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) DEFAULT '',
+            console VARCHAR(100) NOT NULL,
+            type VARCHAR(20) NOT NULL DEFAULT 'original',
+            rom_path VARCHAR(500) DEFAULT '',
+            patch_url VARCHAR(500) DEFAULT '',
+            description TEXT,
+            thumbnail_url VARCHAR(255) DEFAULT '',
+            emulator_core VARCHAR(100) DEFAULT '',
+            active INT DEFAULT 1,
+            featured INT DEFAULT 0,
+            sort_order INT DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS retro_games (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            slug TEXT DEFAULT '',
+            console TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'original',
+            rom_path TEXT DEFAULT '',
+            patch_url TEXT DEFAULT '',
+            description TEXT DEFAULT '',
+            thumbnail_url TEXT DEFAULT '',
+            emulator_core TEXT DEFAULT '',
+            active INTEGER DEFAULT 1,
+            featured INTEGER DEFAULT 0,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();

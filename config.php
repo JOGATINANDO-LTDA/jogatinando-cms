@@ -123,6 +123,9 @@ if (defined('SITE_URL')) {
 if (!defined('ADMIN_URL')) define('ADMIN_URL', SITE_URL . '/admin');
 if (!defined('UPLOAD_URL')) define('UPLOAD_URL', SITE_URL . '/uploads');
 
+// Storage driver
+if (!defined('STORAGE_DRIVER')) define('STORAGE_DRIVER', 'local');
+
 // Upload limits
 if (!defined('MAX_UPLOAD_SIZE')) define('MAX_UPLOAD_SIZE', 100 * 1024 * 1024);
 if (!defined('ALLOWED_GAME_EXTENSIONS')) define('ALLOWED_GAME_EXTENSIONS', ['zip']);
@@ -148,6 +151,7 @@ if (!defined('SMTP_FROM_NAME')) define('SMTP_FROM_NAME', 'Orçamento');
 require_once ROOT_PATH . '/includes/db.php';
 require_once ROOT_PATH . '/includes/auth.php';
 require_once ROOT_PATH . '/includes/functions.php';
+require_once ROOT_PATH . '/includes/storage.php';
 
 // Redirect to install if not set up yet
 requireInstalled();

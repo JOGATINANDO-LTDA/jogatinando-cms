@@ -42,6 +42,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $title = trim($_POST['title']);
         $engine = trim($_POST['engine']);
         $description = trim($_POST['description']);
+        $game_type = in_array($_POST['game_type'] ?? '', ['autoral', 'cliente']) ? $_POST['game_type'] : 'autoral';
+        $is_web_playable = isset($_POST['is_web_playable']) ? 1 : 0;
         $featured = isset($_POST['featured']) ? 1 : 0;
         $orientation = in_array($_POST['orientation'] ?? '', ['auto', 'landscape', 'portrait']) ? $_POST['orientation'] : 'auto';
         $sort_order = (int)($_POST['sort_order'] ?? 0);
@@ -99,13 +101,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $thumbnail_url = $existing['thumbnail_url'] ?? '';
                 }
 
-                dbExec("UPDATE games SET title=?, slug=?, engine=?, description=?, thumbnail_url=?, game_path=?, featured=?, orientation=?, sort_order=?, active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $featured, $orientation, $sort_order, $active, $id]);
+                dbExec("UPDATE games SET title=?, slug=?, engine=?, description=?, thumbnail_url=?, game_path=?, game_type=?, is_web_playable=?, featured=?, orientation=?, sort_order=?, active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $sort_order, $active, $id]);
                 flashMessage('success', 'Jogo atualizado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
             } else {
-                dbExec("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $featured, $orientation, $sort_order, $active]);
+                $id = dbExec("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, game_type, is_web_playable, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $sort_order, $active]);
                 flashMessage('success', 'Jogo criado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
+            }
+
+            // Save game links (distribution platforms)
+            if ($id > 0) {
+                $db = getDB();
+                $db->prepare("DELETE FROM game_links WHERE game_id = ?")->execute([$id]);
+                if (isset($_POST['link_platform']) && is_array($_POST['link_platform'])) {
+                    $stmt = $db->prepare("INSERT INTO game_links (game_id, platform_id, url, sort_order) VALUES (?, ?, ?, ?)");
+                    $order = 0;
+                    foreach ($_POST['link_platform'] as $i => $platformId) {
+                        $url = trim($_POST['link_url'][$i] ?? '');
+                        if ($platformId > 0 && !empty($url)) {
+                            $stmt->execute([$id, (int)$platformId, $url, $order++]);
+                        }
+                    }
+                }
             }
         } catch (Exception $ex) {
             flashMessage('error', 'Erro ao salvar: ' . $ex->getMessage());
@@ -146,6 +164,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 if ($action === 'new' || $action === 'edit') {
     $game = $id > 0 ? dbQueryOne("SELECT * FROM games WHERE id = ?", [$id]) : null;
+    $gameLinks = [];
+    if ($id > 0) {
+        $gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon FROM game_links gl JOIN store_platforms p ON gl.platform_id = p.id WHERE gl.game_id = ? ORDER BY gl.sort_order", [$id]);
+    }
     if ($action === 'edit' && !$game) {
         flashMessage('error', 'Jogo não encontrado.');
         header('Location: games');
@@ -290,18 +312,65 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-row">
                 <div class="form-group">
+                    <label for="game_type">Tipo</label>
+                    <select id="game_type" name="game_type">
+                        <option value="autoral" <?= ($game['game_type'] ?? 'autoral') === 'autoral' ? 'selected' : '' ?>>Autoral</option>
+                        <option value="cliente" <?= ($game['game_type'] ?? '') === 'cliente' ? 'selected' : '' ?>>Cliente</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <div class="toggle-group" style="margin-top:28px">
+                        <input type="checkbox" id="is_web_playable" name="is_web_playable" <?= ($game['is_web_playable'] ?? 1) ? 'checked' : '' ?>>
+                        <label for="is_web_playable">Jogável no navegador</label>
+                    </div>
+                    <div class="field-hint" style="margin-top:4px">Desmarque para jogos com link de loja (Steam, etc.)</div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
                     <div class="toggle-group" style="margin-top:28px">
                         <input type="checkbox" id="featured" name="featured" <?= ($game['featured'] ?? 0) ? 'checked' : '' ?>>
                         <label for="featured">Destaque no site</label>
                     </div>
                 </div>
+                <div class="form-group">
+                    <div class="toggle-group" style="margin-top:28px">
+                        <input type="checkbox" id="active" name="active" <?= ($game['active'] ?? 1) ? 'checked' : '' ?>>
+                        <label for="active">Ativo</label>
+                    </div>
+                </div>
             </div>
 
-            <div class="form-group">
-                <div class="toggle-group">
-                    <input type="checkbox" id="active" name="active" <?= ($game['active'] ?? 1) ? 'checked' : '' ?>>
-                    <label for="active">Ativo</label>
+            <h3 class="form-section-title" id="gameLinksSection" style="<?= ($game['is_web_playable'] ?? 1) ? 'display:none' : '' ?>">Links de Distribuição</h3>
+            <div id="gameLinksContainer" style="<?= ($game['is_web_playable'] ?? 1) ? 'display:none' : '' ?>">
+                <div class="field-hint" style="margin-bottom:12px">Links para lojas onde o jogo pode ser adquirido.</div>
+                <div id="gameLinksList">
+                    <?php
+                    $platforms = dbQuery("SELECT id, name, icon FROM store_platforms WHERE active = 1 ORDER BY sort_order ASC, name ASC");
+                    if (!empty($gameLinks)):
+                        foreach ($gameLinks as $gl):
+                    ?>
+                    <div class="form-row game-link-row">
+                        <div class="form-group" style="flex:0 0 200px">
+                            <select name="link_platform[]">
+                                <option value="">Selecione...</option>
+                                <?php foreach ($platforms as $p): ?>
+                                <option value="<?= $p['id'] ?>" <?= $gl['platform_id'] == $p['id'] ? 'selected' : '' ?>><?= e($p['icon'] ?? '') ?> <?= e($p['name']) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div class="form-group" style="flex:1">
+                            <input type="url" name="link_url[]" value="<?= e($gl['url']) ?>" placeholder="https://...">
+                        </div>
+                        <button type="button" class="btn btn-danger btn-sm btn-icon game-link-remove" style="margin-top:24px;flex:0 0 36px" title="Remover">✕</button>
+                    </div>
+                    <?php
+                        endforeach;
+                    endif;
+                    ?>
                 </div>
+                <button type="button" class="btn btn-outline btn-sm" id="addGameLink">+ Adicionar Link</button>
             </div>
 
             <div class="form-actions">
@@ -396,6 +465,53 @@ if ($action === 'new' || $action === 'edit') {
             }
         });
     });
+
+    // Game links add/remove and toggle
+    const container = document.getElementById('gameLinksContainer');
+    const sectionTitle = document.getElementById('gameLinksSection');
+    const list = document.getElementById('gameLinksList');
+    const addBtn = document.getElementById('addGameLink');
+    const isWebPlayable = document.getElementById('is_web_playable');
+
+    function toggleGameLinks() {
+        const show = !isWebPlayable.checked;
+        if (container) container.style.display = show ? '' : 'none';
+        if (sectionTitle) sectionTitle.style.display = show ? '' : 'none';
+    }
+
+    if (isWebPlayable) {
+        isWebPlayable.addEventListener('change', toggleGameLinks);
+    }
+
+    function createLinkRow(platformId, url) {
+        const platforms = <?= json_encode(array_map(function($p) {
+            return ['id' => $p['id'], 'name' => $p['name'], 'icon' => $p['icon'] ?? ''];
+        }, $platforms ?? [])) ?>;
+        let selectHtml = '<select name="link_platform[]"><option value="">Selecione...</option>';
+        platforms.forEach(p => {
+            selectHtml += `<option value="${p.id}" ${p.id == platformId ? 'selected' : ''}>${p.icon} ${p.name}</option>`;
+        });
+        selectHtml += '</select>';
+        return `<div class="form-row game-link-row">
+            <div class="form-group" style="flex:0 0 200px">${selectHtml}</div>
+            <div class="form-group" style="flex:1"><input type="url" name="link_url[]" value="${url}" placeholder="https://..."></div>
+            <button type="button" class="btn btn-danger btn-sm btn-icon game-link-remove" style="margin-top:24px;flex:0 0 36px" title="Remover">✕</button>
+        </div>`;
+    }
+
+    if (addBtn) {
+        addBtn.addEventListener('click', () => {
+            const div = document.createElement('div');
+            div.innerHTML = createLinkRow(0, '');
+            list.appendChild(div.firstElementChild);
+        });
+    }
+
+    list.addEventListener('click', (e) => {
+        if (e.target.classList.contains('game-link-remove')) {
+            e.target.closest('.game-link-row').remove();
+        }
+    });
     </script>
     <?php
 } else {
@@ -421,6 +537,7 @@ if ($action === 'new' || $action === 'edit') {
                     <thead>
                         <tr>
                             <th>Título</th>
+                            <th>Tipo</th>
                             <th>Engine</th>
                             <th class="hide-tablet">ZIP</th>
                             <th>Status</th>
@@ -433,6 +550,13 @@ if ($action === 'new' || $action === 'edit') {
                         <?php foreach ($games as $g): ?>
                         <tr>
                             <td><strong style="color:var(--fg)"><?= e($g['title']) ?></strong></td>
+                            <td>
+                                <?php if (($g['game_type'] ?? 'autoral') === 'cliente'): ?>
+                                    <span class="badge badge-client">Cliente</span>
+                                <?php else: ?>
+                                    <span class="badge badge-autoral">Autoral</span>
+                                <?php endif; ?>
+                            </td>
                             <td><span class="game-engine-badge" style="background:<?= getEngineColor($g['engine']) ?>"><?= getEngineIcon($g['engine']) ?> <?= e($g['engine']) ?></span></td>
                             <td class="hide-tablet"><?= $g['game_path'] ? '📦 ' . e($g['game_path']) : '—' ?></td>
                             <td>
