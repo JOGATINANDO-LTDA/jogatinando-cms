@@ -60,10 +60,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
 }
 
 $banners = dbQuery("SELECT * FROM banners WHERE active = 1 ORDER BY sort_order ASC");
-$activeEngineNames = array_column(dbQuery("SELECT name FROM engines WHERE active = 1"), 'name');
+$activeEngines = dbQuery("SELECT name, slug FROM engines WHERE active = 1");
+$engineSlugByName = [];
+foreach ($activeEngines as $eng) {
+    $engineSlugByName[$eng['name']] = $eng['slug'];
+}
+$activeEngineNames = array_column($activeEngines, 'name');
 $games = !empty($activeEngineNames)
     ? dbQuery("SELECT * FROM games WHERE active = 1 AND engine IN (" . implode(',', array_fill(0, count($activeEngineNames), '?')) . ") ORDER BY featured DESC, sort_order ASC", $activeEngineNames)
     : [];
+$featuredGames = dbQuery("SELECT g.* FROM games g INNER JOIN engines e ON e.name = g.engine WHERE g.active = 1 AND e.active = 1 ORDER BY g.featured DESC, g.sort_order ASC, g.created_at DESC LIMIT 8");
 $blogPosts = dbQuery("SELECT * FROM blog_posts WHERE active = 1 ORDER BY published_at DESC LIMIT 3");
 $testimonials = dbQuery("SELECT * FROM testimonials WHERE active = 1 ORDER BY sort_order ASC");
 $faqItems = dbQuery("SELECT * FROM faq_items WHERE active = 1 ORDER BY sort_order ASC");
@@ -109,7 +115,8 @@ $footerDescription = getSetting('footer_description', '');
             </a>
             <ul class="navbar-menu">
                 <li><a href="#home">Início</a></li>
-                <li><a href="#games">Jogos</a></li>
+                <li><a href="#categories">Categorias</a></li>
+                <li><a href="/catalogo">Catálogo</a></li>
                 <?php if (!empty($blogPosts)): ?><li><a href="#blog">Blog</a></li><?php endif; ?>
                 <?php if (!empty($testimonials)): ?><li><a href="#testimonials">Depoimentos</a></li><?php endif; ?>
                 <?php if (!empty($faqItems)): ?><li><a href="#faq">FAQ</a></li><?php endif; ?>
@@ -128,7 +135,8 @@ $footerDescription = getSetting('footer_description', '');
             <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
         </button>
         <a href="#home" class="mobile-link">Início</a>
-        <a href="#games" class="mobile-link">Jogos</a>
+        <a href="#categories" class="mobile-link">Categorias</a>
+        <a href="/catalogo" class="mobile-link">Catálogo</a>
         <?php if (!empty($blogPosts)): ?><a href="#blog" class="mobile-link">Blog</a><?php endif; ?>
         <?php if (!empty($testimonials)): ?><a href="#testimonials" class="mobile-link">Depoimentos</a><?php endif; ?>
         <?php if (!empty($faqItems)): ?><a href="#faq" class="mobile-link">FAQ</a><?php endif; ?>
@@ -195,44 +203,100 @@ $footerDescription = getSetting('footer_description', '');
         <div class="line"></div>
     </div>
 
-    <!-- Games -->
-    <section id="games" class="section section-dark">
+    <!-- Categories -->
+    <section id="categories" class="section section-dark">
         <div class="container">
             <div class="section-title">
-                <h2>Portfólio de <span class="gold">Jogos</span></h2>
-                <p>Projetos reais desenvolvidos pela nossa equipe</p>
+                <h2>Explore por <span class="gold">Categoria</span></h2>
+                <p>Autorais, clientes, templates e emulação em uma única navegação</p>
             </div>
-            <div class="games-ring-wrapper">
+            <div class="games-ring-wrapper category-ring-wrapper">
                 <button class="games-nav-btn games-nav-prev" aria-label="Anterior">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                 </button>
-                <div class="games-ring">
-                    <?php foreach ($games as $i => $game): ?>
-                    <a href="/<?= strtolower(preg_replace('/[^a-zA-Z]/', '', $game['engine'])) ?>/<?= e($game['slug']) ?>" class="game-card" data-index="<?= $i ?>">
+                <div class="games-ring category-ring">
+                    <a href="/catalogo?type=autoral" class="game-card category-card" data-index="0">
                         <div class="game-thumb">
-                            <?php if ($game['thumbnail_url']): ?>
-                            <img src="<?= e($game['thumbnail_url']) ?>" alt="<?= e($game['title']) ?>">
-                            <?php else: ?>
-                            <div class="game-thumb-placeholder"><?= getEngineIcon($game['engine']) ?></div>
-                            <?php endif; ?>
-                            <?php if ($game['featured'] || $game['engine']): ?>
+                            <div class="game-thumb-placeholder">🛠️</div>
                             <div class="game-badges">
-                                <?php if ($game['featured']): ?><span class="game-badge-featured">Destaque</span><?php endif; ?>
-                                <span class="game-engine-badge" style="background:<?= getEngineColor($game['engine']) ?>"><?= getEngineIcon($game['engine']) ?> <?= e($game['engine']) ?></span>
+                                <span class="game-badge-featured">Autorais</span>
                             </div>
-                            <?php endif; ?>
                         </div>
                         <div class="game-info">
-                            <h3><?= e($game['title']) ?></h3>
-                            <p class="game-engine"><?= getEngineIcon($game['engine']) ?> <?= e($game['engine']) ?></p>
-                            <p class="game-desc"><?= e(truncateText($game['description'], 100)) ?></p>
+                            <h3>Autorais</h3>
+                            <p class="game-engine">Projetos originais do estúdio</p>
+                            <p class="game-desc">Jogos próprios publicados pela equipe.</p>
                         </div>
                     </a>
-                    <?php endforeach; ?>
+                    <a href="/catalogo?type=cliente" class="game-card category-card" data-index="1">
+                        <div class="game-thumb">
+                            <div class="game-thumb-placeholder">🤝</div>
+                            <div class="game-badges">
+                                <span class="game-badge-featured">Clientes</span>
+                            </div>
+                        </div>
+                        <div class="game-info">
+                            <h3>Clientes</h3>
+                            <p class="game-engine">Projetos feitos sob demanda</p>
+                            <p class="game-desc">Jogos desenvolvidos para parceiros e clientes.</p>
+                        </div>
+                    </a>
+                    <a href="/templates" class="game-card category-card" data-index="2">
+                        <div class="game-thumb">
+                            <div class="game-thumb-placeholder">📦</div>
+                            <div class="game-badges">
+                                <span class="game-badge-featured">Templates</span>
+                            </div>
+                        </div>
+                        <div class="game-info">
+                            <h3>Templates</h3>
+                            <p class="game-engine">Bases prontas para novos projetos</p>
+                            <p class="game-desc">Estruturas reutilizáveis por engine.</p>
+                        </div>
+                    </a>
+                    <a href="/retro" class="game-card category-card" data-index="3">
+                        <div class="game-thumb">
+                            <div class="game-thumb-placeholder">🕹️</div>
+                            <div class="game-badges">
+                                <span class="game-badge-featured">Emulação</span>
+                            </div>
+                        </div>
+                        <div class="game-info">
+                            <h3>Emulação</h3>
+                            <p class="game-engine">SNES, SEGA, PSONE e mais</p>
+                            <p class="game-desc">Jogos retro originais e modificados.</p>
+                        </div>
+                    </a>
                 </div>
                 <button class="games-nav-btn games-nav-next" aria-label="Próximo">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
                 </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Featured Games -->
+    <section id="games" class="section">
+        <div class="container">
+            <div class="section-title">
+                <h2>Destaques de <span class="gold">Jogos</span></h2>
+                <p>Uma amostra dos projetos publicados no site</p>
+            </div>
+            <div class="blog-grid">
+                <?php foreach ($featuredGames as $game): ?>
+                    <?php $engineSlug = $engineSlugByName[$game['engine']] ?? generateSlug($game['engine']); ?>
+                    <a href="/<?= e($engineSlug) ?>/<?= e($game['slug']) ?>" class="blog-card game-card-compact">
+                    <?php if ($game['thumbnail_url']): ?>
+                    <div class="blog-thumb">
+                        <img src="<?= e($game['thumbnail_url']) ?>" alt="<?= e($game['title']) ?>">
+                    </div>
+                    <?php endif; ?>
+                    <div class="blog-content">
+                        <h3><?= e($game['title']) ?></h3>
+                        <p><?= e(truncateText($game['description'], 150)) ?></p>
+                    </div>
+                </a>
+                <?php endforeach; ?>
             </div>
         </div>
     </section>

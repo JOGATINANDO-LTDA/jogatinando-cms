@@ -146,6 +146,7 @@ function getMigrationList() {
         9 => 'add_game_fields_platforms',
         10 => 'create_game_templates',
         11 => 'create_retro_games',
+        12 => 'create_retro_consoles',
     ];
 }
 

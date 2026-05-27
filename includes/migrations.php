@@ -579,6 +579,38 @@ function migration_011($db, $type) {
     }
 }
 
+function migration_012($db, $type) {
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS retro_consoles (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) NOT NULL UNIQUE,
+            icon VARCHAR(50) NOT NULL DEFAULT '🎮',
+            emulator_core VARCHAR(100) NOT NULL DEFAULT '',
+            active INT DEFAULT 1,
+            sort_order INT DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS retro_consoles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            icon TEXT NOT NULL DEFAULT '🎮',
+            emulator_core TEXT NOT NULL DEFAULT '',
+            active INTEGER DEFAULT 1,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
+
+    $count = $db->query("SELECT COUNT(*) FROM retro_consoles")->fetchColumn();
+    if ($count == 0) {
+        $stmt = $db->prepare("INSERT INTO retro_consoles (name, slug, icon, emulator_core, active, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute(['SNES', 'snes', '🎮', 'snes9x', 1, 1]);
+    }
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();

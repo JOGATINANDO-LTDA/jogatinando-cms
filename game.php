@@ -10,22 +10,32 @@ if (!$engine || !$slug) {
 }
 
 try {
-    $game = dbQueryOne("SELECT * FROM games WHERE LOWER(engine) = LOWER(?) AND slug = ? AND active = 1 AND engine IN (SELECT name FROM engines WHERE active = 1)", [$engine, $slug]);
+    $game = dbQueryOne("SELECT g.*, e.icon as engine_icon, e.color as engine_color FROM games g LEFT JOIN engines e ON g.engine = e.name WHERE (LOWER(g.engine) = LOWER(?) OR LOWER(e.slug) = LOWER(?)) AND g.slug = ? AND g.active = 1 AND g.engine IN (SELECT name FROM engines WHERE active = 1)", [$engine, $engine, $slug]);
 } catch (Exception $ex) {
     die('DB Error: ' . $ex->getMessage());
 }
 
-if (!$game || !$game['game_path']) {
+if (!$game) {
     header('Location: /');
     exit;
 }
 
-$gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
-$gameUrl = UPLOAD_URL . '/games/' . $game['game_path'] . '/';
+$isWebPlayable = !empty($game['is_web_playable']);
+$gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon FROM game_links gl INNER JOIN store_platforms p ON p.id = gl.platform_id WHERE gl.game_id = ? AND p.active = 1 ORDER BY gl.sort_order ASC, p.sort_order ASC, p.name ASC", [$game['id']]);
 
-if (!file_exists($gameDir . '/index.html')) {
-    http_response_code(404);
-    die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Arquivo do jogo não encontrado.</h1>');
+if ($isWebPlayable) {
+    if (!$game['game_path']) {
+        header('Location: /');
+        exit;
+    }
+
+    $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
+    $gameUrl = UPLOAD_URL . '/games/' . $game['game_path'] . '/';
+
+    if (!file_exists($gameDir . '/index.html')) {
+        http_response_code(404);
+        die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Arquivo do jogo não encontrado.</h1>');
+    }
 }
 
 $orientation = $game['orientation'] ?? 'auto';
@@ -63,6 +73,7 @@ $orientation = $game['orientation'] ?? 'auto';
         </div>
     </nav>
 
+    <?php if ($isWebPlayable): ?>
     <!-- Theater Mode Player -->
     <section class="theater-section">
         <div class="theater-container">
@@ -89,6 +100,7 @@ $orientation = $game['orientation'] ?? 'auto';
             </div>
         </div>
     </section>
+    <?php endif; ?>
 
     <!-- Game Info -->
     <section class="game-info-section">
@@ -98,11 +110,26 @@ $orientation = $game['orientation'] ?? 'auto';
                 <div class="game-info-main">
                     <div class="game-info-header">
                         <div class="game-info-badges">
-                            <span class="game-engine-badge" style="background:<?= getEngineColor($game['engine']) ?>"><?= getEngineIcon($game['engine']) ?> <?= e($game['engine']) ?></span>
+                            <span class="game-engine-badge" style="background:<?= e($game['engine_color'] ?? getEngineColor($game['engine'])) ?>"><?= e($game['engine_icon'] ?? getEngineIcon($game['engine'])) ?> <?= e($game['engine']) ?></span>
                             <?php if ($game['featured']): ?><span class="game-badge-featured">Destaque</span><?php endif; ?>
+                            <?php if (!$isWebPlayable): ?><span class="game-badge-featured" style="background:var(--accent);color:white">Loja</span><?php endif; ?>
                         </div>
                         <h1><?= e($game['title']) ?></h1>
                     </div>
+
+                    <?php if (!$isWebPlayable && $gameLinks): ?>
+                    <div class="game-info-description">
+                        <h3>Onde comprar</h3>
+                        <div class="store-links-grid">
+                            <?php foreach ($gameLinks as $link): ?>
+                            <a class="store-link-card" href="<?= e($link['url']) ?>" target="_blank" rel="noopener">
+                                <span class="store-link-icon"><?= e($link['platform_icon'] ?? '🛒') ?></span>
+                                <span class="store-link-name"><?= e($link['platform_name']) ?></span>
+                            </a>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                    <?php endif; ?>
 
                     <?php if ($game['description']): ?>
                     <div class="game-info-description">
@@ -111,6 +138,7 @@ $orientation = $game['orientation'] ?? 'auto';
                     </div>
                     <?php endif; ?>
 
+                    <?php if ($isWebPlayable): ?>
                     <!-- Controls -->
                     <div class="game-info-controls">
                         <h3>Controles</h3>
@@ -139,6 +167,16 @@ $orientation = $game['orientation'] ?? 'auto';
                             <span class="tag">HTML5</span>
                         </div>
                     </div>
+                    <?php else: ?>
+                    <div class="game-info-tags">
+                        <h3>Categorias</h3>
+                        <div class="tags-list">
+                            <span class="tag"><?= e($game['engine']) ?></span>
+                            <span class="tag"><?= ($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral' ?></span>
+                            <span class="tag">Distribuição</span>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                 </div>
 
                 <!-- Sidebar -->
@@ -152,15 +190,21 @@ $orientation = $game['orientation'] ?? 'auto';
                             </div>
                             <div class="info-item">
                                 <dt>Plataforma</dt>
-                                <dd>Navegador (HTML5)</dd>
-                            </div>
-                            <div class="info-item">
-                                <dt>Orientação</dt>
-                                <dd><?= $orientation === 'landscape' ? 'Paisagem' : ($orientation === 'portrait' ? 'Retrato' : 'Automático') ?></dd>
-                            </div>
-                            <div class="info-item">
-                                <dt>Adicionado</dt>
-                                <dd><?= date('d/m/Y', strtotime($game['created_at'])) ?></dd>
+                        <dd><?= $isWebPlayable ? 'Navegador (HTML5)' : 'Distribuição / Loja' ?></dd>
+                    </div>
+                    <div class="info-item">
+                        <dt>Orientação</dt>
+                        <dd><?= $orientation === 'landscape' ? 'Paisagem' : ($orientation === 'portrait' ? 'Retrato' : 'Automático') ?></dd>
+                    </div>
+                    <?php if (!$isWebPlayable): ?>
+                    <div class="info-item">
+                        <dt>Tipo</dt>
+                        <dd><?= ($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral' ?></dd>
+                    </div>
+                    <?php endif; ?>
+                    <div class="info-item">
+                        <dt>Adicionado</dt>
+                        <dd><?= date('d/m/Y', strtotime($game['created_at'])) ?></dd>
                             </div>
                         </dl>
                     </div>
@@ -169,6 +213,20 @@ $orientation = $game['orientation'] ?? 'auto';
                     <div class="sidebar-card">
                         <h3>Thumbnail</h3>
                         <img src="<?= e($game['thumbnail_url']) ?>" alt="<?= e($game['title']) ?>" class="sidebar-thumb">
+                    </div>
+                    <?php endif; ?>
+
+                    <?php if (!$isWebPlayable && $gameLinks): ?>
+                    <div class="sidebar-card">
+                        <h3>Distribuição</h3>
+                        <div class="sidebar-links-list">
+                            <?php foreach ($gameLinks as $link): ?>
+                            <a href="<?= e($link['url']) ?>" target="_blank" rel="noopener" class="sidebar-store-link">
+                                <span><?= e($link['platform_icon'] ?? '🛒') ?></span>
+                                <span><?= e($link['platform_name']) ?></span>
+                            </a>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                     <?php endif; ?>
 
@@ -189,6 +247,9 @@ $orientation = $game['orientation'] ?? 'auto';
 
     <script>
         document.addEventListener('DOMContentLoaded', () => {
+            const isWebPlayable = <?= $isWebPlayable ? 'true' : 'false' ?>;
+            if (!isWebPlayable) return;
+
             const overlay = document.getElementById('theaterOverlay');
             const iframe = document.getElementById('theaterIframe');
             const loader = document.getElementById('theaterLoader');

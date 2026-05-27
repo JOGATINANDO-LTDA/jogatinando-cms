@@ -107,6 +107,12 @@ if ($uri === '/retro') {
     exit;
 }
 
+if (preg_match('#^/retro/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
+    $_GET['console'] = $matches[1];
+    require __DIR__ . '/retro-console.php';
+    exit;
+}
+
 if (preg_match('#^/retro/([a-zA-Z0-9-]+)/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
     $_GET['console'] = $matches[1];
     $_GET['slug'] = $matches[2];

@@ -159,6 +159,60 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
     ];
 }
 
+function uploadRetroRom($file, $consoleSlug, $gameSlug, $type = 'original', $allowedExtensions = null) {
+    if (!isset($file['error']) || is_array($file['error'])) {
+        return ['success' => false, 'message' => 'Upload inválido.'];
+    }
+
+    switch ($file['error']) {
+        case UPLOAD_ERR_OK:
+            break;
+        case UPLOAD_ERR_INI_SIZE:
+        case UPLOAD_ERR_FORM_SIZE:
+            return ['success' => false, 'message' => 'Arquivo muito grande. Máximo: ' . (MAX_UPLOAD_SIZE / 1024 / 1024) . 'MB'];
+        default:
+            return ['success' => false, 'message' => 'Erro no upload (código: ' . $file['error'] . ').'];
+    }
+
+    if ($file['size'] > MAX_UPLOAD_SIZE) {
+        return ['success' => false, 'message' => 'Arquivo excede o tamanho máximo.'];
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $allowedExtensions = $allowedExtensions ?? ['sfc', 'smc', 'fig', 'bs', 'gb', 'gbc', 'gba', 'nes', 'fds', 'z64', 'n64', 'v64', 'md', 'gen', 'bin', 'cue', 'chd', 'iso', 'zip'];
+    if (!in_array($ext, $allowedExtensions)) {
+        return ['success' => false, 'message' => 'Extensão não permitida: .' . $ext];
+    }
+
+    $consoleSlug = generateSlug($consoleSlug);
+    $gameSlug = generateSlug($gameSlug);
+    $typeDir = $type === 'modified' ? 'rommod' : 'rom';
+    $uploadDir = UPLOAD_PATH . '/retro/' . $consoleSlug . '/' . $typeDir;
+    if (!is_dir($uploadDir)) {
+        mkdir($uploadDir, 0755, true);
+    }
+
+    $filename = $gameSlug . '.' . $ext;
+    $destination = $uploadDir . '/' . $filename;
+
+    if (file_exists($destination)) {
+        @unlink($destination);
+    }
+
+    if (!move_uploaded_file($file['tmp_name'], $destination)) {
+        return ['success' => false, 'message' => 'Falha ao salvar o arquivo.'];
+    }
+
+    return [
+        'success' => true,
+        'filename' => $filename,
+        'url' => '/uploads/retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename,
+        'path' => $destination,
+        'rel_path' => 'retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename,
+        'type_dir' => $typeDir,
+    ];
+}
+
 function deleteFile($path) {
     if (file_exists($path)) {
         return unlink($path);
