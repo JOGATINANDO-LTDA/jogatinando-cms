@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['contact_submit'])) {
         $contactError = 'Descreva seu projeto com mais detalhes (mínimo 20 caracteres).';
     } else {
         $engineDisplay = ($cEngine === 'Outra') ? ucfirst($cEngineOther) : $cEngine;
-        $to = 'sulivan.lineage2@gmail.com';
+        $to = getSetting('contact_recipient', 'sulivan.lineage2@gmail.com');
         $subject = "Orçamento - $cName";
         $body = "Novo pedido de orçamento recebido pelo site:\n\n";
         $body .= "Nome: $cName\n";

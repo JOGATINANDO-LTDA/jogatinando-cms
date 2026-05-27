@@ -104,11 +104,152 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['save_smtp', 'test_smtp'])) {
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+
+    $smtpHost  = trim($_POST['smtp_host'] ?? '');
+    $smtpPort  = trim($_POST['smtp_port'] ?? '');
+    $smtpUser  = trim($_POST['smtp_user'] ?? '');
+    $smtpPass  = $_POST['smtp_pass'] ?? '';
+    $smtpFrom  = trim($_POST['smtp_from'] ?? '');
+    $smtpFromName = trim($_POST['smtp_from_name'] ?? '');
+
+    if (empty($smtpHost) || empty($smtpPort)) {
+        flashMessage('error', 'Servidor e porta são obrigatórios.');
+        ob_end_clean(); header('Location: settings'); exit;
+    }
+
+    $contactRecipient = trim($_POST['contact_recipient'] ?? '');
+
+    // --- test_smtp: try connection before saving ---
+    if ($_POST['action'] === 'test_smtp') {
+        if (empty($smtpUser) || empty($smtpPass)) {
+            flashMessage('error', 'Usuário e senha são obrigatórios para testar a conexão.');
+            ob_end_clean(); header('Location: settings'); exit;
+        }
+
+        $error = null;
+        $fp = @fsockopen($smtpHost, (int)$smtpPort, $errno, $errstr, 15);
+        if (!$fp) {
+            flashMessage('error', "Falha ao conectar em $smtpHost:$smtpPort — $errstr");
+            ob_end_clean(); header('Location: settings'); exit;
+        }
+
+        $read = function($fp) {
+            $out = '';
+            while (($line = fgets($fp)) !== false) {
+                $out .= $line;
+                if (substr($line, 3, 1) === ' ') break;
+            }
+            return trim($out);
+        };
+        $write = function($fp, $cmd) { fwrite($fp, "$cmd\r\n"); };
+
+        $banner = $read($fp);
+        $write($fp, "EHLO test.jogatinando.com.br");
+        $ehlo = $read($fp);
+
+        // Try STARTTLS if available
+        if (stripos($ehlo, 'STARTTLS') !== false && function_exists('stream_socket_enable_crypto')) {
+            $write($fp, "STARTTLS");
+            $starttlsResp = $read($fp);
+            if (substr($starttlsResp, 0, 3) === '220') {
+                @stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
+                $write($fp, "EHLO test.jogatinando.com.br");
+                $ehlo = $read($fp);
+            }
+        }
+
+        $authSupported = stripos($ehlo, 'AUTH') !== false;
+        if (!$authSupported) {
+            fclose($fp);
+            flashMessage('error', 'Servidor SMTP não suporta autenticação (AUTH não listado).');
+            ob_end_clean(); header('Location: settings'); exit;
+        }
+
+        // AUTH LOGIN
+        $write($fp, "AUTH LOGIN");
+        $authResp = $read($fp);
+        if (substr($authResp, 0, 3) === '334') {
+            $write($fp, base64_encode($smtpUser));
+            $userResp = $read($fp);
+            if (substr($userResp, 0, 3) === '334') {
+                $write($fp, base64_encode($smtpPass));
+                $passResp = $read($fp);
+                if (substr($passResp, 0, 3) === '235') {
+                    $write($fp, "QUIT");
+                    fclose($fp);
+
+                    // Test passed — save config
+                    _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom, $smtpFromName, $contactRecipient);
+                    flashMessage('success', 'Teste SMTP OK — conexão e autenticação funcionam. Configurações salvas!');
+                    ob_end_clean(); header('Location: settings'); exit;
+                } else {
+                    $error = "Falha na autenticação: $passResp";
+                }
+            } else {
+                $error = "Usuário rejeitado: $userResp";
+            }
+        } else {
+            $error = "AUTH LOGIN não aceito: $authResp";
+        }
+
+        fclose($fp);
+        flashMessage('error', $error);
+        ob_end_clean(); header('Location: settings'); exit;
+    }
+
+    // --- save_smtp: just write config ---
+    _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom, $smtpFromName, $contactRecipient);
+    flashMessage('success', 'Configurações SMTP salvas!');
+    ob_end_clean();
+    header('Location: settings');
+    exit;
+}
+
+function _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom, $smtpFromName, $contactRecipient) {
+    $configPath = DATA_PATH . '/config.local.php';
+    $existing = file_exists($configPath) ? file_get_contents($configPath) : '';
+
+    $smtpPos = strpos($existing, "if (!defined('SMTP_PASS'))");
+    $localConfig = $smtpPos !== false ? substr($existing, 0, $smtpPos) : rtrim($existing);
+    if ($localConfig !== '' && !str_ends_with($localConfig, "\n\n")) {
+        $localConfig .= "\n\n";
+    }
+
+    if ($smtpPass === '' && $smtpPos !== false) {
+        if (preg_match("/define\('SMTP_PASS',\s*'(.*?)'\)/", $existing, $m)) {
+            $smtpPass = stripslashes($m[1]);
+        }
+    }
+
+    $localConfig .= "if (!defined('SMTP_PASS')) {\n";
+    $localConfig .= "    define('SMTP_HOST', '" . addslashes($smtpHost) . "');\n";
+    $localConfig .= "    define('SMTP_PORT', '" . addslashes($smtpPort) . "');\n";
+    $localConfig .= "    define('SMTP_USER', '" . addslashes($smtpUser) . "');\n";
+    $localConfig .= "    define('SMTP_PASS', '" . addslashes($smtpPass) . "');\n";
+    $localConfig .= "    define('SMTP_FROM', '" . addslashes($smtpFrom) . "');\n";
+    $localConfig .= "    define('SMTP_FROM_NAME', '" . addslashes($smtpFromName) . "');\n";
+    $localConfig .= "}\n";
+
+    if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
+    file_put_contents($configPath, $localConfig);
+    setSetting('contact_recipient', $contactRecipient);
+}
+
 $settings = [];
-$keys = ['site_name', 'site_tagline', 'hero_title', 'hero_subtitle', 'contact_email', 'contact_whatsapp', 'youtube_url', 'twitch_url', 'blog_url', 'footer_description'];
+$keys = ['site_name', 'site_tagline', 'hero_title', 'hero_subtitle', 'contact_email', 'contact_whatsapp', 'youtube_url', 'twitch_url', 'blog_url', 'footer_description', 'contact_recipient'];
 foreach ($keys as $key) {
     $settings[$key] = getSetting($key, '');
 }
+
+// Current SMTP values from constants
+$smtpHost = defined('SMTP_HOST') && SMTP_HOST !== '' ? SMTP_HOST : 'smtp.gmail.com';
+$smtpPort = defined('SMTP_PORT') && SMTP_PORT !== '' ? SMTP_PORT : '587';
+$smtpUser = defined('SMTP_USER') ? SMTP_USER : '';
+$smtpFrom = defined('SMTP_FROM') ? SMTP_FROM : '';
+$smtpFromName = defined('SMTP_FROM_NAME') ? SMTP_FROM_NAME : '';
+$smtpConfigured = defined('SMTP_PASS') && SMTP_PASS !== '';
 
 // Current user data for profile card
 $userData = null;
@@ -231,6 +372,97 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
     </form>
     </div>
 </div>
+
+<!-- Configurações SMTP -->
+<div class="card" style="margin-top: 24px; border-color: <?= $smtpConfigured ? 'oklch(75% 0.15 85 / 0.4)' : 'oklch(30% 0.02 260 / 0.3)' ?>;">
+    <div class="card-header">
+        <h2 class="card-title">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 8px;"><path d="M22 6L12 13L2 6M22 6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6l10 7l10-7z"/></svg>
+            Configurações SMTP / E-mail
+        </h2>
+    </div>
+    <div class="card-body">
+        <?php if ($smtpConfigured): ?>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: oklch(75% 0.15 85 / 0.08); border: 1px solid oklch(75% 0.15 85 / 0.2); border-radius: 8px; margin-bottom: 20px;">
+            <span style="width: 12px; height: 12px; border-radius: 50%; background: oklch(75% 0.15 85); flex-shrink: 0;"></span>
+            <div>
+                <strong style="color: oklch(75% 0.15 85);">SMTP configurado</strong>
+                <span style="font-size: 13px; color: oklch(60% 0.012 250); margin-left: 8px;">
+                    De <strong style="color: var(--fg);"><?= e($smtpFrom ?: $smtpUser ?: '—') ?></strong>
+                    → Para <strong style="color: var(--fg);"><?= e($settings['contact_recipient'] ?: '—') ?></strong>
+                </span>
+            </div>
+        </div>
+        <?php else: ?>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: oklch(30% 0.02 260 / 0.2); border: 1px solid oklch(40% 0.02 260 / 0.3); border-radius: 8px; margin-bottom: 20px;">
+            <span style="width: 12px; height: 12px; border-radius: 50%; background: oklch(50% 0.02 260); flex-shrink: 0;"></span>
+            <div>
+                <strong style="color: oklch(60% 0.012 250);">SMTP não configurado</strong>
+                <span style="font-size: 13px; color: oklch(50% 0.02 260); margin-left: 8px;">Os e-mails do formulário de orçamento não serão enviados até configurar.</span>
+            </div>
+        </div>
+        <?php endif; ?>
+        <form method="POST" id="smtp-form">
+            <?= csrfField() ?>
+            <div id="smtp-fields">
+            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 2; min-width: 200px;">
+                    <label for="smtp_host">Servidor *</label>
+                    <input type="text" id="smtp_host" name="smtp_host" value="<?= e($smtpHost) ?>" required placeholder="smtp.gmail.com" <?= $smtpConfigured ? 'disabled' : '' ?>>
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 100px;">
+                    <label for="smtp_port">Porta *</label>
+                    <input type="text" id="smtp_port" name="smtp_port" value="<?= e($smtpPort) ?>" required placeholder="587" <?= $smtpConfigured ? 'disabled' : '' ?>>
+                </div>
+            </div>
+            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1; min-width: 200px;">
+                    <label for="smtp_user">Usuário</label>
+                    <input type="text" id="smtp_user" name="smtp_user" value="<?= e($smtpUser) ?>" placeholder="seu@email.com" autocomplete="off" <?= $smtpConfigured ? 'disabled' : '' ?>>
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 200px;">
+                    <label for="smtp_pass">Senha</label>
+                    <input type="password" id="smtp_pass" name="smtp_pass" placeholder="<?= $smtpConfigured ? '•••••• (deixe vazio para manter)' : 'Senha do SMTP' ?>" autocomplete="new-password" <?= $smtpConfigured ? 'disabled' : '' ?>>
+                </div>
+            </div>
+            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1; min-width: 200px;">
+                    <label for="smtp_from">E-mail remetente</label>
+                    <input type="email" id="smtp_from" name="smtp_from" value="<?= e($smtpFrom) ?>" placeholder="noreply@seudominio.com" <?= $smtpConfigured ? 'disabled' : '' ?>>
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 200px;">
+                    <label for="smtp_from_name">Nome do remetente</label>
+                    <input type="text" id="smtp_from_name" name="smtp_from_name" value="<?= e($smtpFromName) ?>" placeholder="Jogatinando CMS" <?= $smtpConfigured ? 'disabled' : '' ?>>
+                </div>
+            </div>
+            <hr style="border: none; border-top: 1px solid oklch(22% 0.025 260); margin: 20px 0;">
+            <div class="form-group">
+                <label for="contact_recipient">Email destinatário (formulário de orçamento)</label>
+                <input type="email" id="contact_recipient" name="contact_recipient" value="<?= e($settings['contact_recipient'] ?? '') ?>" placeholder="para quem enviar os orçamentos" style="max-width: 400px;" <?= $smtpConfigured ? 'disabled' : '' ?>>
+                <p style="font-size: 12px; color: oklch(60% 0.012 250); margin-top: 4px;">Este email receberá os pedidos de orçamento enviados pelo formulário de contato do site.</p>
+            </div>
+            </div><!-- /smtp-fields -->
+            <div class="form-actions" id="smtp-actions" style="<?= $smtpConfigured ? 'display:none' : '' ?>">
+                <button type="submit" class="btn btn-gold" name="action" value="test_smtp">Testar e Salvar</button>
+            </div>
+            <?php if ($smtpConfigured): ?>
+            <div class="form-actions" id="smtp-locked-actions">
+                <button type="button" class="btn btn-gold" onclick="unlockSmtp()">Editar</button>
+            </div>
+            <?php endif; ?>
+        </form>
+    </div>
+</div>
+
+<script>
+function unlockSmtp() {
+    document.getElementById('smtp-fields').querySelectorAll('input').forEach(function(el) {
+        el.disabled = false;
+    });
+    document.getElementById('smtp-actions').style.display = '';
+    document.getElementById('smtp-locked-actions').style.display = 'none';
+}
+</script>
 
 <!-- Migração SQLite → MySQL -->
 <?php if (DB_TYPE === 'sqlite'): ?>

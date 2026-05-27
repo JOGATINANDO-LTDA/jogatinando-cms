@@ -142,7 +142,7 @@ if (!defined('SMTP_PORT')) define('SMTP_PORT', 587);
 if (!defined('SMTP_USER')) define('SMTP_USER', '');
 if (!defined('SMTP_PASS')) define('SMTP_PASS', '');
 if (!defined('SMTP_FROM')) define('SMTP_FROM', '');
-if (!defined('SMTP_FROM_NAME')) define('SMTP_FROM_NAME', 'CMS de Jogos');
+if (!defined('SMTP_FROM_NAME')) define('SMTP_FROM_NAME', 'Orçamento');
 
 // Auto-load helpers
 require_once ROOT_PATH . '/includes/db.php';
