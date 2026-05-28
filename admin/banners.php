@@ -8,6 +8,7 @@ $id = (int)($_GET['id'] ?? 0);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $id = (int)($_POST['id'] ?? $id);
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();

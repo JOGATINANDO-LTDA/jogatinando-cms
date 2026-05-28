@@ -7,6 +7,7 @@ $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $id = (int)($_POST['id'] ?? $id);
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
@@ -101,7 +102,7 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-group">
                     <label for="icon">Ícone (emoji)</label>
                     <input type="text" id="icon" name="icon" value="<?= e($engine['icon'] ?? '🎮') ?>" maxlength="10">
-                    <div class="field-hint">Use um emoji como 🎮 🤖 ⚔️ 🔷 🎯</div>
+                    <div class="field-hint">Clique no seletor para escolher um emoji</div>
                 </div>
                 <div class="form-group">
                     <label for="color">Cor (OKLCH)</label>

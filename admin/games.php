@@ -3,11 +3,19 @@ ob_start();
 $pageTitle = 'Jogos';
 require_once __DIR__ . '/../includes/header.php';
 
+$canEditGames = getRoleLevelRank($userLevel) >= 1;
 $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $id = (int)($_POST['id'] ?? $id);
+    if (!$canEditGames) {
+        flashMessage('error', 'Apenas cargos Chief ou superior podem alterar jogos.');
+        ob_end_clean();
+        header('Location: games');
+        exit;
+    }
     // Detect oversized upload (POST empty due to exceeding post_max_size)
     if (empty($_POST) && empty($_FILES)) {
         $serverLimit = @ini_get('post_max_size') ?: '30M';
@@ -245,15 +253,11 @@ if ($action === 'new' || $action === 'edit') {
                         <?php
                         $allEngines = getEngines();
                         $currentEngine = $game['engine'] ?? '';
-                        $hasCurrent = false;
                         foreach ($allEngines as $eng) {
-                            if ($eng['name'] === $currentEngine) $hasCurrent = true;
-                            if (!$eng['active'] && $eng['name'] !== $currentEngine) continue;
+                            $label = e($eng['icon'] ?? '') . ' ' . e($eng['name']);
+                            if (!$eng['active']) $label .= ' (inativa)';
                             echo '<option value="' . e($eng['name']) . '" ' . ($currentEngine === $eng['name'] ? 'selected' : '') . '>'
-                                . e($eng['icon'] ?? '') . ' ' . e($eng['name']) . '</option>';
-                        }
-                        if ($currentEngine && !$hasCurrent && $currentEngine !== 'Outra') {
-                            echo '<option value="' . e($currentEngine) . '" selected>' . e($currentEngine) . ' (inativa)</option>';
+                                . $label . '</option>';
                         }
                         ?>
                     </select>
@@ -334,7 +338,7 @@ if ($action === 'new' || $action === 'edit') {
                         <input type="checkbox" id="is_web_playable" name="is_web_playable" <?= ($game['is_web_playable'] ?? 1) ? 'checked' : '' ?>>
                         <label for="is_web_playable">Jogável no navegador</label>
                     </div>
-                    <div class="field-hint" style="margin-top:4px">Desmarque para jogos com link de loja (Steam, etc.)</div>
+                    <div class="field-hint" style="margin-top:4px">Marque se o jogo roda na nossa plataforma (HTML5 upload ou link externo via iframe)</div>
                 </div>
             </div>
 
@@ -379,28 +383,35 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
             </div>
 
-            <h3 class="form-section-title" id="gameLinksSection" style="<?= ($game['is_web_playable'] ?? 1) ? 'display:none' : '' ?>">Links de Distribuição</h3>
-            <div id="gameLinksContainer" style="<?= ($game['is_web_playable'] ?? 1) ? 'display:none' : '' ?>">
-                <div class="field-hint" style="margin-bottom:12px">Links para lojas onde o jogo pode ser adquirido.</div>
+            <h3 class="form-section-title" id="gameLinksSection">Links de Distribuição</h3>
+            <div id="gameLinksContainer">
+                <div class="field-hint" style="margin-bottom:12px">Links para lojas onde o jogo pode ser adquirido ou baixado. Funciona independente de ser jogável no navegador.</div>
+                <div style="display:flex;gap:8px;margin-bottom:8px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase">
+                    <div style="flex:0 0 30%">Plataforma</div>
+                    <div style="flex:0 0 50%">URL do Link</div>
+                    <div style="flex:0 0 20%;text-align:center">Ação</div>
+                </div>
                 <div id="gameLinksList">
                     <?php
                     $platforms = dbQuery("SELECT id, name, icon FROM store_platforms WHERE active = 1 ORDER BY sort_order ASC, name ASC");
                     if (!empty($gameLinks)):
                         foreach ($gameLinks as $gl):
                     ?>
-                    <div class="form-row game-link-row">
-                        <div class="form-group" style="flex:0 0 200px">
-                            <select name="link_platform[]">
+                    <div class="game-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
+                        <div class="form-group" style="flex:0 0 30%;margin-bottom:0">
+                            <select name="link_platform[]" style="width:100%">
                                 <option value="">Selecione...</option>
                                 <?php foreach ($platforms as $p): ?>
                                 <option value="<?= $p['id'] ?>" <?= $gl['platform_id'] == $p['id'] ? 'selected' : '' ?>><?= e($p['icon'] ?? '') ?> <?= e($p['name']) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
-                        <div class="form-group" style="flex:1">
-                            <input type="url" name="link_url[]" value="<?= e($gl['url']) ?>" placeholder="https://...">
+                        <div class="form-group" style="flex:0 0 50%;margin-bottom:0">
+                            <input type="url" name="link_url[]" value="<?= e($gl['url']) ?>" placeholder="https://..." style="width:100%">
                         </div>
-                        <button type="button" class="btn btn-danger btn-sm btn-icon game-link-remove" style="margin-top:24px;flex:0 0 36px" title="Remover">✕</button>
+                        <div style="flex:0 0 20%;text-align:center;padding-bottom:2px">
+                            <button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">🗑️ Excluir</button>
+                        </div>
                     </div>
                     <?php
                         endforeach;
@@ -515,12 +526,6 @@ if ($action === 'new' || $action === 'edit') {
     const isOpenSource = document.getElementById('is_open_source');
     const repoUrlRow = document.getElementById('repoUrlRow');
 
-    function toggleGameLinks() {
-        const show = !isWebPlayable.checked;
-        if (container) container.style.display = show ? '' : 'none';
-        if (sectionTitle) sectionTitle.style.display = show ? '' : 'none';
-    }
-
     function toggleExternalFields() {
         const isExterno = gameType.value === 'externo';
         if (externalSection) externalSection.style.display = isExterno ? '' : 'none';
@@ -529,7 +534,6 @@ if ($action === 'new' || $action === 'edit') {
             isWebPlayable.checked = isExterno ? true : isWebPlayable.dataset.original !== undefined ? isWebPlayable.dataset.original === '1' : <?= ($game['is_web_playable'] ?? 1) ? 'true' : 'false' ?>;
             isWebPlayable.disabled = isExterno;
         }
-        toggleGameLinks();
     }
 
     function toggleRepoUrl() {
@@ -540,7 +544,6 @@ if ($action === 'new' || $action === 'edit') {
         isWebPlayable.dataset.original = isWebPlayable.checked ? '1' : '0';
         isWebPlayable.addEventListener('change', () => {
             isWebPlayable.dataset.original = isWebPlayable.checked ? '1' : '0';
-            toggleGameLinks();
         });
     }
 
@@ -561,10 +564,10 @@ if ($action === 'new' || $action === 'edit') {
             selectHtml += `<option value="${p.id}" ${p.id == platformId ? 'selected' : ''}>${p.icon} ${p.name}</option>`;
         });
         selectHtml += '</select>';
-        return `<div class="form-row game-link-row">
-            <div class="form-group" style="flex:0 0 200px">${selectHtml}</div>
-            <div class="form-group" style="flex:1"><input type="url" name="link_url[]" value="${url}" placeholder="https://..."></div>
-            <button type="button" class="btn btn-danger btn-sm btn-icon game-link-remove" style="margin-top:24px;flex:0 0 36px" title="Remover">✕</button>
+        return `<div class="game-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
+            <div class="form-group" style="flex:0 0 30%;margin-bottom:0">${selectHtml}</div>
+            <div class="form-group" style="flex:0 0 50%;margin-bottom:0"><input type="url" name="link_url[]" value="${url}" placeholder="https://..." style="width:100%"></div>
+            <div style="flex:0 0 20%;text-align:center;padding-bottom:2px"><button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">🗑️ Excluir</button></div>
         </div>`;
     }
 
@@ -589,7 +592,9 @@ if ($action === 'new' || $action === 'edit') {
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">Todos os Jogos</h2>
+            <?php if ($canEditGames): ?>
             <a href="games?action=new" class="btn btn-gold btn-sm">+ Novo Jogo</a>
+            <?php endif; ?>
         </div>
         <?php if (empty($games)): ?>
             <div class="card-body">
@@ -638,7 +643,7 @@ if ($action === 'new' || $action === 'edit') {
                             </td>
                             <td>
                                 <?php if (!$g['engine_active']): ?>
-                                    <span class="badge badge-inactive">Engine Inativa</span>
+                                    <span class="badge badge-inactive" title="Engine inativa — jogo não aparece para os usuários" style="cursor:help">⚙️ Engine Inativa</span>
                                 <?php elseif ($g['active']): ?>
                                     <span class="badge badge-active">Ativo</span>
                                 <?php else: ?>
@@ -660,13 +665,18 @@ if ($action === 'new' || $action === 'edit') {
                                 <?php endif; ?>
                             </td>
                             <td class="hide-mobile"><?= timeAgo($g['created_at']) ?></td>
+                            <?php if ($canEditGames): ?>
                             <td class="actions">
+                                <?php if ($g['engine_active']): ?>
                                 <form method="POST" style="display:inline">
                                     <input type="hidden" name="action" value="toggle">
                                     <input type="hidden" name="id" value="<?= $g['id'] ?>">
                                     <?= csrfField() ?>
-                                    <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $g['engine_active'] ? ($g['active'] ? 'Desativar' : 'Ativar') : 'Engine inativa — use Engines para ativar' ?>" <?= $g['engine_active'] ? '' : 'disabled style="opacity:0.4;cursor:not-allowed"' ?>><?= $g['active'] && $g['engine_active'] ? '🔴' : '🟢' ?></button>
+                                    <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $g['active'] ? 'Desativar' : 'Ativar' ?>"><?= $g['active'] ? '🔴' : '🟢' ?></button>
                                 </form>
+                                <?php else: ?>
+                                <span class="btn btn-outline btn-sm btn-icon" style="opacity:0.4;cursor:not-allowed" title="Jogo com engine inativa — ative a engine primeiro">🔒</span>
+                                <?php endif; ?>
                                 <a href="games?action=edit&id=<?= $g['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
                                 <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este jogo? O arquivo ZIP também será removido.')">
                                     <input type="hidden" name="action" value="delete">
@@ -675,6 +685,9 @@ if ($action === 'new' || $action === 'edit') {
                                     <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button>
                                 </form>
                             </td>
+                            <?php else: ?>
+                            <td class="actions"><span style="color:var(--muted);font-size:12px">Somente visualização</span></td>
+                            <?php endif; ?>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>

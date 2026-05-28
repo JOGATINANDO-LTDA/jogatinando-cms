@@ -8,6 +8,7 @@ $id = (int)($_GET['id'] ?? 0);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $id = (int)($_POST['id'] ?? $id);
     if (empty($_POST) && empty($_FILES)) {
         $serverLimit = @ini_get('post_max_size') ?: '30M';
         flashMessage('error', "Arquivo excede o limite do servidor ($serverLimit).");
@@ -172,15 +173,11 @@ if ($action === 'new' || $action === 'edit') {
                         <?php
                         $allEngines = getEngines();
                         $currentEngine = $template['engine'] ?? '';
-                        $hasCurrent = false;
                         foreach ($allEngines as $eng) {
-                            if ($eng['name'] === $currentEngine) $hasCurrent = true;
-                            if (!$eng['active'] && $eng['name'] !== $currentEngine) continue;
+                            $label = e($eng['icon'] ?? '') . ' ' . e($eng['name']);
+                            if (!$eng['active']) $label .= ' (inativa)';
                             echo '<option value="' . e($eng['name']) . '" ' . ($currentEngine === $eng['name'] ? 'selected' : '') . '>'
-                                . e($eng['icon'] ?? '') . ' ' . e($eng['name']) . '</option>';
-                        }
-                        if ($currentEngine && !$hasCurrent) {
-                            echo '<option value="' . e($currentEngine) . '" selected>' . e($currentEngine) . ' (inativa)</option>';
+                                . $label . '</option>';
                         }
                         ?>
                     </select>

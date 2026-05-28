@@ -476,17 +476,17 @@ function migration_009($db, $type) {
     $count = $db->query("SELECT COUNT(*) FROM store_platforms")->fetchColumn();
     if ($count == 0) {
         $platforms = [
-            ['Steam', 'steam', '\xF0\x9F\x94\xA5', 1],
-            ['Epic Games', 'epic', '\xE2\x9C\xA8', 1],
-            ['GOG', 'gog', '\xF0\x9F\x93\xA6', 1],
-            ['itch.io', 'itchio', '\xF0\x9F\x94\xB4', 1],
-            ['gd.games', 'gdgames', '\xF0\x9F\x8E\xAE', 1],
-            ['Nintendo eShop', 'nintendo', '\xF0\x9F\x8E\xAF', 0],
-            ['PlayStation Store', 'playstation', '\xF0\x9F\x8E\xAE', 0],
-            ['Xbox Store', 'xbox', '\xF0\x9F\x8E\xAE', 0],
-            ['Google Play', 'googleplay', '\xF0\x9F\x93\xB1', 0],
-            ['App Store', 'appstore', '\xF0\x9F\x93\xB1', 0],
-            ['Amazon', 'amazon', '\xF0\x9F\x93\xA6', 0],
+            ['Steam', 'steam', '🔥', 1],
+            ['Epic Games', 'epic', '✨', 1],
+            ['GOG', 'gog', '📦', 1],
+            ['itch.io', 'itchio', '🔴', 1],
+            ['gd.games', 'gdgames', '🎮', 1],
+            ['Nintendo eShop', 'nintendo', '🎹', 0],
+            ['PlayStation Store', 'playstation', '🎮', 0],
+            ['Xbox Store', 'xbox', '🎮', 0],
+            ['Google Play', 'googleplay', '📱', 0],
+            ['App Store', 'appstore', '📱', 0],
+            ['Amazon', 'amazon', '📦', 0],
         ];
         $stmt = $db->prepare("INSERT INTO store_platforms (name, slug, icon, active) VALUES (?, ?, ?, ?)");
         foreach ($platforms as $p) {

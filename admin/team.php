@@ -6,6 +6,7 @@ $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $id = (int)($_POST['id'] ?? $id);
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: team'); exit; }
     if ($_POST['action'] === 'save') {
         $name = trim($_POST['name']); $role = trim($_POST['role']); $bio = trim($_POST['bio']);

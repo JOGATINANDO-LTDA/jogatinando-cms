@@ -10,7 +10,7 @@ if (!$engine || !$slug) {
 }
 
 try {
-    $game = dbQueryOne("SELECT g.*, e.icon as engine_icon, e.color as engine_color FROM games g LEFT JOIN engines e ON g.engine = e.name WHERE (LOWER(g.engine) = LOWER(?) OR LOWER(e.slug) = LOWER(?)) AND g.slug = ? AND g.active = 1 AND g.engine IN (SELECT name FROM engines WHERE active = 1)", [$engine, $engine, $slug]);
+    $game = dbQueryOne("SELECT g.*, e.icon as engine_icon, e.color as engine_color FROM games g LEFT JOIN engines e ON g.engine = e.name WHERE (LOWER(g.engine) = LOWER(?) OR LOWER(e.slug) = LOWER(?)) AND g.slug = ? AND g.active = 1", [$engine, $engine, $slug]);
 } catch (Exception $ex) {
     die('DB Error: ' . $ex->getMessage());
 }

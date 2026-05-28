@@ -404,7 +404,7 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
         <?php endif; ?>
         <form method="POST" id="smtp-form">
             <?= csrfField() ?>
-            <div id="smtp-fields">
+            <div id="smtp-fields" style="<?= $smtpConfigured ? 'opacity:0.5;pointer-events:none;' : '' ?>">
             <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
                 <div class="form-group" style="flex: 2; min-width: 200px;">
                     <label for="smtp_host">Servidor *</label>
@@ -447,7 +447,11 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
             </div>
             <?php if ($smtpConfigured): ?>
             <div class="form-actions" id="smtp-locked-actions">
-                <button type="button" class="btn btn-gold" onclick="unlockSmtp()">Editar</button>
+                <button type="button" class="btn btn-gold" onclick="unlockSmtp()">✏️ Editar Configurações</button>
+            </div>
+            <div class="form-actions" id="smtp-edit-actions" style="display:none">
+                <button type="submit" class="btn btn-gold" name="action" value="test_smtp">💾 Salvar</button>
+                <button type="button" class="btn btn-outline" onclick="relockSmtp()">Cancelar</button>
             </div>
             <?php endif; ?>
         </form>
@@ -456,11 +460,26 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
 
 <script>
 function unlockSmtp() {
-    document.getElementById('smtp-fields').querySelectorAll('input').forEach(function(el) {
+    var fields = document.getElementById('smtp-fields');
+    fields.style.opacity = '1';
+    fields.style.pointerEvents = '';
+    fields.querySelectorAll('input').forEach(function(el) {
         el.disabled = false;
     });
-    document.getElementById('smtp-actions').style.display = '';
     document.getElementById('smtp-locked-actions').style.display = 'none';
+    document.getElementById('smtp-edit-actions').style.display = '';
+}
+
+function relockSmtp() {
+    var fields = document.getElementById('smtp-fields');
+    fields.style.opacity = '0.5';
+    fields.style.pointerEvents = 'none';
+    fields.querySelectorAll('input').forEach(function(el) {
+        el.disabled = true;
+    });
+    document.getElementById('smtp-edit-actions').style.display = 'none';
+    document.getElementById('smtp-locked-actions').style.display = '';
+    document.getElementById('smtp_pass').value = '';
 }
 </script>
 
