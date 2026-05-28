@@ -6,7 +6,7 @@ $siteName = getSetting('site_name', SITE_NAME);
 $siteTagline = getSetting('site_tagline', SITE_TAGLINE);
 $footerDescription = getSetting('footer_description', '');
 
-$type = in_array($_GET['type'] ?? '', ['autoral', 'cliente'], true) ? $_GET['type'] : '';
+$type = in_array($_GET['type'] ?? '', ['autoral', 'cliente', 'externo'], true) ? $_GET['type'] : '';
 $engine = trim($_GET['engine'] ?? '');
 $search = trim($_GET['search'] ?? '');
 
@@ -103,6 +103,7 @@ $routeEngineSlug = function ($value) {
                             <option value="">Todos</option>
                             <option value="autoral" <?= $type === 'autoral' ? 'selected' : '' ?>>Autoral</option>
                             <option value="cliente" <?= $type === 'cliente' ? 'selected' : '' ?>>Cliente</option>
+                            <option value="externo" <?= $type === 'externo' ? 'selected' : '' ?>>Externo</option>
                         </select>
                     </div>
 
@@ -145,8 +146,17 @@ $routeEngineSlug = function ($value) {
                         <?php
                             $engineSlug = $g['engine_slug'] ?? generateSlug($g['engine']);
                             $gameUrl = '/' . $engineSlug . '/' . $g['slug'];
-                            $typeLabel = ($g['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral';
-                            $typeClass = ($g['game_type'] ?? 'autoral') === 'cliente' ? 'catalog-badge-client' : 'catalog-badge-autoral';
+                            $gameType = $g['game_type'] ?? 'autoral';
+                            if ($gameType === 'cliente') {
+                                $typeLabel = 'Cliente';
+                                $typeClass = 'catalog-badge-client';
+                            } elseif ($gameType === 'externo') {
+                                $typeLabel = 'Externo';
+                                $typeClass = 'catalog-badge-external';
+                            } else {
+                                $typeLabel = 'Autoral';
+                                $typeClass = 'catalog-badge-autoral';
+                            }
                         ?>
                         <a href="<?= e($gameUrl) ?>" class="catalog-card">
                             <div class="catalog-thumb">
@@ -159,9 +169,13 @@ $routeEngineSlug = function ($value) {
                                 <div class="catalog-badges">
                                     <span class="catalog-badge <?= $typeClass ?>"><?= e($typeLabel) ?></span>
                                     <span class="catalog-badge catalog-badge-engine" style="background:<?= e($g['engine_color'] ?? getEngineColor($g['engine'])) ?>"><?= e($g['engine_icon'] ?? getEngineIcon($g['engine'])) ?> <?= e($g['engine']) ?></span>
+                                    <?php if ($gameType === 'externo'): ?>
+                                    <span class="catalog-badge catalog-badge-web">🌐 Site Externo</span>
+                                    <?php else: ?>
                                     <span class="catalog-badge <?= !empty($g['is_web_playable']) ? 'catalog-badge-web' : 'catalog-badge-store' ?>">
                                         <?= !empty($g['is_web_playable']) ? 'Jogar' : 'Loja' ?>
                                     </span>
+                                    <?php endif; ?>
                                 </div>
                             </div>
 
@@ -171,7 +185,7 @@ $routeEngineSlug = function ($value) {
                                     <p><?= e(truncateText($g['description'], 110)) ?></p>
                                 <?php endif; ?>
                                 <div class="catalog-card-footer">
-                                    <span><?= !empty($g['is_web_playable']) ? 'Abrir jogo' : 'Ver detalhes' ?></span>
+                                    <span><?= $gameType === 'externo' ? 'Acessar site' : (!empty($g['is_web_playable']) ? 'Abrir jogo' : 'Ver detalhes') ?></span>
                                     <span class="catalog-arrow">→</span>
                                 </div>
                             </div>

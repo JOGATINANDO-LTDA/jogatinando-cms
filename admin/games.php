@@ -42,8 +42,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $title = trim($_POST['title']);
         $engine = trim($_POST['engine']);
         $description = trim($_POST['description']);
-        $game_type = in_array($_POST['game_type'] ?? '', ['autoral', 'cliente']) ? $_POST['game_type'] : 'autoral';
-        $is_web_playable = isset($_POST['is_web_playable']) ? 1 : 0;
+        $game_type = in_array($_POST['game_type'] ?? '', ['autoral', 'cliente', 'externo']) ? $_POST['game_type'] : 'autoral';
+        $external_url = trim($_POST['external_url'] ?? '');
+        $repo_url = trim($_POST['repo_url'] ?? '');
+        $is_open_source = isset($_POST['is_open_source']) ? 1 : 0;
+        $is_web_playable = $game_type === 'externo' ? 1 : (isset($_POST['is_web_playable']) ? 1 : 0);
         $featured = isset($_POST['featured']) ? 1 : 0;
         $orientation = in_array($_POST['orientation'] ?? '', ['auto', 'landscape', 'portrait']) ? $_POST['orientation'] : 'auto';
         $sort_order = (int)($_POST['sort_order'] ?? 0);
@@ -88,6 +91,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        if ($game_type === 'externo' && empty($external_url)) {
+            flashMessage('error', 'URL Externa é obrigatória para jogos do tipo Externo.');
+            ob_end_clean();
+            header('Location: games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            exit;
+        }
+
         try {
             if ($id > 0) {
                 // Get existing game_path if not uploading new one
@@ -101,12 +111,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $thumbnail_url = $existing['thumbnail_url'] ?? '';
                 }
 
-                dbExec("UPDATE games SET title=?, slug=?, engine=?, description=?, thumbnail_url=?, game_path=?, game_type=?, is_web_playable=?, featured=?, orientation=?, sort_order=?, active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $sort_order, $active, $id]);
+                dbExec("UPDATE games SET title=?, slug=?, engine=?, description=?, thumbnail_url=?, game_path=?, game_type=?, is_web_playable=?, featured=?, orientation=?, sort_order=?, active=?, external_url=?, repo_url=?, is_open_source=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $sort_order, $active, $external_url, $repo_url, $is_open_source, $id]);
                 flashMessage('success', 'Jogo atualizado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
             } else {
-                $id = dbExec("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, game_type, is_web_playable, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $sort_order, $active]);
+                $id = dbExec("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, game_type, is_web_playable, featured, orientation, sort_order, active, external_url, repo_url, is_open_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $sort_order, $active, $external_url, $repo_url, $is_open_source]);
                 flashMessage('success', 'Jogo criado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
             }
 
@@ -136,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($_POST['action'] === 'delete') {
         $game = dbQueryOne("SELECT * FROM games WHERE id = ?", [$id]);
         if ($game) {
-            if ($game['game_path']) {
+            if (!empty($game['game_path'])) {
                 deleteGameDir($game['game_path']);
             }
             dbDelete('games', $id);
@@ -316,6 +326,7 @@ if ($action === 'new' || $action === 'edit') {
                     <select id="game_type" name="game_type">
                         <option value="autoral" <?= ($game['game_type'] ?? 'autoral') === 'autoral' ? 'selected' : '' ?>>Autoral</option>
                         <option value="cliente" <?= ($game['game_type'] ?? '') === 'cliente' ? 'selected' : '' ?>>Cliente</option>
+                        <option value="externo" <?= ($game['game_type'] ?? '') === 'externo' ? 'selected' : '' ?>>Externo</option>
                     </select>
                 </div>
                 <div class="form-group">
@@ -338,6 +349,32 @@ if ($action === 'new' || $action === 'edit') {
                     <div class="toggle-group" style="margin-top:28px">
                         <input type="checkbox" id="active" name="active" <?= ($game['active'] ?? 1) ? 'checked' : '' ?>>
                         <label for="active">Ativo</label>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="form-section-title" id="externalSection" style="<?= ($game['game_type'] ?? '') === 'externo' ? '' : 'display:none' ?>">Link Externo</h3>
+            <div id="externalContainer" style="<?= ($game['game_type'] ?? '') === 'externo' ? '' : 'display:none' ?>">
+                <div class="form-row">
+                    <div class="form-group" style="flex:2">
+                        <label for="external_url">URL do Site do Jogo *</label>
+                        <input type="url" id="external_url" name="external_url" value="<?= e($game['external_url'] ?? '') ?>" placeholder="https://exemplo.com.br">
+                        <div class="field-hint">URL completa do site onde o jogo roda (será carregado via iframe)</div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <div class="toggle-group" style="margin-top:28px">
+                            <input type="checkbox" id="is_open_source" name="is_open_source" <?= ($game['is_open_source'] ?? 0) ? 'checked' : '' ?>>
+                            <label for="is_open_source">Projeto Open Source</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row" id="repoUrlRow" style="<?= ($game['is_open_source'] ?? 0) ? '' : 'display:none' ?>">
+                    <div class="form-group" style="flex:2">
+                        <label for="repo_url">URL do Repositório</label>
+                        <input type="url" id="repo_url" name="repo_url" value="<?= e($game['repo_url'] ?? '') ?>" placeholder="https://github.com/usuario/repositorio">
+                        <div class="field-hint">Link para GitHub, GitLab ou outro repositório</div>
                     </div>
                 </div>
             </div>
@@ -472,6 +509,11 @@ if ($action === 'new' || $action === 'edit') {
     const list = document.getElementById('gameLinksList');
     const addBtn = document.getElementById('addGameLink');
     const isWebPlayable = document.getElementById('is_web_playable');
+    const gameType = document.getElementById('game_type');
+    const externalSection = document.getElementById('externalSection');
+    const externalContainer = document.getElementById('externalContainer');
+    const isOpenSource = document.getElementById('is_open_source');
+    const repoUrlRow = document.getElementById('repoUrlRow');
 
     function toggleGameLinks() {
         const show = !isWebPlayable.checked;
@@ -479,8 +521,35 @@ if ($action === 'new' || $action === 'edit') {
         if (sectionTitle) sectionTitle.style.display = show ? '' : 'none';
     }
 
+    function toggleExternalFields() {
+        const isExterno = gameType.value === 'externo';
+        if (externalSection) externalSection.style.display = isExterno ? '' : 'none';
+        if (externalContainer) externalContainer.style.display = isExterno ? '' : 'none';
+        if (isWebPlayable) {
+            isWebPlayable.checked = isExterno ? true : isWebPlayable.dataset.original !== undefined ? isWebPlayable.dataset.original === '1' : <?= ($game['is_web_playable'] ?? 1) ? 'true' : 'false' ?>;
+            isWebPlayable.disabled = isExterno;
+        }
+        toggleGameLinks();
+    }
+
+    function toggleRepoUrl() {
+        if (repoUrlRow) repoUrlRow.style.display = isOpenSource.checked ? '' : 'none';
+    }
+
     if (isWebPlayable) {
-        isWebPlayable.addEventListener('change', toggleGameLinks);
+        isWebPlayable.dataset.original = isWebPlayable.checked ? '1' : '0';
+        isWebPlayable.addEventListener('change', () => {
+            isWebPlayable.dataset.original = isWebPlayable.checked ? '1' : '0';
+            toggleGameLinks();
+        });
+    }
+
+    if (gameType) {
+        gameType.addEventListener('change', toggleExternalFields);
+    }
+
+    if (isOpenSource) {
+        isOpenSource.addEventListener('change', toggleRepoUrl);
     }
 
     function createLinkRow(platformId, url) {
@@ -539,7 +608,7 @@ if ($action === 'new' || $action === 'edit') {
                             <th>Título</th>
                             <th>Tipo</th>
                             <th>Engine</th>
-                            <th class="hide-tablet">ZIP</th>
+                            <th class="hide-tablet">Detalhes</th>
                             <th>Status</th>
                             <th class="hide-mobile">Otimização</th>
                             <th class="hide-mobile">Criado</th>
@@ -553,12 +622,20 @@ if ($action === 'new' || $action === 'edit') {
                             <td>
                                 <?php if (($g['game_type'] ?? 'autoral') === 'cliente'): ?>
                                     <span class="badge badge-client">Cliente</span>
+                                <?php elseif (($g['game_type'] ?? '') === 'externo'): ?>
+                                    <span class="badge badge-external">Externo</span>
                                 <?php else: ?>
                                     <span class="badge badge-autoral">Autoral</span>
                                 <?php endif; ?>
                             </td>
                             <td><span class="game-engine-badge" style="background:<?= getEngineColor($g['engine']) ?>"><?= getEngineIcon($g['engine']) ?> <?= e($g['engine']) ?></span></td>
-                            <td class="hide-tablet"><?= $g['game_path'] ? '📦 ' . e($g['game_path']) : '—' ?></td>
+                            <td class="hide-tablet">
+                                <?php if (($g['game_type'] ?? '') === 'externo'): ?>
+                                    🌐 <?= e($g['external_url'] ? mb_strimwidth($g['external_url'], 0, 40, '...') : '—') ?>
+                                <?php else: ?>
+                                    📦 <?= $g['game_path'] ? e($g['game_path']) : '—' ?>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if (!$g['engine_active']): ?>
                                     <span class="badge badge-inactive">Engine Inativa</span>

@@ -611,6 +611,42 @@ function migration_012($db, $type) {
     }
 }
 
+function migration_013($db, $type) {
+    // Add external_url, repo_url, is_open_source to games
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN external_url VARCHAR(500) DEFAULT '' AFTER game_path");
+        } else {
+            $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('external_url', $cols)) {
+                $db->exec("ALTER TABLE games ADD COLUMN external_url TEXT DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN repo_url VARCHAR(500) DEFAULT '' AFTER external_url");
+        } else {
+            $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('repo_url', $cols)) {
+                $db->exec("ALTER TABLE games ADD COLUMN repo_url TEXT DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN is_open_source INT NOT NULL DEFAULT 0 AFTER repo_url");
+        } else {
+            $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('is_open_source', $cols)) {
+                $db->exec("ALTER TABLE games ADD COLUMN is_open_source INTEGER NOT NULL DEFAULT 0");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();

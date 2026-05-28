@@ -21,9 +21,12 @@ if (!$game) {
 }
 
 $isWebPlayable = !empty($game['is_web_playable']);
+$isExterno = ($game['game_type'] ?? '') === 'externo' && !empty($game['external_url']);
 $gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon FROM game_links gl INNER JOIN store_platforms p ON p.id = gl.platform_id WHERE gl.game_id = ? AND p.active = 1 ORDER BY gl.sort_order ASC, p.sort_order ASC, p.name ASC", [$game['id']]);
 
-if ($isWebPlayable) {
+if ($isExterno) {
+    $gameUrl = $game['external_url'];
+} elseif ($isWebPlayable) {
     if (!$game['game_path']) {
         header('Location: /');
         exit;
@@ -36,6 +39,8 @@ if ($isWebPlayable) {
         http_response_code(404);
         die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Arquivo do jogo não encontrado.</h1>');
     }
+} else {
+    $gameUrl = '';
 }
 
 $orientation = $game['orientation'] ?? 'auto';
@@ -73,7 +78,7 @@ $orientation = $game['orientation'] ?? 'auto';
         </div>
     </nav>
 
-    <?php if ($isWebPlayable): ?>
+    <?php if ($isWebPlayable && ($isExterno || $game['game_path'])): ?>
     <!-- Theater Mode Player -->
     <section class="theater-section">
         <div class="theater-container">
@@ -85,7 +90,7 @@ $orientation = $game['orientation'] ?? 'auto';
                 <div class="theater-overlay" id="theaterOverlay">
                     <div class="theater-overlay-content">
                         <svg class="theater-play-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                        <span class="theater-overlay-text">Clique para jogar</span>
+                        <span class="theater-overlay-text"><?= $isExterno ? 'Clique para jogar' : 'Clique para jogar' ?></span>
                     </div>
                 </div>
                 <iframe class="theater-iframe" id="theaterIframe" src="about:blank" data-src="<?= e($gameUrl) ?>" allowfullscreen allow="autoplay; fullscreen; gamepad"></iframe>
@@ -98,6 +103,12 @@ $orientation = $game['orientation'] ?? 'auto';
                     </svg>
                 </button>
             </div>
+            <?php if ($isExterno): ?>
+            <div class="theater-fallback">
+                <p>Se o jogo não carregou acima, acesse diretamente pelo botão abaixo:</p>
+                <a href="<?= e($game['external_url']) ?>" target="_blank" rel="noopener" class="btn btn-gold">🌐 Acessar Site Oficial →</a>
+            </div>
+            <?php endif; ?>
         </div>
     </section>
     <?php endif; ?>
@@ -112,14 +123,16 @@ $orientation = $game['orientation'] ?? 'auto';
                         <div class="game-info-badges">
                             <span class="game-engine-badge" style="background:<?= e($game['engine_color'] ?? getEngineColor($game['engine'])) ?>"><?= e($game['engine_icon'] ?? getEngineIcon($game['engine'])) ?> <?= e($game['engine']) ?></span>
                             <?php if ($game['featured']): ?><span class="game-badge-featured">Destaque</span><?php endif; ?>
-                            <?php if (!$isWebPlayable): ?><span class="game-badge-featured" style="background:var(--accent);color:white">Loja</span><?php endif; ?>
+                            <?php if ($isExterno): ?><span class="game-badge-featured" style="background:oklch(65% 0.15 250);color:white">🌐 Site Externo</span><?php endif; ?>
+                            <?php if (!$isExterno && !$isWebPlayable): ?><span class="game-badge-featured" style="background:var(--accent);color:white">Loja</span><?php endif; ?>
+                            <?php if (!empty($game['is_open_source'])): ?><span class="game-badge-featured" style="background:oklch(65% 0.18 145);color:white">🔧 Open Source</span><?php endif; ?>
                         </div>
                         <h1><?= e($game['title']) ?></h1>
                     </div>
 
-                    <?php if (!$isWebPlayable && $gameLinks): ?>
+                    <?php if ($gameLinks): ?>
                     <div class="game-info-description">
-                        <h3>Onde comprar</h3>
+                        <h3><?= $isExterno ? 'Links de Download' : 'Onde comprar' ?></h3>
                         <div class="store-links-grid">
                             <?php foreach ($gameLinks as $link): ?>
                             <a class="store-link-card" href="<?= e($link['url']) ?>" target="_blank" rel="noopener">
@@ -163,8 +176,13 @@ $orientation = $game['orientation'] ?? 'auto';
                         <h3>Categorias</h3>
                         <div class="tags-list">
                             <span class="tag"><?= e($game['engine']) ?></span>
+                            <?php if ($isExterno): ?>
+                            <span class="tag">Site Externo</span>
+                            <?php else: ?>
                             <span class="tag">Navegador</span>
                             <span class="tag">HTML5</span>
+                            <?php endif; ?>
+                            <?php if (!empty($game['is_open_source'])): ?><span class="tag">Open Source</span><?php endif; ?>
                         </div>
                     </div>
                     <?php else: ?>
@@ -172,8 +190,9 @@ $orientation = $game['orientation'] ?? 'auto';
                         <h3>Categorias</h3>
                         <div class="tags-list">
                             <span class="tag"><?= e($game['engine']) ?></span>
-                            <span class="tag"><?= ($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral' ?></span>
-                            <span class="tag">Distribuição</span>
+                            <span class="tag"><?= $isExterno ? 'Externo' : (($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral') ?></span>
+                            <span class="tag"><?= $isExterno ? 'Iframe' : 'Distribuição' ?></span>
+                            <?php if (!empty($game['is_open_source'])): ?><span class="tag">Open Source</span><?php endif; ?>
                         </div>
                     </div>
                     <?php endif; ?>
@@ -190,16 +209,20 @@ $orientation = $game['orientation'] ?? 'auto';
                             </div>
                             <div class="info-item">
                                 <dt>Plataforma</dt>
-                        <dd><?= $isWebPlayable ? 'Navegador (HTML5)' : 'Distribuição / Loja' ?></dd>
+                        <dd><?= $isExterno ? 'Site Externo (iframe)' : ($isWebPlayable ? 'Navegador (HTML5)' : 'Distribuição / Loja') ?></dd>
                     </div>
                     <div class="info-item">
                         <dt>Orientação</dt>
                         <dd><?= $orientation === 'landscape' ? 'Paisagem' : ($orientation === 'portrait' ? 'Retrato' : 'Automático') ?></dd>
                     </div>
-                    <?php if (!$isWebPlayable): ?>
                     <div class="info-item">
                         <dt>Tipo</dt>
-                        <dd><?= ($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral' ?></dd>
+                        <dd><?= $isExterno ? 'Externo' : (($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral') ?></dd>
+                    </div>
+                    <?php if (!empty($game['is_open_source']) && !empty($game['repo_url'])): ?>
+                    <div class="info-item">
+                        <dt>Repositório</dt>
+                        <dd><a href="<?= e($game['repo_url']) ?>" target="_blank" rel="noopener" style="color:var(--gold)">Ver código →</a></dd>
                     </div>
                     <?php endif; ?>
                     <div class="info-item">
@@ -248,6 +271,7 @@ $orientation = $game['orientation'] ?? 'auto';
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             const isWebPlayable = <?= $isWebPlayable ? 'true' : 'false' ?>;
+            const isExterno = <?= $isExterno ? 'true' : 'false' ?>;
             if (!isWebPlayable) return;
 
             const overlay = document.getElementById('theaterOverlay');
@@ -300,18 +324,24 @@ $orientation = $game['orientation'] ?? 'auto';
                 unlockOrientation();
             }
 
-            fsBtn.addEventListener('click', () => {
-                if (document.fullscreenElement) exitFullscreen();
-                else enterFullscreen();
-            });
+            if (fsBtn) {
+                fsBtn.addEventListener('click', () => {
+                    if (document.fullscreenElement) exitFullscreen();
+                    else enterFullscreen();
+                });
+            }
 
             document.addEventListener('fullscreenchange', () => {
                 if (document.fullscreenElement) {
-                    fsBtn.classList.add('fs-active');
-                    fsBtn.querySelector('svg').innerHTML = '<polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
+                    if (fsBtn) {
+                        fsBtn.classList.add('fs-active');
+                        fsBtn.querySelector('svg').innerHTML = '<polyline points="4 14 10 14 10 20"></polyline><polyline points="20 10 14 10 14 4"></polyline><line x1="14" y1="10" x2="21" y2="3"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
+                    }
                 } else {
-                    fsBtn.classList.remove('fs-active');
-                    fsBtn.querySelector('svg').innerHTML = '<polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
+                    if (fsBtn) {
+                        fsBtn.classList.remove('fs-active');
+                        fsBtn.querySelector('svg').innerHTML = '<polyline points="15 3 21 3 21 9"></polyline><polyline points="9 21 3 21 3 15"></polyline><line x1="21" y1="3" x2="14" y2="10"></line><line x1="3" y1="21" x2="10" y2="14"></line>';
+                    }
                 }
             });
         });
