@@ -117,6 +117,7 @@ $footerDescription = getSetting('footer_description', '');
                 <li><a href="#home">Início</a></li>
                 <li><a href="#categories">Categorias</a></li>
                 <li><a href="/catalogo">Catálogo</a></li>
+                <li><a href="/templates">Templates</a></li>
                 <?php if (!empty($blogPosts)): ?><li><a href="#blog">Blog</a></li><?php endif; ?>
                 <?php if (!empty($testimonials)): ?><li><a href="#testimonials">Depoimentos</a></li><?php endif; ?>
                 <?php if (!empty($faqItems)): ?><li><a href="#faq">FAQ</a></li><?php endif; ?>
@@ -137,6 +138,7 @@ $footerDescription = getSetting('footer_description', '');
         <a href="#home" class="mobile-link">Início</a>
         <a href="#categories" class="mobile-link">Categorias</a>
         <a href="/catalogo" class="mobile-link">Catálogo</a>
+        <a href="/templates" class="mobile-link">Templates</a>
         <?php if (!empty($blogPosts)): ?><a href="#blog" class="mobile-link">Blog</a><?php endif; ?>
         <?php if (!empty($testimonials)): ?><a href="#testimonials" class="mobile-link">Depoimentos</a><?php endif; ?>
         <?php if (!empty($faqItems)): ?><a href="#faq" class="mobile-link">FAQ</a><?php endif; ?>

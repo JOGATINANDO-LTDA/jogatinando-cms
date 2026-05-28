@@ -1,22 +1,16 @@
 <?php
 require_once __DIR__ . '/config.php';
 
-$pageTitle = 'Catálogo';
+$pageTitle = 'Templates';
 $siteName = getSetting('site_name', SITE_NAME);
 $siteTagline = getSetting('site_tagline', SITE_TAGLINE);
 $footerDescription = getSetting('footer_description', '');
 
-$type = in_array($_GET['type'] ?? '', ['autoral', 'cliente', 'externo'], true) ? $_GET['type'] : '';
 $engine = trim($_GET['engine'] ?? '');
 $search = trim($_GET['search'] ?? '');
 
-$where = [];
+$where = ['t.active = 1'];
 $params = [];
-
-if ($type !== '') {
-    $where[] = 'g.game_type = ?';
-    $params[] = $type;
-}
 
 if ($engine !== '') {
     $where[] = 'LOWER(e.slug) = LOWER(?)';
@@ -24,24 +18,15 @@ if ($engine !== '') {
 }
 
 if ($search !== '') {
-    $where[] = '(g.title LIKE ? OR g.description LIKE ?)';
+    $where[] = '(t.title LIKE ? OR t.description LIKE ?)';
     $params[] = '%' . $search . '%';
     $params[] = '%' . $search . '%';
 }
 
-$sql = 'SELECT g.*, e.slug as engine_slug, e.icon as engine_icon, e.color as engine_color FROM games g LEFT JOIN engines e ON g.engine = e.name WHERE g.active = 1 AND e.active = 1';
-if ($where) {
-    $sql .= ' AND ' . implode(' AND ', $where);
-}
-$sql .= ' ORDER BY g.featured DESC, g.sort_order ASC, g.created_at DESC';
+$sql = 'SELECT t.*, e.slug as engine_slug, e.icon as engine_icon, e.color as engine_color FROM game_templates t LEFT JOIN engines e ON t.engine = e.name WHERE ' . implode(' AND ', $where) . ' ORDER BY t.featured DESC, t.sort_order ASC, t.created_at DESC';
 
-$games = dbQuery($sql, $params);
+$templates = dbQuery($sql, $params);
 $engines = dbQuery('SELECT name, slug, icon FROM engines WHERE active = 1 ORDER BY name ASC');
-
-$routeEngineSlug = function ($value) {
-    $slug = strtolower(preg_replace('/[^a-zA-Z0-9]/', '', $value));
-    return $slug !== '' ? $slug : generateSlug($value);
-};
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -70,8 +55,8 @@ $routeEngineSlug = function ($value) {
             </a>
             <ul class="navbar-menu">
                 <li><a href="/">Início</a></li>
-                <li><a href="/catalogo" class="active">Catálogo</a></li>
-                <li><a href="/templates">Templates</a></li>
+                <li><a href="/catalogo">Catálogo</a></li>
+                <li><a href="/templates" class="active">Templates</a></li>
                 <li><a href="/#contact">Contato</a></li>
             </ul>
             <button class="navbar-toggle" id="mobileToggle" aria-label="Menu">
@@ -93,22 +78,12 @@ $routeEngineSlug = function ($value) {
     <main class="section section-dark catalog-page">
         <div class="container">
             <div class="section-title catalog-title">
-                <h2>Catálogo de <span class="gold">Jogos</span></h2>
-                <p>Filtre por tipo e engine. Jogos web-playable abrem direto; os demais seguem para a página de detalhes.</p>
+                <h2><span class="gold">Templates</span> para Downloads</h2>
+                <p>Bases prontas para novos projetos. Filtre por engine e faça download do código fonte.</p>
             </div>
 
             <form method="GET" class="catalog-filters-panel">
                 <div class="catalog-filters-grid">
-                    <div class="catalog-filter">
-                        <label for="type">Tipo</label>
-                        <select id="type" name="type">
-                            <option value="">Todos</option>
-                            <option value="autoral" <?= $type === 'autoral' ? 'selected' : '' ?>>Autoral</option>
-                            <option value="cliente" <?= $type === 'cliente' ? 'selected' : '' ?>>Cliente</option>
-                            <option value="externo" <?= $type === 'externo' ? 'selected' : '' ?>>Externo</option>
-                        </select>
-                    </div>
-
                     <div class="catalog-filter">
                         <label for="engine">Engine</label>
                         <select id="engine" name="engine">
@@ -122,7 +97,7 @@ $routeEngineSlug = function ($value) {
                     <div class="catalog-filter catalog-filter-search">
                         <label for="search">Busca</label>
                         <div class="catalog-search">
-                            <input type="text" id="search" name="search" value="<?= e($search) ?>" placeholder="Buscar jogos...">
+                            <input type="text" id="search" name="search" value="<?= e($search) ?>" placeholder="Buscar templates...">
                             <button type="submit" class="btn btn-gold btn-sm">Buscar</button>
                         </div>
                     </div>
@@ -130,64 +105,55 @@ $routeEngineSlug = function ($value) {
 
                 <div class="catalog-filter-actions">
                     <button type="submit" class="btn btn-outline btn-sm">Aplicar filtros</button>
-                    <?php if ($type !== '' || $engine !== '' || $search !== ''): ?>
-                        <a href="/catalogo" class="btn btn-outline btn-sm">Limpar</a>
+                    <?php if ($engine !== '' || $search !== ''): ?>
+                        <a href="/templates" class="btn btn-outline btn-sm">Limpar</a>
                     <?php endif; ?>
                 </div>
             </form>
 
             <div class="catalog-grid">
-                <?php if (empty($games)): ?>
+                <?php if (empty($templates)): ?>
                     <div class="catalog-empty">
-                        <div class="empty-icon">🎮</div>
-                        <h3>Nenhum jogo encontrado</h3>
+                        <div class="empty-icon">📦</div>
+                        <h3>Nenhum template encontrado</h3>
                         <p>Altere os filtros ou tente outra busca.</p>
                     </div>
                 <?php else: ?>
-                    <?php foreach ($games as $g): ?>
+                    <?php foreach ($templates as $t): ?>
                         <?php
-                            $engineSlug = $g['engine_slug'] ?? generateSlug($g['engine']);
-                            $gameUrl = '/' . $engineSlug . '/' . $g['slug'];
-                            $gameType = $g['game_type'] ?? 'autoral';
-                            if ($gameType === 'cliente') {
-                                $typeLabel = 'Cliente';
-                                $typeClass = 'catalog-badge-client';
-                            } elseif ($gameType === 'externo') {
-                                $typeLabel = 'Externo';
-                                $typeClass = 'catalog-badge-external';
-                            } else {
-                                $typeLabel = 'Autoral';
-                                $typeClass = 'catalog-badge-autoral';
-                            }
+                            $engineSlug = $t['engine_slug'] ?? generateSlug($t['engine']);
+                            $templateUrl = '/template/' . $engineSlug . '/' . $t['slug'];
+                            $hasStore = !empty($t['store_url']);
                         ?>
-                        <a href="<?= e($gameUrl) ?>" class="catalog-card">
+                        <a href="<?= e($templateUrl) ?>" class="catalog-card">
                             <div class="catalog-thumb">
-                                <?php if (!empty($g['thumbnail_url'])): ?>
-                                    <img src="<?= e($g['thumbnail_url']) ?>" alt="<?= e($g['title']) ?>">
+                                <?php if (!empty($t['thumbnail_url'])): ?>
+                                    <img src="<?= e($t['thumbnail_url']) ?>" alt="<?= e($t['title']) ?>">
                                 <?php else: ?>
-                                    <div class="catalog-thumb-placeholder"><?= e($g['engine_icon'] ?? getEngineIcon($g['engine'])) ?></div>
+                                    <div class="catalog-thumb-placeholder">📦</div>
                                 <?php endif; ?>
 
                                 <div class="catalog-badges">
-                                    <span class="catalog-badge <?= $typeClass ?>"><?= e($typeLabel) ?></span>
-                                    <span class="catalog-badge catalog-badge-engine" style="background:<?= e($g['engine_color'] ?? getEngineColor($g['engine'])) ?>"><?= e($g['engine_icon'] ?? getEngineIcon($g['engine'])) ?> <?= e($g['engine']) ?></span>
-                                    <?php if ($gameType === 'externo'): ?>
-                                    <span class="catalog-badge catalog-badge-web">🌐 Site Externo</span>
-                                    <?php else: ?>
-                                    <span class="catalog-badge <?= !empty($g['is_web_playable']) ? 'catalog-badge-web' : 'catalog-badge-store' ?>">
-                                        <?= !empty($g['is_web_playable']) ? 'Jogar' : 'Loja' ?>
-                                    </span>
+                                    <span class="catalog-badge catalog-badge-engine" style="background:<?= e($t['engine_color'] ?? getEngineColor($t['engine'])) ?>"><?= e($t['engine_icon'] ?? getEngineIcon($t['engine'])) ?> <?= e($t['engine']) ?></span>
+                                    <?php if ($t['featured']): ?>
+                                        <span class="catalog-badge catalog-badge-autoral">Destaque</span>
+                                    <?php endif; ?>
+                                    <?php if ($hasStore): ?>
+                                        <span class="catalog-badge catalog-badge-web">Loja</span>
                                     <?php endif; ?>
                                 </div>
                             </div>
 
                             <div class="catalog-content">
-                                <h3><?= e($g['title']) ?></h3>
-                                <?php if (!empty($g['description'])): ?>
-                                    <p><?= e(truncateText($g['description'], 110)) ?></p>
+                                <h3><?= e($t['title']) ?></h3>
+                                <?php if (!empty($t['language'])): ?>
+                                    <p style="font-size:13px;color:var(--muted);margin:4px 0"><?= e($t['language']) ?> <?= e($t['language_version']) ?></p>
+                                <?php endif; ?>
+                                <?php if (!empty($t['description'])): ?>
+                                    <p><?= e(truncateText($t['description'], 110)) ?></p>
                                 <?php endif; ?>
                                 <div class="catalog-card-footer">
-                                    <span><?= $gameType === 'externo' ? 'Acessar site' : (!empty($g['is_web_playable']) ? 'Abrir jogo' : 'Ver detalhes') ?></span>
+                                    <span>Ver detalhes</span>
                                     <span class="catalog-arrow">→</span>
                                 </div>
                             </div>

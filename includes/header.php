@@ -94,6 +94,10 @@ $canManageUsers = getRoleLevelRank($userLevel) >= 1;
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M7 7h10v10H7z"/><path d="M4 12h3M17 12h3M12 4v3M12 17v3"/></svg></span>
                     <span class="nav-label">Jogos Retro</span>
                 </a>
+                <a href="<?= ADMIN_URL ?>/templates" class="nav-item <?= $currentPage === 'templates' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
+                    <span class="nav-label">Templates</span>
+                </a>
                 <?php endif; ?>
                 <a href="<?= ADMIN_URL ?>/optimize" class="nav-item <?= $currentPage === 'optimize' ? 'active' : '' ?>">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></span>
