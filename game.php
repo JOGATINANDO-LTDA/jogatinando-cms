@@ -22,19 +22,14 @@ if (!$game) {
 
 $isWebPlayable = !empty($game['is_web_playable']);
 $isExterno = ($game['game_type'] ?? '') === 'externo' && !empty($game['external_url']);
+$isUploadado = !$isExterno && !empty($game['game_path']);
 $gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon FROM game_links gl INNER JOIN store_platforms p ON p.id = gl.platform_id WHERE gl.game_id = ? AND p.active = 1 ORDER BY gl.sort_order ASC, p.sort_order ASC, p.name ASC", [$game['id']]);
 
 if ($isExterno) {
     $gameUrl = $game['external_url'];
-} elseif ($isWebPlayable) {
-    if (!$game['game_path']) {
-        header('Location: /');
-        exit;
-    }
-
+} elseif ($isWebPlayable && $game['game_path']) {
     $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
     $gameUrl = UPLOAD_URL . '/games/' . $game['game_path'] . '/';
-
     if (!file_exists($gameDir . '/index.html')) {
         http_response_code(404);
         die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Arquivo do jogo não encontrado.</h1>');
@@ -90,7 +85,7 @@ $orientation = $game['orientation'] ?? 'auto';
                 <div class="theater-overlay" id="theaterOverlay">
                     <div class="theater-overlay-content">
                         <svg class="theater-play-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
-                        <span class="theater-overlay-text"><?= $isExterno ? 'Clique para jogar' : 'Clique para jogar' ?></span>
+                        <span class="theater-overlay-text">Clique para jogar</span>
                     </div>
                 </div>
                 <iframe class="theater-iframe" id="theaterIframe" src="about:blank" data-src="<?= e($gameUrl) ?>" allowfullscreen allow="autoplay; fullscreen; gamepad"></iframe>
@@ -152,7 +147,6 @@ $orientation = $game['orientation'] ?? 'auto';
                     <?php endif; ?>
 
                     <?php if ($isWebPlayable): ?>
-                    <!-- Controls -->
                     <div class="game-info-controls">
                         <h3>Controles</h3>
                         <div class="controls-grid">
@@ -170,32 +164,24 @@ $orientation = $game['orientation'] ?? 'auto';
                             </div>
                         </div>
                     </div>
+                    <?php endif; ?>
 
-                    <!-- Tags -->
                     <div class="game-info-tags">
                         <h3>Categorias</h3>
                         <div class="tags-list">
                             <span class="tag"><?= e($game['engine']) ?></span>
                             <?php if ($isExterno): ?>
-                            <span class="tag">Site Externo</span>
+                                <span class="tag">Site Externo</span>
+                            <?php elseif ($isUploadado): ?>
+                                <span class="tag">Navegador</span>
+                                <span class="tag">HTML5</span>
                             <?php else: ?>
-                            <span class="tag">Navegador</span>
-                            <span class="tag">HTML5</span>
+                                <span class="tag"><?= ($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral' ?></span>
+                                <span class="tag">Distribuição</span>
                             <?php endif; ?>
                             <?php if (!empty($game['is_open_source'])): ?><span class="tag">Open Source</span><?php endif; ?>
                         </div>
                     </div>
-                    <?php else: ?>
-                    <div class="game-info-tags">
-                        <h3>Categorias</h3>
-                        <div class="tags-list">
-                            <span class="tag"><?= e($game['engine']) ?></span>
-                            <span class="tag"><?= $isExterno ? 'Externo' : (($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral') ?></span>
-                            <span class="tag"><?= $isExterno ? 'Iframe' : 'Distribuição' ?></span>
-                            <?php if (!empty($game['is_open_source'])): ?><span class="tag">Open Source</span><?php endif; ?>
-                        </div>
-                    </div>
-                    <?php endif; ?>
                 </div>
 
                 <!-- Sidebar -->
@@ -209,25 +195,25 @@ $orientation = $game['orientation'] ?? 'auto';
                             </div>
                             <div class="info-item">
                                 <dt>Plataforma</dt>
-                        <dd><?= $isExterno ? 'Site Externo (iframe)' : ($isWebPlayable ? 'Navegador (HTML5)' : 'Distribuição / Loja') ?></dd>
-                    </div>
-                    <div class="info-item">
-                        <dt>Orientação</dt>
-                        <dd><?= $orientation === 'landscape' ? 'Paisagem' : ($orientation === 'portrait' ? 'Retrato' : 'Automático') ?></dd>
-                    </div>
-                    <div class="info-item">
-                        <dt>Tipo</dt>
-                        <dd><?= $isExterno ? 'Externo' : (($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral') ?></dd>
-                    </div>
-                    <?php if (!empty($game['is_open_source']) && !empty($game['repo_url'])): ?>
-                    <div class="info-item">
-                        <dt>Repositório</dt>
-                        <dd><a href="<?= e($game['repo_url']) ?>" target="_blank" rel="noopener" style="color:var(--gold)">Ver código →</a></dd>
-                    </div>
-                    <?php endif; ?>
-                    <div class="info-item">
-                        <dt>Adicionado</dt>
-                        <dd><?= date('d/m/Y', strtotime($game['created_at'])) ?></dd>
+                                <dd><?= $isExterno ? 'Site Externo (iframe)' : ($isUploadado ? 'Navegador (HTML5)' : 'Distribuição / Loja') ?></dd>
+                            </div>
+                            <div class="info-item">
+                                <dt>Orientação</dt>
+                                <dd><?= $orientation === 'landscape' ? 'Paisagem' : ($orientation === 'portrait' ? 'Retrato' : 'Automático') ?></dd>
+                            </div>
+                            <div class="info-item">
+                                <dt>Tipo</dt>
+                                <dd><?= $isExterno ? 'Externo' : (($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral') ?></dd>
+                            </div>
+                            <?php if (!empty($game['is_open_source']) && !empty($game['repo_url'])): ?>
+                            <div class="info-item">
+                                <dt>Repositório</dt>
+                                <dd><a href="<?= e($game['repo_url']) ?>" target="_blank" rel="noopener" style="color:var(--gold)">Ver código →</a></dd>
+                            </div>
+                            <?php endif; ?>
+                            <div class="info-item">
+                                <dt>Adicionado</dt>
+                                <dd><?= date('d/m/Y', strtotime($game['created_at'])) ?></dd>
                             </div>
                         </dl>
                     </div>
@@ -281,11 +267,9 @@ $orientation = $game['orientation'] ?? 'auto';
             const fsBtn = document.getElementById('theaterFsBtn');
             const gameUrl = iframe.dataset.src;
             const orientation = '<?= $orientation ?>';
-            let gameLoaded = false;
 
             iframe.addEventListener('load', () => {
                 loader.style.display = 'none';
-                gameLoaded = true;
             });
 
             overlay.addEventListener('click', () => {
@@ -312,7 +296,6 @@ $orientation = $game['orientation'] ?? 'auto';
                 if (el.requestFullscreen) el.requestFullscreen();
                 else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
                 else if (el.msRequestFullscreen) el.msRequestFullscreen();
-
                 if (orientation === 'landscape') lockOrientation('landscape');
                 else if (orientation === 'portrait') lockOrientation('portrait');
             }

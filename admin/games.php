@@ -286,7 +286,7 @@ if ($action === 'new' || $action === 'edit') {
                         <img src="<?= e($game['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail">
                     <?php endif; ?>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="gameArchiveGroup">
                     <label>Arquivo do Jogo</label>
                     <div class="file-upload" id="gameArchiveDrop">
                         <input type="file" name="game_archive" accept=".zip" id="gameArchiveInput">
@@ -363,7 +363,7 @@ if ($action === 'new' || $action === 'edit') {
                     <div class="form-group" style="flex:2">
                         <label for="external_url">URL do Site do Jogo *</label>
                         <input type="url" id="external_url" name="external_url" value="<?= e($game['external_url'] ?? '') ?>" placeholder="https://exemplo.com.br">
-                        <div class="field-hint">URL completa do site onde o jogo roda (será carregado via iframe)</div>
+                        <div class="field-hint">URL completa do site onde o jogo roda. Será exibido via iframe. Jogos externos não têm upload de arquivo.</div>
                     </div>
                 </div>
                 <div class="form-row">
@@ -525,11 +525,13 @@ if ($action === 'new' || $action === 'edit') {
     const externalContainer = document.getElementById('externalContainer');
     const isOpenSource = document.getElementById('is_open_source');
     const repoUrlRow = document.getElementById('repoUrlRow');
+    const gameArchiveGroup = document.getElementById('gameArchiveGroup');
 
     function toggleExternalFields() {
         const isExterno = gameType.value === 'externo';
         if (externalSection) externalSection.style.display = isExterno ? '' : 'none';
         if (externalContainer) externalContainer.style.display = isExterno ? '' : 'none';
+        if (gameArchiveGroup) gameArchiveGroup.style.display = isExterno ? 'none' : '';
         if (isWebPlayable) {
             isWebPlayable.checked = isExterno ? true : isWebPlayable.dataset.original !== undefined ? isWebPlayable.dataset.original === '1' : <?= ($game['is_web_playable'] ?? 1) ? 'true' : 'false' ?>;
             isWebPlayable.disabled = isExterno;

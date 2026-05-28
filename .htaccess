@@ -16,8 +16,9 @@ RewriteEngine On
 # Force trailing slash for admin directory (avoids mod_dir double-redirect on mobile)
 RewriteRule ^admin$ admin/ [R=301,L]
 
-# Serve existing files directly (CSS, JS, uploads, install.php, etc.)
-RewriteCond %{REQUEST_FILENAME} -f
+# Serve existing files and directories directly (CSS, JS, uploads, install.php, etc.)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
 # Everything else → router.php (admin routing, game player, homepage)
