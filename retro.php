@@ -73,7 +73,11 @@ $consoles = dbQuery("SELECT * FROM retro_consoles WHERE active = 1 ORDER BY sort
                     <?php foreach ($consoles as $console): ?>
                         <a href="/retro/<?= e($console['slug']) ?>" class="catalog-card">
                             <div class="catalog-thumb">
-                                <div class="catalog-thumb-placeholder"><?= e($console['icon'] ?? '🎮') ?></div>
+                                <?php if (!empty($console['thumbnail_url'])): ?>
+                                    <img src="<?= e($console['thumbnail_url']) ?>" alt="<?= e($console['name']) ?>">
+                                <?php else: ?>
+                                    <div class="catalog-thumb-placeholder"><?= e($console['icon'] ?? '🎮') ?></div>
+                                <?php endif; ?>
                                 <div class="catalog-badges">
                                     <span class="catalog-badge catalog-badge-web"><?= e($console['name']) ?></span>
                                 </div>

@@ -20,11 +20,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $slug = trim($_POST['slug']) ?: generateSlug($title);
         $console = trim($_POST['console']);
         $type = in_array($_POST['type'] ?? 'original', ['original', 'modified'], true) ? $_POST['type'] : 'original';
+        $modificationDescription = trim(mb_substr($_POST['modification_description'] ?? '', 0, 60));
         $description = trim($_POST['description']);
         $featured = isset($_POST['featured']) ? 1 : 0;
         $active = isset($_POST['active']) ? 1 : 0;
         $sortOrder = (int)($_POST['sort_order'] ?? 0);
         $emulatorCore = trim($_POST['emulator_core']);
+        $isNew = $id <= 0;
         $thumbnailUrl = '';
         $romPath = '';
 
@@ -59,18 +61,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
 
+        if ($isNew && $sortOrder === 0) {
+            $max = dbQueryOne("SELECT COALESCE(MAX(sort_order), 0) + 1 as next FROM retro_games WHERE console = ?", [$console]);
+            $sortOrder = (int)($max['next'] ?? 1);
+        }
+
         try {
             if ($id > 0) {
                 $existing = dbQueryOne("SELECT * FROM retro_games WHERE id = ?", [$id]);
                 if (!$thumbnailUrl) $thumbnailUrl = $existing['thumbnail_url'] ?? '';
                 if (!$romPath) $romPath = $existing['rom_path'] ?? '';
 
-                dbExec("UPDATE retro_games SET title=?, slug=?, console=?, type=?, rom_path=?, description=?, thumbnail_url=?, emulator_core=?, active=?, featured=?, sort_order=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    [$title, $slug, $console, $type, $romPath, $description, $thumbnailUrl, $emulatorCore, $active, $featured, $sortOrder, $id]);
+                dbExec("UPDATE retro_games SET title=?, slug=?, console=?, type=?, modification_description=?, rom_path=?, description=?, thumbnail_url=?, emulator_core=?, active=?, featured=?, sort_order=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    [$title, $slug, $console, $type, $modificationDescription, $romPath, $description, $thumbnailUrl, $emulatorCore, $active, $featured, $sortOrder, $id]);
                 flashMessage('success', 'Jogo retro atualizado com sucesso.');
             } else {
-                dbExec("INSERT INTO retro_games (title, slug, console, type, rom_path, description, thumbnail_url, emulator_core, active, featured, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$title, $slug, $console, $type, $romPath, $description, $thumbnailUrl, $emulatorCore, $active, $featured, $sortOrder]);
+                dbExec("INSERT INTO retro_games (title, slug, console, type, modification_description, rom_path, description, thumbnail_url, emulator_core, active, featured, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$title, $slug, $console, $type, $modificationDescription, $romPath, $description, $thumbnailUrl, $emulatorCore, $active, $featured, $sortOrder]);
                 flashMessage('success', 'Jogo retro criado com sucesso.');
             }
         } catch (Exception $ex) {
@@ -161,6 +168,14 @@ if ($action === 'new' || $action === 'edit') {
                     </div>
                 </div>
 
+                <div class="form-row" id="modDescRow" style="display:<?= ($game['type'] ?? 'original') === 'modified' ? 'flex' : 'none' ?>">
+                    <div class="form-group" style="flex:1">
+                        <label for="modification_description">Descrição da Modificação</label>
+                        <input type="text" id="modification_description" name="modification_description" value="<?= e($game['modification_description'] ?? '') ?>" maxlength="60" placeholder="Ex: Tradução PT-BR, Novo jogo, Hack de levels">
+                        <small class="field-hint">Máximo de 60 caracteres. Descreva resumidamente o que foi modificado.</small>
+                    </div>
+                </div>
+
                 <div class="form-row">
                     <div class="form-group">
                         <label for="emulator_core">Core EmulatorJS</label>
@@ -224,20 +239,65 @@ if ($action === 'new' || $action === 'edit') {
             </form>
         </div>
     </div>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        var typeSelect = document.getElementById('type');
+        var modDescRow = document.getElementById('modDescRow');
+        if (typeSelect && modDescRow) {
+            typeSelect.addEventListener('change', function() {
+                modDescRow.style.display = this.value === 'modified' ? 'flex' : 'none';
+            });
+        }
+    });
+    </script>
     <?php
 } else {
-    $games = dbQuery("SELECT r.*, c.name as console_name, c.icon as console_icon FROM retro_games r LEFT JOIN retro_consoles c ON c.slug = r.console ORDER BY r.active DESC, r.sort_order ASC, r.created_at DESC");
+    $allConsoles = dbQuery("SELECT * FROM retro_consoles ORDER BY sort_order ASC, name ASC");
+    $where = "1=1";
+    $params = [];
+    if (!empty($_GET['console'])) {
+        $where .= " AND r.console = ?";
+        $params[] = $_GET['console'];
+    }
+    if (!empty($_GET['search'])) {
+        $where .= " AND r.title LIKE ?";
+        $params[] = '%' . $_GET['search'] . '%';
+    }
+    $games = dbQuery("SELECT r.*, c.name as console_name, c.icon as console_icon FROM retro_games r LEFT JOIN retro_consoles c ON c.slug = r.console WHERE $where ORDER BY r.active DESC, r.sort_order ASC, r.created_at DESC", $params);
     ?>
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">Jogos Retro</h2>
             <a href="retro-games?action=new" class="btn btn-gold btn-sm">+ Novo Jogo Retro</a>
         </div>
+        <div class="card-body">
+            <form method="GET" class="filters-form" style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:16px">
+                <div class="form-group" style="margin-bottom:0;min-width:180px">
+                    <label for="filter-console" style="font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:4px;display:block">Console</label>
+                    <select id="filter-console" name="console" onchange="this.form.submit()" style="min-height:40px;padding:0 12px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--bg-input);color:var(--fg)">
+                        <option value="">Todos</option>
+                        <?php foreach ($allConsoles as $ac): ?>
+                            <option value="<?= e($ac['slug']) ?>" <?= (isset($_GET['console']) && $_GET['console'] === $ac['slug']) ? 'selected' : '' ?>><?= e($ac['icon'] ?? '') ?> <?= e($ac['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group" style="margin-bottom:0;min-width:200px">
+                    <label for="filter-search" style="font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:4px;display:block">Buscar</label>
+                    <div style="display:flex;gap:8px">
+                        <input type="search" id="filter-search" name="search" value="<?= e($_GET['search'] ?? '') ?>" placeholder="Buscar por título..." style="min-height:40px;padding:0 12px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--bg-input);color:var(--fg);flex:1;min-width:120px">
+                        <button type="submit" class="btn btn-outline btn-sm" style="min-height:40px">OK</button>
+                        <?php if (!empty($_GET['console']) || !empty($_GET['search'])): ?>
+                            <a href="retro-games" class="btn btn-outline btn-sm" style="min-height:40px">Limpar</a>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </form>
+        </div>
         <?php if (empty($games)): ?>
             <div class="card-body">
                 <div class="empty-state">
                     <div class="empty-icon">🕹️</div>
-                    <p>Nenhum jogo retro cadastrado.</p>
+                    <p>Nenhum jogo retro encontrado.</p>
                 </div>
             </div>
         <?php else: ?>
@@ -257,7 +317,7 @@ if ($action === 'new' || $action === 'edit') {
                         <tr>
                             <td><strong style="color:var(--fg)"><?= e($g['title']) ?></strong></td>
                             <td><span style="display:inline-flex;align-items:center;gap:8px"><span style="font-size:20px"><?= e($g['console_icon'] ?? '🎮') ?></span><span><?= e($g['console_name'] ?? $g['console']) ?></span></span></td>
-                            <td class="hide-tablet"><?= e($g['type'] === 'modified' ? 'Modificado' : 'Original') ?></td>
+                            <td class="hide-tablet"><?= e($g['type'] === 'modified' ? ($g['modification_description'] ?: 'Modificado') : 'Original') ?></td>
                             <td>
                                 <?php if ($g['active']): ?>
                                     <span class="badge badge-active">Ativo</span>

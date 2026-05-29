@@ -670,6 +670,32 @@ function migration_014($db, $type) {
     }
 }
 
+function migration_015($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE retro_consoles ADD COLUMN thumbnail_url VARCHAR(255) DEFAULT '' AFTER icon");
+        } else {
+            $cols = $db->query("PRAGMA table_info(retro_consoles)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('thumbnail_url', $cols)) {
+                $db->exec("ALTER TABLE retro_consoles ADD COLUMN thumbnail_url TEXT DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_016($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE retro_games ADD COLUMN modification_description VARCHAR(60) DEFAULT '' AFTER type");
+        } else {
+            $cols = $db->query("PRAGMA table_info(retro_games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('modification_description', $cols)) {
+                $db->exec("ALTER TABLE retro_games ADD COLUMN modification_description TEXT DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();

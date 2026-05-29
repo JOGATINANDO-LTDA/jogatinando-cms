@@ -26,7 +26,8 @@ $gameTitle = $game['title'];
 $emulatorCore = $game['emulator_core'] ?: $console['emulator_core'];
 $romUrl = SITE_URL . '/uploads/' . ltrim($game['rom_path'] ?? '', '/');
 $hasRom = !empty($game['rom_path']);
-$thumbUrl = !empty($game['thumbnail_url']) ? $game['thumbnail_url'] : ($console['icon'] ?? '🎮');
+$gameThumb = !empty($game['thumbnail_url']) ? $game['thumbnail_url'] : '';
+$consoleThumb = !empty($console['thumbnail_url']) ? $console['thumbnail_url'] : '';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -129,13 +130,15 @@ $thumbUrl = !empty($game['thumbnail_url']) ? $game['thumbnail_url'] : ($console[
             <div class="theater-player" id="theaterPlayer">
                 <!-- Splash / Thumbnail -->
                 <div class="retro-splash" id="retroSplash">
-                    <?php if (!empty($game['thumbnail_url'])): ?>
-                        <img src="<?= e($game['thumbnail_url']) ?>" alt="<?= e($gameTitle) ?>" class="retro-splash-thumb">
+                    <?php if (!empty($gameThumb)): ?>
+                        <img src="<?= e($gameThumb) ?>" alt="<?= e($gameTitle) ?>" class="retro-splash-thumb">
+                    <?php elseif (!empty($consoleThumb)): ?>
+                        <img src="<?= e($consoleThumb) ?>" alt="<?= e($console['name']) ?>" class="retro-splash-thumb">
                     <?php else: ?>
                         <div class="retro-splash-icon"><?= e($console['icon'] ?? '🎮') ?></div>
                     <?php endif; ?>
                     <div class="retro-splash-title"><?= e($gameTitle) ?></div>
-                    <div class="retro-splash-sub"><?= e($console['name']) ?> · <?= e($game['type'] === 'modified' ? 'Modificado' : 'Original') ?></div>
+                    <div class="retro-splash-sub"><?= e($console['name']) ?> · <?= e($game['type'] === 'modified' ? ($game['modification_description'] ?: 'Modificado') : 'Original') ?></div>
                     <button class="retro-play-btn" id="retroPlayBtn" disabled <?= !$hasRom ? 'title="ROM não disponível"' : '' ?>>
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg>
                         <?= $hasRom ? 'Iniciar Jogo' : 'ROM não disponível' ?>
@@ -182,7 +185,7 @@ $thumbUrl = !empty($game['thumbnail_url']) ? $game['thumbnail_url'] : ($console[
                         <h3>Categorias</h3>
                         <div class="tags-list">
                             <span class="tag"><?= e($console['name']) ?></span>
-                            <span class="tag"><?= e($game['type'] === 'modified' ? 'Modificado' : 'Original') ?></span>
+                            <span class="tag"><?= e($game['type'] === 'modified' ? ($game['modification_description'] ?: 'Modificado') : 'Original') ?></span>
                             <span class="tag">Emulação</span>
                         </div>
                     </div>
@@ -198,7 +201,7 @@ $thumbUrl = !empty($game['thumbnail_url']) ? $game['thumbnail_url'] : ($console[
                             </div>
                             <div class="info-item">
                                 <dt>Tipo</dt>
-                                <dd><?= e($game['type'] === 'modified' ? 'Modificado' : 'Original') ?></dd>
+                                <dd><?= e($game['type'] === 'modified' ? ($game['modification_description'] ?: 'Modificado') : 'Original') ?></dd>
                             </div>
                         </dl>
                     </div>
