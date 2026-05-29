@@ -13,6 +13,54 @@ RewriteEngine On
     FcgidMaxRequestLen 115343360
 </IfModule>
 
+# === COMPRESSÃO GZIP ===
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml text/xml application/xml
+</IfModule>
+
+# === CACHE DE ARQUIVOS ESTÁTICOS ===
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType audio/ogg "access plus 1 year"
+    ExpiresByType audio/wav "access plus 1 year"
+    ExpiresByType audio/mpeg "access plus 1 year"
+    ExpiresByType audio/midi "access plus 1 year"
+    ExpiresByType audio/x-midi "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/json "access plus 1 year"
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType font/otf "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+# === KEEP-ALIVE ===
+<IfModule mod_headers.c>
+    Header set Connection keep-alive
+    Header set Access-Control-Allow-Origin "*"
+    Header set Cross-Origin-Opener-Policy "same-origin"
+    Header set Cross-Origin-Embedder-Policy "credentialless"
+</IfModule>
+
+# === MIME TYPES PARA ROMS RETRO ===
+<IfModule mod_mime.c>
+    AddType application/x-snes-rom .sfc .smc
+    AddType application/vnd.nes-rom .nes
+    AddType application/x-gameboy-rom .gb
+    AddType application/x-gba-rom .gba
+    AddType application/x-genesis-rom .gen .md
+    AddType application/x-master-system-rom .sms
+    AddType application/x-n64-rom .n64 .z64
+    AddType application/x-pc-engine-rom .pce
+    AddType application/x-sega-cd-rom .iso
+    AddType application/x-playstation-rom .bin .cue .iso
+</IfModule>
+
 # Force trailing slash for admin directory (avoids mod_dir double-redirect on mobile)
 RewriteRule ^admin$ admin/ [R=301,L]
 

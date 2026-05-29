@@ -647,6 +647,29 @@ function migration_013($db, $type) {
     } catch (Exception $e) {}
 }
 
+function migration_014($db, $type) {
+    // Seed retro consoles with official EmulatorJS cores
+    $count = $db->query("SELECT COUNT(*) FROM retro_consoles")->fetchColumn();
+    if ($count <= 1) {
+        $consoles = [
+            ['SNES', 'snes', '🎮', 'snes9x', 1, 1],
+            ['NES', 'nes', '🕹️', 'fceumm', 1, 2],
+            ['Game Boy', 'gb', '📱', 'gambatte', 1, 3],
+            ['Game Boy Advance', 'gba', '📱', 'mgba', 1, 4],
+            ['Nintendo 64', 'n64', '🎮', 'mupen64plus_next', 1, 5],
+            ['Nintendo DS', 'nds', '📱', 'melonds', 1, 6],
+            ['Sega Mega Drive', 'megadrive', '🎮', 'genesis_plus_gx', 1, 7],
+            ['Sega Game Gear', 'gamegear', '📱', 'genesis_plus_gx', 1, 8],
+            ['PlayStation', 'psx', '🎮', 'pcsx_rearmed', 1, 9],
+            ['Arcade', 'arcade', '🕹️', 'fbneo', 1, 10],
+        ];
+        $stmt = $db->prepare("INSERT OR REPLACE INTO retro_consoles (name, slug, icon, emulator_core, active, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+        foreach ($consoles as $c) {
+            $stmt->execute($c);
+        }
+    }
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();

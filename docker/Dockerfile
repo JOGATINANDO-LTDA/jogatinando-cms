@@ -1,7 +1,7 @@
 FROM php:8.2-apache
 
-# Enable mod_rewrite for clean URLs
-RUN a2enmod rewrite
+# Enable mod_rewrite, compression and caching modules
+RUN a2enmod rewrite deflate expires headers
 
 # Install system dependencies + SQLite + MySQL support
 RUN apt-get update && apt-get install -y --no-install-recommends \

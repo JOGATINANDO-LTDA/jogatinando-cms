@@ -59,7 +59,7 @@ $consoles = dbQuery("SELECT * FROM retro_consoles WHERE active = 1 ORDER BY sort
         <div class="container">
             <div class="section-title catalog-title">
                 <h2>Emulação <span class="gold">Retro</span></h2>
-                <p>Consoles cadastrados para jogar com EmulatorJS por baixo dos panos.</p>
+                <p>Jogue títulos clássicos direto no navegador.</p>
             </div>
 
             <div class="catalog-grid">
@@ -76,7 +76,6 @@ $consoles = dbQuery("SELECT * FROM retro_consoles WHERE active = 1 ORDER BY sort
                                 <div class="catalog-thumb-placeholder"><?= e($console['icon'] ?? '🎮') ?></div>
                                 <div class="catalog-badges">
                                     <span class="catalog-badge catalog-badge-web"><?= e($console['name']) ?></span>
-                                    <span class="catalog-badge catalog-badge-store"><?= e($console['emulator_core']) ?></span>
                                 </div>
                             </div>
                             <div class="catalog-content">

@@ -148,6 +148,7 @@ function getMigrationList() {
         11 => 'create_retro_games',
         12 => 'create_retro_consoles',
         13 => 'add_external_game_fields',
+        14 => 'seed_retro_consoles',
     ];
 }
 

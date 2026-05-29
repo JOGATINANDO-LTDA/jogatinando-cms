@@ -56,7 +56,7 @@ $games = dbQuery("SELECT * FROM retro_games WHERE console = ? AND active = 1 ORD
         <div class="container">
             <div class="section-title catalog-title">
                 <h2><?= e($console['icon'] ?? '🎮') ?> <?= e($console['name']) ?></h2>
-                <p>Core EmulatorJS: <code><?= e($console['emulator_core']) ?></code></p>
+                <p>Jogos retro disponíveis para este console.</p>
             </div>
 
             <div class="catalog-grid">
