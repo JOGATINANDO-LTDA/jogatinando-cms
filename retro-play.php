@@ -107,6 +107,9 @@ $consoleThumb = !empty($console['thumbnail_url']) ? $console['thumbnail_url'] : 
             cursor: wait;
         }
         .ejs_start_button { display: none !important; }
+        .ejs_context_menu { display: none !important; }
+        .ejs_loading_text { display: none !important; }
+        .ejs_error_text { display: none !important; }
     </style>
 </head>
 <body>
