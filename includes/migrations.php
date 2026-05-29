@@ -663,7 +663,8 @@ function migration_014($db, $type) {
             ['PlayStation', 'psx', '🎮', 'pcsx_rearmed', 1, 9],
             ['Arcade', 'arcade', '🕹️', 'fbneo', 1, 10],
         ];
-        $stmt = $db->prepare("INSERT OR REPLACE INTO retro_consoles (name, slug, icon, emulator_core, active, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+        $prefix = $type === 'mysql' ? 'REPLACE INTO' : 'INSERT OR REPLACE INTO';
+        $stmt = $db->prepare("$prefix retro_consoles (name, slug, icon, emulator_core, active, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
         foreach ($consoles as $c) {
             $stmt->execute($c);
         }

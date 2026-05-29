@@ -93,6 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         'twitch_url' => trim($_POST['twitch_url']),
         'blog_url' => trim($_POST['blog_url']),
         'footer_description' => trim($_POST['footer_description']),
+        'maintenance_mode' => $_POST['maintenance_mode'] ?? '0',
     ];
 
     foreach ($settings as $key => $value) {
@@ -238,7 +239,7 @@ function _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom,
 }
 
 $settings = [];
-$keys = ['site_name', 'site_tagline', 'hero_title', 'hero_subtitle', 'contact_email', 'contact_whatsapp', 'youtube_url', 'twitch_url', 'blog_url', 'footer_description', 'contact_recipient'];
+$keys = ['site_name', 'site_tagline', 'hero_title', 'hero_subtitle', 'contact_email', 'contact_whatsapp', 'youtube_url', 'twitch_url', 'blog_url', 'footer_description', 'contact_recipient', 'maintenance_mode'];
 foreach ($keys as $key) {
     $settings[$key] = getSetting($key, '');
 }
@@ -344,6 +345,16 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
         <div class="form-row">
             <div class="form-group"><label for="site_name">Nome do Site</label><input type="text" id="site_name" name="site_name" value="<?= e($settings['site_name']) ?>"></div>
             <div class="form-group"><label for="site_tagline">Tagline</label><input type="text" id="site_tagline" name="site_tagline" value="<?= e($settings['site_tagline']) ?>"></div>
+        </div>
+
+        <h3 class="form-section-title">Manutenção</h3>
+        <div class="form-group">
+            <label class="toggle-label" for="maintenance_mode">
+                <input type="hidden" name="maintenance_mode" value="0">
+                <input type="checkbox" id="maintenance_mode" name="maintenance_mode" value="1" <?= ($settings['maintenance_mode'] ?? '0') === '1' ? 'checked' : '' ?> style="accent-color:oklch(75% 0.15 85);width:18px;height:18px;cursor:pointer;">
+                <span style="margin-left:8px;font-weight:600;">Ativar modo de manutenção</span>
+            </label>
+            <p style="font-size:12px;color:oklch(60% 0.012 250);margin-top:4px;">Quando ativo, visitantes veem uma página de "Em Manutenção". Administradores logados continuam acessando normalmente.</p>
         </div>
 
         <h3 class="form-section-title">Hero / Banner Principal</h3>
