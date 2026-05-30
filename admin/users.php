@@ -37,13 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
                 if (!$roleLevel) {
                     flashMessage('error', 'Cargo inválido.');
-                } elseif (!$isMasterCeo && $roleLevel === 'ceo') {
-                    flashMessage('error', 'Apenas o CEO Administrador pode criar usuários com cargo CEO.');
+                } elseif ($roleLevel === 'ceo') {
+                    flashMessage('error', 'Cargo CEO não pode ser atribuído a novos usuários.');
                 } elseif (!$isMasterCeo && getRoleLevelRank($roleLevel) >= getRoleLevelRank($userLevel)) {
                     flashMessage('error', 'Você não pode criar usuários com cargo de nível igual ou superior ao seu.');
                 } else {
                     if ($sendInvite) {
-                        $hash = null;
                         $status = 'pending';
                         $token = bin2hex(random_bytes(32));
                         $expires = date('Y-m-d H:i:s', strtotime('+7 days'));
@@ -59,6 +58,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $stmt->execute([$username, $email, $hash, $roleId, $status]);
                         flashMessage('success', "Usuário '$username' criado com sucesso!");
                     }
+                    ob_end_clean();
+                    header('Location: users');
+                    exit;
                 }
             }
         }

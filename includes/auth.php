@@ -57,10 +57,6 @@ function getAssignableRoles($db) {
     $userLevel = $_SESSION['admin_role_level'] ?? 'moderator';
     $isAdminCeo = ($_SESSION['admin_user_id'] === 1 && $userLevel === 'ceo');
 
-    if ($isAdminCeo) {
-        return $db->query("SELECT id, name, level, description FROM roles ORDER BY id")->fetchAll();
-    }
-
     $levels = ['moderator' => 0, 'chief' => 1, 'ceo' => 2];
     $userLevelNum = $levels[$userLevel] ?? 0;
 
@@ -71,9 +67,13 @@ function getAssignableRoles($db) {
         }
     }
 
+    if ($isAdminCeo) {
+        $allowed = ["'chief'", "'moderator'"];
+    }
+
     if (empty($allowed)) return [];
 
-    $sql = "SELECT id, name, level, description FROM roles WHERE level IN (" . implode(',', $allowed) . ") ORDER BY id";
+    $sql = "SELECT id, name, level, description FROM roles WHERE level IN (" . implode(',', $allowed) . ") AND id != 1 ORDER BY id";
     return $db->query($sql)->fetchAll();
 }
 

@@ -48,7 +48,15 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-row">
                 <div class="form-group"><label for="name">Nome *</label><input type="text" id="name" name="name" value="<?= e($member['name'] ?? '') ?>" required></div>
-                <div class="form-group"><label for="role">Cargo *</label><input type="text" id="role" name="role" value="<?= e($member['role'] ?? '') ?>" required></div>
+                <div class="form-group"><label for="role">Cargo *</label>
+                    <select id="role" name="role" required>
+                        <option value="">Selecione...</option>
+                        <?php foreach (dbQuery("SELECT name FROM roles WHERE id != 1 ORDER BY level DESC, name ASC") as $r): ?>
+                        <option value="<?= e($r['name']) ?>" <?= ($member['role'] ?? '') === $r['name'] ? 'selected' : '' ?>><?= e($r['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <a href="roles?action=new" style="display:block;margin-top:4px;font-size:13px;color:var(--gold);">+ Criar novo cargo</a>
+                </div>
             </div>
             <div class="form-group"><label for="bio">Bio</label><textarea id="bio" name="bio" rows="4"><?= e($member['bio'] ?? '') ?></textarea></div>
 

@@ -38,12 +38,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     flashMessage('error', 'Erro ao criar cargo: ' . $e->getMessage());
                 }
             } else {
-                try {
-                    $stmt = $db->prepare("UPDATE roles SET name = ?, level = ?, description = ? WHERE id = ?");
-                    $stmt->execute([$name, $level, $description, $editId]);
-                    flashMessage('success', "Cargo '$name' atualizado!");
-                } catch (Exception $e) {
-                    flashMessage('error', 'Erro ao atualizar cargo: ' . $e->getMessage());
+                if ($editId === 1) {
+                    flashMessage('error', 'O cargo CEO Administrador não pode ser modificado.');
+                } else {
+                    try {
+                        $stmt = $db->prepare("UPDATE roles SET name = ?, level = ?, description = ? WHERE id = ?");
+                        $stmt->execute([$name, $level, $description, $editId]);
+                        flashMessage('success', "Cargo '$name' atualizado!");
+                    } catch (Exception $e) {
+                        flashMessage('error', 'Erro ao atualizar cargo: ' . $e->getMessage());
+                    }
                 }
             }
         }
@@ -54,17 +58,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($_POST['action'] === 'delete') {
         $id = (int)$_POST['id'];
-        $count = $db->prepare("SELECT COUNT(*) FROM users WHERE role_id = ?")->execute([$id]);
-        $stmt = $db->prepare("SELECT COUNT(*) FROM users WHERE role_id = ?");
-        $stmt->execute([$id]);
-        $userCount = (int)$stmt->fetchColumn();
-
-        if ($userCount > 0) {
-            flashMessage('error', 'Este cargo possui usuários vinculados e não pode ser excluído.');
+        if ($id === 1) {
+            flashMessage('error', 'O cargo CEO Administrador não pode ser excluído.');
         } else {
-            $stmt = $db->prepare("DELETE FROM roles WHERE id = ?");
-            $stmt->execute([$id]);
-            flashMessage('success', 'Cargo excluído.');
+            $count = $db->prepare("SELECT COUNT(*) FROM users WHERE role_id = ?");
+            $count->execute([$id]);
+            $userCount = (int)$count->fetchColumn();
+
+            if ($userCount > 0) {
+                flashMessage('error', 'Este cargo possui usuários vinculados e não pode ser excluído.');
+            } else {
+                $stmt = $db->prepare("DELETE FROM roles WHERE id = ?");
+                $stmt->execute([$id]);
+                flashMessage('success', 'Cargo excluído.');
+            }
         }
         ob_end_clean();
         header('Location: roles');
@@ -147,6 +154,7 @@ if (isset($_GET['edit'])) {
                         <td><?= $r['user_count'] ?></td>
                         <td style="color:var(--fg-muted);font-size:13px;"><?= e($r['description']) ?></td>
                         <td class="actions">
+                            <?php if ($r['id'] != 1): ?>
                             <a href="?edit=<?= $r['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
                             <form method="POST" style="display:inline" onsubmit="return confirm('Excluir cargo <?= e($r['name']) ?>?')">
                                 <input type="hidden" name="action" value="delete">
@@ -154,6 +162,9 @@ if (isset($_GET['edit'])) {
                                 <?= csrfField() ?>
                                 <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir" <?= $r['user_count'] > 0 ? 'disabled' : '' ?>><?= $r['user_count'] > 0 ? '🔒' : '🗑️' ?></button>
                             </form>
+                            <?php else: ?>
+                            <span style="color:var(--fg-muted);font-size:12px;">🔒 Protegido</span>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>
@@ -164,6 +175,17 @@ if (isset($_GET['edit'])) {
 </div>
 
 <?php if ($editRole): ?>
+<?php if ($editRole['id'] == 1): ?>
+<div class="card" style="margin-top: 24px;">
+    <div class="card-header">
+        <h2 class="card-title">Cargo Protegido</h2>
+        <a href="roles" class="btn btn-outline btn-sm">Voltar</a>
+    </div>
+    <div class="card-body">
+        <p style="color:var(--fg-muted);">O cargo <strong><?= e($editRole['name']) ?></strong> é o cargo mestre do sistema e não pode ser modificado ou excluído.</p>
+    </div>
+</div>
+<?php else: ?>
 <div class="card" style="margin-top: 24px;">
     <div class="card-header">
         <h2 class="card-title">Editar Cargo: <?= e($editRole['name']) ?></h2>
@@ -200,6 +222,7 @@ if (isset($_GET['edit'])) {
         </form>
     </div>
 </div>
+<?php endif; ?>
 <?php endif; ?>
 
 <style>
