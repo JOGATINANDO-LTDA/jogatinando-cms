@@ -217,7 +217,7 @@ $footerDescription = getSetting('footer_description', '');
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
                 </button>
                 <div class="games-ring category-ring">
-                    <a href="/catalogo?type=autoral" class="game-card category-card" data-index="0">
+                    <a href="/autoral" class="game-card category-card" data-index="0">
                         <div class="game-thumb">
                             <div class="game-thumb-placeholder">🛠️</div>
                             <div class="game-badges">
@@ -230,7 +230,7 @@ $footerDescription = getSetting('footer_description', '');
                             <p class="game-desc">Jogos próprios publicados pela equipe.</p>
                         </div>
                     </a>
-                    <a href="/catalogo?type=cliente" class="game-card category-card" data-index="1">
+                    <a href="/cliente" class="game-card category-card" data-index="1">
                         <div class="game-thumb">
                             <div class="game-thumb-placeholder">🤝</div>
                             <div class="game-badges">

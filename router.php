@@ -85,6 +85,18 @@ if ($uri === '/admin' || strpos($uri, '/admin/') === 0) {
 
 // ---- New Frontend Routes (before generic game player) ----
 
+if ($uri === '/autoral') {
+    $_GET['type'] = 'autoral';
+    require __DIR__ . '/catalogo.php';
+    exit;
+}
+
+if ($uri === '/cliente') {
+    $_GET['type'] = 'cliente';
+    require __DIR__ . '/catalogo.php';
+    exit;
+}
+
 if ($uri === '/catalogo') {
     require __DIR__ . '/catalogo.php';
     exit;
