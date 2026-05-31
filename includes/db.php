@@ -153,6 +153,7 @@ function getMigrationList() {
         16 => 'add_modification_description',
         17 => 'make_password_hash_nullable',
         18 => 'add_email_verification',
+        19 => 'create_levels_table',
     ];
 }
 

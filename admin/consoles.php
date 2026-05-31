@@ -1,6 +1,7 @@
 <?php
 ob_start();
 $pageTitle = 'Emuladores';
+$requiredPerm = 'perm_consoles';
 require_once __DIR__ . '/../includes/header.php';
 
 $action = $_GET['action'] ?? 'list';

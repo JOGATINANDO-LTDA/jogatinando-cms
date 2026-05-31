@@ -721,6 +721,96 @@ function migration_018($db, $type) {
     $db->prepare("UPDATE users SET email_verified_at = created_at WHERE status = 'active' AND email_verified_at IS NULL")->execute();
 }
 
+function migration_019($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("CREATE TABLE IF NOT EXISTS levels (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                slug VARCHAR(50) NOT NULL UNIQUE,
+                is_protected TINYINT(1) NOT NULL DEFAULT 0,
+                perm_banners TINYINT(1) NOT NULL DEFAULT 0,
+                perm_games TINYINT(1) NOT NULL DEFAULT 0,
+                perm_blog TINYINT(1) NOT NULL DEFAULT 0,
+                perm_testimonials TINYINT(1) NOT NULL DEFAULT 0,
+                perm_faq TINYINT(1) NOT NULL DEFAULT 0,
+                perm_team TINYINT(1) NOT NULL DEFAULT 0,
+                perm_users TINYINT(1) NOT NULL DEFAULT 0,
+                perm_roles TINYINT(1) NOT NULL DEFAULT 0,
+                perm_engines TINYINT(1) NOT NULL DEFAULT 0,
+                perm_platforms TINYINT(1) NOT NULL DEFAULT 0,
+                perm_consoles TINYINT(1) NOT NULL DEFAULT 0,
+                perm_retro_games TINYINT(1) NOT NULL DEFAULT 0,
+                perm_templates TINYINT(1) NOT NULL DEFAULT 0,
+                perm_optimizer TINYINT(1) NOT NULL DEFAULT 0,
+                perm_settings TINYINT(1) NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } else {
+            $db->exec("CREATE TABLE IF NOT EXISTS levels (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                is_protected INTEGER NOT NULL DEFAULT 0,
+                perm_banners INTEGER NOT NULL DEFAULT 0,
+                perm_games INTEGER NOT NULL DEFAULT 0,
+                perm_blog INTEGER NOT NULL DEFAULT 0,
+                perm_testimonials INTEGER NOT NULL DEFAULT 0,
+                perm_faq INTEGER NOT NULL DEFAULT 0,
+                perm_team INTEGER NOT NULL DEFAULT 0,
+                perm_users INTEGER NOT NULL DEFAULT 0,
+                perm_roles INTEGER NOT NULL DEFAULT 0,
+                perm_engines INTEGER NOT NULL DEFAULT 0,
+                perm_platforms INTEGER NOT NULL DEFAULT 0,
+                perm_consoles INTEGER NOT NULL DEFAULT 0,
+                perm_retro_games INTEGER NOT NULL DEFAULT 0,
+                perm_templates INTEGER NOT NULL DEFAULT 0,
+                perm_optimizer INTEGER NOT NULL DEFAULT 0,
+                perm_settings INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )");
+        }
+    } catch (Exception $e) {}
+
+    $count = $db->query("SELECT COUNT(*) FROM levels")->fetchColumn();
+    if ($count == 0) {
+        $stmt = $db->prepare("INSERT INTO levels (name, slug, is_protected, perm_banners, perm_games, perm_blog, perm_testimonials, perm_faq, perm_team, perm_users, perm_roles, perm_engines, perm_platforms, perm_consoles, perm_retro_games, perm_templates, perm_optimizer, perm_settings) VALUES (?, ?, 1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1)");
+        $stmt->execute(['CEO', 'ceo']);
+        $stmt = $db->prepare("INSERT INTO levels (name, slug, is_protected, perm_banners, perm_games, perm_blog, perm_testimonials, perm_faq, perm_team, perm_users, perm_roles, perm_engines, perm_platforms, perm_consoles, perm_retro_games, perm_templates, perm_optimizer, perm_settings) VALUES (?, ?, 0, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1)");
+        $stmt->execute(['Chief', 'chief']);
+        $stmt = $db->prepare("INSERT INTO levels (name, slug, is_protected, perm_banners, perm_games, perm_blog, perm_testimonials, perm_faq, perm_team, perm_users, perm_roles, perm_engines, perm_platforms, perm_consoles, perm_retro_games, perm_templates, perm_optimizer, perm_settings) VALUES (?, ?, 0, 1,1,1,1,1,1,0,0,0,0,0,0,0,0,0)");
+        $stmt->execute(['Moderator', 'moderator']);
+    }
+
+    $needsLevelId = true;
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE roles ADD COLUMN level_id INT DEFAULT NULL AFTER level");
+        } else {
+            $cols = $db->query("PRAGMA table_info(roles)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (in_array('level_id', $cols)) {
+                $needsLevelId = false;
+            } else {
+                $db->exec("ALTER TABLE roles ADD COLUMN level_id INTEGER DEFAULT NULL");
+            }
+        }
+    } catch (Exception $e) {
+        $needsLevelId = false;
+    }
+
+    if ($needsLevelId) {
+        try {
+            $db->exec("UPDATE roles SET level_id = (SELECT id FROM levels WHERE slug = 'ceo') WHERE level = 'ceo' AND (level_id IS NULL OR level_id = 0)");
+            $db->exec("UPDATE roles SET level_id = (SELECT id FROM levels WHERE slug = 'chief') WHERE level = 'chief' AND (level_id IS NULL OR level_id = 0)");
+            $db->exec("UPDATE roles SET level_id = (SELECT id FROM levels WHERE slug = 'moderator') WHERE level = 'moderator' AND (level_id IS NULL OR level_id = 0)");
+            $fallbackId = $db->query("SELECT id FROM levels WHERE slug = 'moderator'")->fetchColumn();
+            if ($fallbackId) {
+                $db->prepare("UPDATE roles SET level_id = ? WHERE level_id IS NULL")->execute([$fallbackId]);
+            }
+        } catch (Exception $e) {}
+    }
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();

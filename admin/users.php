@@ -1,14 +1,11 @@
 <?php
 ob_start();
 $pageTitle = 'Usuários';
+$requiredPerm = 'perm_users';
 require_once __DIR__ . '/../includes/header.php';
 
 $db = getDB();
 $currentUserId = $_SESSION['admin_user_id'] ?? 0;
-$userLevel = $_SESSION['admin_role_level'] ?? 'moderator';
-$isMasterCeo = ($currentUserId === 1 && $userLevel === 'ceo');
-
-requireRole('chief');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/users'); exit; }
@@ -36,15 +33,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($existing) {
                 flashMessage('error', 'Este nome de usuário já existe.');
             } else {
-                $roleCheck = $db->prepare("SELECT level FROM roles WHERE id = ?");
+                $roleCheck = $db->prepare("SELECT r.level, r.level_id FROM roles r WHERE r.id = ?");
                 $roleCheck->execute([$roleId]);
-                $roleLevel = $roleCheck->fetchColumn();
+                $roleRow = $roleCheck->fetch();
 
-                if (!$roleLevel) {
+                if (!$roleRow) {
                     flashMessage('error', 'Cargo inválido.');
-                } elseif ($roleLevel === 'ceo' && !$isMasterCeo) {
-                    flashMessage('error', 'Cargo CEO não pode ser atribuído a novos usuários.');
-                } elseif (!$isMasterCeo && getRoleLevelRank($roleLevel) >= getRoleLevelRank($userLevel)) {
+                } elseif ($currentUserId !== 1 && getLevelRank((int)$roleRow['level_id']) >= getSessionRank()) {
                     flashMessage('error', 'Você não pode criar usuários com cargo de nível igual ou superior ao seu.');
                 } else {
                     $newId = null;
@@ -93,9 +88,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 $users = $db->query("
     SELECT u.id, u.username, u.email, u.status, u.role_id, u.created_at, u.email_verified_at,
-           r.name AS role_name, r.level AS role_level
+           r.name AS role_name, r.level AS role_level,
+           l.name AS level_name, l.slug AS level_slug
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
+    LEFT JOIN levels l ON r.level_id = l.id
     ORDER BY u.id ASC
 ")->fetchAll();
 
@@ -133,7 +130,7 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending' 
                 <select id="role_id" name="role_id" required>
                     <option value="">Selecione um cargo...</option>
                     <?php foreach ($assignableRoles as $r): ?>
-                    <option value="<?= $r['id'] ?>"><?= e($r['name']) ?> (<?= $r['level'] ?>)</option>
+                    <option value="<?= $r['id'] ?>"><?= e($r['name']) ?> (<?= e($r['level_slug'] ?? $r['level'] ?? '') ?>)</option>
                     <?php endforeach; ?>
                 </select>
             </div>
@@ -163,13 +160,7 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending' 
                         </td>
                         <td style="color:var(--fg-muted);font-size:13px;"><?= e($u['email'] ?? '—') ?></td>
                         <td>
-                            <?php if ($u['role_level'] === 'ceo'): ?>
-                                <span class="badge badge-featured"><?= e($u['role_name'] ?? 'CEO') ?></span>
-                            <?php elseif ($u['role_level'] === 'chief'): ?>
-                                <span class="badge badge-active"><?= e($u['role_name'] ?? 'Chief') ?></span>
-                            <?php else: ?>
-                                <span class="badge badge-inactive"><?= e($u['role_name'] ?? 'Moderator') ?></span>
-                            <?php endif; ?>
+                            <span class="badge badge-featured"><?= e($u['level_name'] ?? $u['role_name'] ?? '—') ?></span>
                         </td>
                         <td>
                             <?php if ($u['status'] === 'pending'): ?>

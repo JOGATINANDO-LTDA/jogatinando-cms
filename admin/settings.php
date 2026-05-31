@@ -1,6 +1,7 @@
 <?php
 ob_start();
 $pageTitle = 'Configurações';
+$requiredPerm = 'perm_settings';
 require_once __DIR__ . '/../includes/header.php';
 
 $userId = $_SESSION['admin_user_id'] ?? 0;
@@ -255,7 +256,7 @@ $smtpConfigured = defined('SMTP_PASS') && SMTP_PASS !== '';
 // Current user data for profile card
 $userData = null;
 $db = getDB();
-$stmt = $db->prepare("SELECT u.username, u.avatar_url, r.name as role_name, r.level as role_level FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = ?");
+$stmt = $db->prepare("SELECT u.username, u.avatar_url, r.name as role_name, r.level as role_level, l.name as level_name FROM users u LEFT JOIN roles r ON u.role_id = r.id LEFT JOIN levels l ON r.level_id = l.id WHERE u.id = ?");
 $stmt->execute([$userId]);
 $userData = $stmt->fetch(PDO::FETCH_ASSOC);
 $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
@@ -280,7 +281,7 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
             <div style="flex:1;min-width:200px;">
                 <p style="margin-bottom:4px;"><strong style="color:var(--fg)"><?= e($userData['username'] ?? '') ?></strong>
                     <?php if (isset($userData['role_name'])): ?>
-                    <span class="<?= $userData['role_level'] === 'ceo' ? 'badge badge-featured' : ($userData['role_level'] === 'chief' ? 'badge badge-active' : 'badge badge-inactive') ?>" style="margin-left:8px;font-size:11px;"><?= e($userData['role_name']) ?></span>
+                    <span class="badge badge-featured" style="margin-left:8px;font-size:11px;"><?= e($userData['level_name'] ?? $userData['role_name'] ?? '') ?></span>
                     <?php endif; ?>
                 </p>
                 <p style="font-size:13px;color:var(--fg-muted);margin-bottom:12px;">Seu perfil de acesso ao painel administrativo.</p>

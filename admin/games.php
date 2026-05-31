@@ -1,9 +1,10 @@
 <?php
 ob_start();
 $pageTitle = 'Jogos';
+$requiredPerm = 'perm_games';
 require_once __DIR__ . '/../includes/header.php';
 
-$canEditGames = getRoleLevelRank($userLevel) >= 1;
+$canEditGames = can('perm_games');
 $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 

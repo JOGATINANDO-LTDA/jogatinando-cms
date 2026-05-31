@@ -3,6 +3,7 @@ $pageTitle = 'Otimizador de Jogos';
 require_once '../config.php';
 require_once __DIR__ . '/../includes/optimizer.php';
 requireLogin();
+if (!can('perm_optimizer')) { header('Location: ' . ADMIN_URL . '/dashboard'); exit; }
 
 $action = $_GET['action'] ?? $_POST['action'] ?? 'index';
 $message = null;

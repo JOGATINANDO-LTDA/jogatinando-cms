@@ -1,6 +1,7 @@
 <?php
 ob_start();
 $pageTitle = 'Templates';
+$requiredPerm = 'perm_templates';
 require_once __DIR__ . '/../includes/header.php';
 
 $action = $_GET['action'] ?? 'list';

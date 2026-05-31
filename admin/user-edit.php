@@ -1,22 +1,21 @@
 <?php
 ob_start();
 $pageTitle = 'Editar Usuário';
+$requiredPerm = 'perm_users';
 require_once __DIR__ . '/../includes/header.php';
 
 $db = getDB();
 $currentUserId = $_SESSION['admin_user_id'] ?? 0;
-$userLevel = $_SESSION['admin_role_level'] ?? 'moderator';
-$isMasterCeo = ($currentUserId === 1 && $userLevel === 'ceo');
-
-requireRole('moderator');
 
 $id = (int)($_GET['id'] ?? 0);
 if ($id <= 0) { flashMessage('error', 'Usuário inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/users'); exit; }
 
 $user = dbQueryOne("
-    SELECT u.*, r.name AS role_name, r.level AS role_level
+    SELECT u.*, r.name AS role_name, r.level AS role_level,
+           l.name AS level_name, l.slug AS level_slug
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
+    LEFT JOIN levels l ON r.level_id = l.id
     WHERE u.id = ?
 ", [$id]);
 if (!$user) { flashMessage('error', 'Usuário não encontrado.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/users'); exit; }
@@ -24,13 +23,12 @@ if (!$user) { flashMessage('error', 'Usuário não encontrado.'); ob_end_clean()
 $isSelf = ((int)$id === $currentUserId);
 $isEditingMaster = ((int)$id === 1);
 
-if (!$isSelf && !$isMasterCeo) {
-    $stmt = $db->prepare("SELECT r.level FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = ?");
+if (!$isSelf && $currentUserId !== 1) {
+    $stmt = $db->prepare("SELECT l.id FROM users u LEFT JOIN roles r ON u.role_id = r.id LEFT JOIN levels l ON r.level_id = l.id WHERE u.id = ?");
     $stmt->execute([$id]);
-    $targetLevel = $stmt->fetchColumn();
-    $levels = ['moderator' => 0, 'chief' => 1, 'ceo' => 2];
-    $currentRank = $levels[$userLevel] ?? 0;
-    $targetRank = $levels[$targetLevel ?: 'moderator'] ?? 0;
+    $targetLevelId = $stmt->fetchColumn();
+    $targetRank = getLevelRank($targetLevelId);
+    $currentRank = getSessionRank();
     if ($currentRank <= $targetRank) {
         flashMessage('error', 'Você não pode editar usuários de nível igual ou superior ao seu.');
         ob_end_clean(); header('Location: ' . ADMIN_URL . '/users'); exit;
@@ -56,10 +54,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $roleChanged = false;
 
                 if (!$isEditingMaster && $roleId > 0) {
-                    $roleCheck = $db->prepare("SELECT level FROM roles WHERE id = ?");
+                    $roleCheck = $db->prepare("SELECT r.level_id FROM roles r WHERE r.id = ?");
                     $roleCheck->execute([$roleId]);
-                    $targetRoleLevel = $roleCheck->fetchColumn();
-                    if ($targetRoleLevel && ($isMasterCeo || getRoleLevelRank($targetRoleLevel) < getRoleLevelRank($userLevel))) {
+                    $targetLevelId = $roleCheck->fetchColumn();
+                    if ($targetLevelId && ($currentUserId === 1 || getLevelRank((int)$targetLevelId) < getSessionRank())) {
                         $db->prepare("UPDATE users SET role_id = ? WHERE id = ?")->execute([$roleId, $id]);
                         $roleChanged = true;
                     }
@@ -120,13 +118,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 $user = dbQueryOne("
-    SELECT u.*, r.name AS role_name, r.level AS role_level
+    SELECT u.*, r.name AS role_name, r.level AS role_level,
+           l.name AS level_name, l.slug AS level_slug
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
+    LEFT JOIN levels l ON r.level_id = l.id
     WHERE u.id = ?
 ", [$id]);
 $smtpConfigured = isSmtpConfigured();
-$canChangeRole = !$isEditingMaster && ($isMasterCeo || ($user['role_level'] !== 'ceo' && getRoleLevelRank($user['role_level']) < getRoleLevelRank($userLevel)));
+$userRank = getSessionRank();
+$targetLevelId = null;
+if ($user['role_id']) {
+    $t = $db->prepare("SELECT level_id FROM roles WHERE id = ?");
+    $t->execute([$user['role_id']]);
+    $targetLevelId = $t->fetchColumn();
+}
+$canChangeRole = !$isEditingMaster && ($currentUserId === 1 || ($targetLevelId && getLevelRank((int)$targetLevelId) < $userRank));
 $assignableRoles = getAssignableRoles($db);
 ?>
 
@@ -168,7 +175,7 @@ $assignableRoles = getAssignableRoles($db);
             <div class="form-row" style="margin-bottom: 0;">
                 <div class="form-group">
                     <label for="username">Usuário *</label>
-                    <input type="text" id="username" name="username" value="<?= e($user['username']) ?>" required <?= (!$isSelf && !$isMasterCeo) ? 'readonly' : '' ?>>
+                    <input type="text" id="username" name="username" value="<?= e($user['username']) ?>" required <?= (!$isSelf && $currentUserId !== 1) ? 'readonly' : '' ?>>
                 </div>
                 <div class="form-group">
                     <label for="email">Email *</label>
@@ -194,10 +201,10 @@ $assignableRoles = getAssignableRoles($db);
                 <label for="role_id">Cargo</label>
                 <select id="role_id" name="role_id" <?= $isEditingMaster ? 'disabled' : '' ?>>
                     <?php if ($isEditingMaster || (!$canChangeRole && $isSelf)): ?>
-                        <option value="<?= $user['role_id'] ?>" selected><?= e($user['role_name']) ?> (<?= $user['role_level'] ?>)</option>
+                        <option value="<?= $user['role_id'] ?>" selected><?= e($user['role_name']) ?> (<?= e($user['level_name'] ?? $user['role_level'] ?? '') ?>)</option>
                     <?php else: ?>
                         <?php foreach ($assignableRoles as $r): ?>
-                        <option value="<?= $r['id'] ?>" <?= (int)$r['id'] === (int)$user['role_id'] ? 'selected' : '' ?>><?= e($r['name']) ?> (<?= $r['level'] ?>)</option>
+                        <option value="<?= $r['id'] ?>" <?= (int)$r['id'] === (int)$user['role_id'] ? 'selected' : '' ?>><?= e($r['name']) ?> (<?= e($r['level_slug'] ?? $r['level'] ?? '') ?>)</option>
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </select>

@@ -1,6 +1,7 @@
 <?php
 ob_start();
 $pageTitle = 'Banners';
+$requiredPerm = 'perm_banners';
 require_once __DIR__ . '/../includes/header.php';
 
 $action = $_GET['action'] ?? 'list';

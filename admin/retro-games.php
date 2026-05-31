@@ -1,6 +1,7 @@
 <?php
 ob_start();
 $pageTitle = 'Jogos Retro';
+$requiredPerm = 'perm_retro_games';
 require_once __DIR__ . '/../includes/header.php';
 
 $action = $_GET['action'] ?? 'list';

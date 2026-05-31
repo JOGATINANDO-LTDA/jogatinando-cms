@@ -1,6 +1,7 @@
 <?php
 ob_start();
 $pageTitle = 'Equipe';
+$requiredPerm = 'perm_team';
 require_once __DIR__ . '/../includes/header.php';
 $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
