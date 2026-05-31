@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: consoles');
+        header('Location: ' . ADMIN_URL . '/consoles');
         exit;
     }
 
@@ -31,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: consoles?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                header('Location: ' . ADMIN_URL . '/consoles?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         ob_end_clean();
-        header('Location: consoles');
+        header('Location: ' . ADMIN_URL . '/consoles');
         exit;
     }
 
@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('success', 'Emulador excluído.');
         }
         ob_end_clean();
-        header('Location: consoles');
+        header('Location: ' . ADMIN_URL . '/consoles');
         exit;
     }
 
@@ -84,7 +84,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             dbExec("UPDATE retro_consoles SET active = ? WHERE id = ?", [1 - $console['active'], $id]);
         }
         ob_end_clean();
-        header('Location: consoles');
+        header('Location: ' . ADMIN_URL . '/consoles');
         exit;
     }
 }
@@ -93,7 +93,7 @@ if ($action === 'new' || $action === 'edit') {
     $console = $id > 0 ? dbQueryOne("SELECT * FROM retro_consoles WHERE id = ?", [$id]) : null;
     if ($action === 'edit' && !$console) {
         flashMessage('error', 'Emulador não encontrado.');
-        header('Location: consoles');
+        header('Location: ' . ADMIN_URL . '/consoles');
         exit;
     }
     ?>

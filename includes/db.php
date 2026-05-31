@@ -151,6 +151,8 @@ function getMigrationList() {
         14 => 'seed_retro_consoles',
         15 => 'add_console_thumbnail',
         16 => 'add_modification_description',
+        17 => 'make_password_hash_nullable',
+        18 => 'add_email_verification',
     ];
 }
 

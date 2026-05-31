@@ -101,6 +101,28 @@ function sendSmtpMail($to, $subject, $body, $from = null, $fromName = null) {
     return $success;
 }
 
+function sendVerificationEmail($userId) {
+    $db = getDB();
+    $stmt = $db->prepare("SELECT id, username, email FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$user || empty($user['email'])) return false;
+
+    $token = bin2hex(random_bytes(32));
+    $stmt = $db->prepare("UPDATE users SET email_verification_token = ? WHERE id = ?");
+    $stmt->execute([$token, $userId]);
+
+    $verifyLink = ADMIN_URL . '/verify-email?token=' . urlencode($token);
+    $subject = 'Confirme seu email — ' . SITE_NAME;
+    $body = "Olá {$user['username']},\n\n"
+          . "Confirme seu email clicando no link abaixo:\n\n"
+          . "$verifyLink\n\n"
+          . "Se você não criou uma conta, ignore este email.\n"
+          . SITE_NAME;
+
+    return sendSmtpMail($user['email'], $subject, $body);
+}
+
 function generateSlug($text) {
     $text = strtolower($text);
     $text = preg_replace('/[àáâãäå]/', 'a', $text);

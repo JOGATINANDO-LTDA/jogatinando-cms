@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: blog');
+        header('Location: ' . ADMIN_URL . '/blog');
         exit;
     }
 
@@ -26,10 +26,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
             $result = uploadFile($_FILES['thumbnail'], 'blog', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
             if ($result['success']) $thumbnail_url = $result['url'];
-            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: blog?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         }
 
-        if (empty($title)) { flashMessage('error', 'Título é obrigatório.'); ob_end_clean(); header('Location: blog?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+        if (empty($title)) { flashMessage('error', 'Título é obrigatório.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
 
         if ($id > 0) {
             if (!$thumbnail_url) { $existing = dbQueryOne("SELECT thumbnail_url FROM blog_posts WHERE id = ?", [$id]); $thumbnail_url = $existing['thumbnail_url']; }
@@ -40,16 +40,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'Post criado!');
         }
         ob_end_clean();
-        header('Location: blog'); exit;
+        header('Location: ' . ADMIN_URL . '/blog'); exit;
     }
 
-    if ($_POST['action'] === 'delete') { dbDelete('blog_posts', $id); flashMessage('success', 'Post excluído.'); ob_end_clean(); header('Location: blog'); exit; }
-    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM blog_posts WHERE id = ?", [$id]); if ($r) dbExec("UPDATE blog_posts SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: blog'); exit; }
+    if ($_POST['action'] === 'delete') { dbDelete('blog_posts', $id); flashMessage('success', 'Post excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog'); exit; }
+    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM blog_posts WHERE id = ?", [$id]); if ($r) dbExec("UPDATE blog_posts SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog'); exit; }
 }
 
 if ($action === 'new' || $action === 'edit') {
     $post = $id > 0 ? dbQueryOne("SELECT * FROM blog_posts WHERE id = ?", [$id]) : null;
-    if ($action === 'edit' && !$post) { flashMessage('error', 'Post não encontrado.'); header('Location: blog'); exit; }
+    if ($action === 'edit' && !$post) { flashMessage('error', 'Post não encontrado.'); header('Location: ' . ADMIN_URL . '/blog'); exit; }
     ?>
     <div class="card">
         <div class="card-header">

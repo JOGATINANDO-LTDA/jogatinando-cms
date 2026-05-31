@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: engines');
+        header('Location: ' . ADMIN_URL . '/engines');
         exit;
     }
 
@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         ob_end_clean();
-        header('Location: engines');
+        header('Location: ' . ADMIN_URL . '/engines');
         exit;
     }
 
@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('success', 'Engine excluída.');
         }
         ob_end_clean();
-        header('Location: engines');
+        header('Location: ' . ADMIN_URL . '/engines');
         exit;
     }
 
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             dbExec("UPDATE engines SET active = ? WHERE id = ?", [1 - $engine['active'], $id]);
         }
         ob_end_clean();
-        header('Location: engines');
+        header('Location: ' . ADMIN_URL . '/engines');
         exit;
     }
 }
@@ -72,7 +72,7 @@ if ($action === 'new' || $action === 'edit') {
     $engine = $id > 0 ? dbQueryOne("SELECT * FROM engines WHERE id = ?", [$id]) : null;
     if ($action === 'edit' && !$engine) {
         flashMessage('error', 'Engine não encontrada.');
-        header('Location: engines');
+        header('Location: ' . ADMIN_URL . '/engines');
         exit;
     }
     ?>

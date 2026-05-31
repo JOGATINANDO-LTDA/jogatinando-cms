@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$canEditGames) {
         flashMessage('error', 'Apenas cargos Chief ou superior podem alterar jogos.');
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
     // Detect oversized upload (POST empty due to exceeding post_max_size)
@@ -21,7 +21,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $serverLimit = @ini_get('post_max_size') ?: '30M';
         flashMessage('error', "Arquivo excede o limite do servidor ($serverLimit). Contate a hospedagem para aumentar post_max_size.");
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 
@@ -35,14 +35,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('error', 'Erro no upload do arquivo.');
         }
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 
@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $thumbnail_url = $result['url'];
             } else {
                 flashMessage('error', $result['message']);
-                header('Location: games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                header('Location: ' . ADMIN_URL . '/games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                header('Location: ' . ADMIN_URL . '/games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -95,14 +95,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($title)) {
             flashMessage('error', 'Título é obrigatório.');
             ob_end_clean();
-            header('Location: games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            header('Location: ' . ADMIN_URL . '/games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
             exit;
         }
 
         if ($game_type === 'externo' && empty($external_url)) {
             flashMessage('error', 'URL Externa é obrigatória para jogos do tipo Externo.');
             ob_end_clean();
-            header('Location: games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            header('Location: ' . ADMIN_URL . '/games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
             exit;
         }
 
@@ -147,7 +147,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('error', 'Erro ao salvar: ' . $ex->getMessage());
         }
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 
@@ -161,7 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('success', 'Jogo excluído.');
         }
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 
@@ -175,7 +175,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 }
@@ -188,7 +188,7 @@ if ($action === 'new' || $action === 'edit') {
     }
     if ($action === 'edit' && !$game) {
         flashMessage('error', 'Jogo não encontrado.');
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
     ?>

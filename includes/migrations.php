@@ -697,6 +697,30 @@ function migration_016($db, $type) {
     } catch (Exception $e) {}
 }
 
+function migration_017($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users MODIFY password_hash VARCHAR(255) NULL");
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_018($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users ADD COLUMN email_verified_at DATETIME NULL AFTER setup_token_expires");
+            $db->exec("ALTER TABLE users ADD COLUMN email_verification_token VARCHAR(64) NULL AFTER email_verified_at");
+        } else {
+            $cols = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('email_verified_at', $cols)) {
+                $db->exec("ALTER TABLE users ADD COLUMN email_verified_at TEXT DEFAULT NULL");
+                $db->exec("ALTER TABLE users ADD COLUMN email_verification_token TEXT DEFAULT NULL");
+            }
+        }
+    } catch (Exception $e) {}
+    $db->prepare("UPDATE users SET email_verified_at = created_at WHERE status = 'active' AND email_verified_at IS NULL")->execute();
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();

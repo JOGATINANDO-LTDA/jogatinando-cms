@@ -13,7 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $serverLimit = @ini_get('post_max_size') ?: '30M';
         flashMessage('error', "Arquivo excede o limite do servidor ($serverLimit).");
         ob_end_clean();
-        header('Location: templates');
+        header('Location: ' . ADMIN_URL . '/templates');
         exit;
     }
 
@@ -26,14 +26,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('error', 'Erro no upload do arquivo.');
         }
         ob_end_clean();
-        header('Location: templates');
+        header('Location: ' . ADMIN_URL . '/templates');
         exit;
     }
 
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: templates');
+        header('Location: ' . ADMIN_URL . '/templates');
         exit;
     }
 
@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: templates?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                header('Location: ' . ADMIN_URL . '/templates?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: templates?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                header('Location: ' . ADMIN_URL . '/templates?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -82,7 +82,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($title)) {
             flashMessage('error', 'Título é obrigatório.');
             ob_end_clean();
-            header('Location: templates?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            header('Location: ' . ADMIN_URL . '/templates?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
             exit;
         }
 
@@ -109,7 +109,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('error', 'Erro ao salvar: ' . $ex->getMessage());
         }
         ob_end_clean();
-        header('Location: templates');
+        header('Location: ' . ADMIN_URL . '/templates');
         exit;
     }
 
@@ -123,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('success', 'Template excluído.');
         }
         ob_end_clean();
-        header('Location: templates');
+        header('Location: ' . ADMIN_URL . '/templates');
         exit;
     }
 
@@ -133,7 +133,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             dbExec("UPDATE game_templates SET active = ? WHERE id = ?", [1 - $template['active'], $id]);
         }
         ob_end_clean();
-        header('Location: templates');
+        header('Location: ' . ADMIN_URL . '/templates');
         exit;
     }
 }
@@ -142,7 +142,7 @@ if ($action === 'new' || $action === 'edit') {
     $template = $id > 0 ? dbQueryOne("SELECT * FROM game_templates WHERE id = ?", [$id]) : null;
     if ($action === 'edit' && !$template) {
         flashMessage('error', 'Template não encontrado.');
-        header('Location: templates');
+        header('Location: ' . ADMIN_URL . '/templates');
         exit;
     }
     $postMax = @ini_get('post_max_size');

@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: platforms');
+        header('Location: ' . ADMIN_URL . '/platforms');
         exit;
     }
 
@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         ob_end_clean();
-        header('Location: platforms');
+        header('Location: ' . ADMIN_URL . '/platforms');
         exit;
     }
 
@@ -53,7 +53,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('success', 'Plataforma excluída.');
         }
         ob_end_clean();
-        header('Location: platforms');
+        header('Location: ' . ADMIN_URL . '/platforms');
         exit;
     }
 
@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             dbExec("UPDATE store_platforms SET active = ? WHERE id = ?", [1 - $p['active'], $id]);
         }
         ob_end_clean();
-        header('Location: platforms');
+        header('Location: ' . ADMIN_URL . '/platforms');
         exit;
     }
 }
@@ -72,7 +72,7 @@ if ($action === 'new' || $action === 'edit') {
     $platform = $id > 0 ? dbQueryOne("SELECT * FROM store_platforms WHERE id = ?", [$id]) : null;
     if ($action === 'edit' && !$platform) {
         flashMessage('error', 'Plataforma não encontrada.');
-        header('Location: platforms');
+        header('Location: ' . ADMIN_URL . '/platforms');
         exit;
     }
     ?>

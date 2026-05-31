@@ -12,7 +12,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: banners');
+        header('Location: ' . ADMIN_URL . '/banners');
         exit;
     }
 
@@ -35,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: banners?action=new');
+                header('Location: ' . ADMIN_URL . '/banners?action=new');
                 exit;
             }
         }
@@ -43,7 +43,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (empty($title)) {
             flashMessage('error', 'Título é obrigatório.');
             ob_end_clean();
-            header('Location: banners?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            header('Location: ' . ADMIN_URL . '/banners?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
             exit;
         }
 
@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'Banner criado com sucesso!');
         }
         ob_end_clean();
-        header('Location: banners');
+        header('Location: ' . ADMIN_URL . '/banners');
         exit;
     }
 
@@ -75,7 +75,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'Banner excluído.');
         }
         ob_end_clean();
-        header('Location: banners');
+        header('Location: ' . ADMIN_URL . '/banners');
         exit;
     }
 
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             dbExec("UPDATE banners SET active = ? WHERE id = ?", [1 - $banner['active'], $id]);
         }
         ob_end_clean();
-        header('Location: banners');
+        header('Location: ' . ADMIN_URL . '/banners');
         exit;
     }
 }
@@ -95,7 +95,7 @@ if ($action === 'new' || $action === 'edit') {
     if ($action === 'edit' && !$banner) {
         flashMessage('error', 'Banner não encontrado.');
         ob_end_clean();
-        header('Location: banners');
+        header('Location: ' . ADMIN_URL . '/banners');
         exit;
     }
     ?>

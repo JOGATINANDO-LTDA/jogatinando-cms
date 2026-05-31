@@ -12,7 +12,7 @@ requireRole('chief');
 $db = getDB();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: roles'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/roles'); exit; }
 
     if ($_POST['action'] === 'create' || $_POST['action'] === 'edit') {
         $name = trim($_POST['name'] ?? '');
@@ -52,7 +52,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
         ob_end_clean();
-        header('Location: roles');
+        header('Location: ' . ADMIN_URL . '/roles');
         exit;
     }
 
@@ -74,7 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
         ob_end_clean();
-        header('Location: roles');
+        header('Location: ' . ADMIN_URL . '/roles');
         exit;
     }
 }

@@ -11,7 +11,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: retro-games');
+        header('Location: ' . ADMIN_URL . '/retro-games');
         exit;
     }
 
@@ -33,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (empty($title) || empty($console)) {
             flashMessage('error', 'Título e console são obrigatórios.');
             ob_end_clean();
-            header('Location: retro-games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            header('Location: ' . ADMIN_URL . '/retro-games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
             exit;
         }
 
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: retro-games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                header('Location: ' . ADMIN_URL . '/retro-games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -56,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: retro-games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                header('Location: ' . ADMIN_URL . '/retro-games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -85,7 +85,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
 
         ob_end_clean();
-        header('Location: retro-games');
+        header('Location: ' . ADMIN_URL . '/retro-games');
         exit;
     }
 
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'Jogo retro excluído.');
         }
         ob_end_clean();
-        header('Location: retro-games');
+        header('Location: ' . ADMIN_URL . '/retro-games');
         exit;
     }
 
@@ -113,7 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             dbExec("UPDATE retro_games SET active = ? WHERE id = ?", [1 - $game['active'], $id]);
         }
         ob_end_clean();
-        header('Location: retro-games');
+        header('Location: ' . ADMIN_URL . '/retro-games');
         exit;
     }
 }
@@ -122,7 +122,7 @@ if ($action === 'new' || $action === 'edit') {
     $game = $id > 0 ? dbQueryOne("SELECT * FROM retro_games WHERE id = ?", [$id]) : null;
     if ($action === 'edit' && !$game) {
         flashMessage('error', 'Jogo retro não encontrado.');
-        header('Location: retro-games');
+        header('Location: ' . ADMIN_URL . '/retro-games');
         exit;
     }
     $consoles = dbQuery("SELECT * FROM retro_consoles WHERE active = 1 ORDER BY sort_order ASC, name ASC");

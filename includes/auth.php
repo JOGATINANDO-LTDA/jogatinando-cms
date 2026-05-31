@@ -68,7 +68,7 @@ function getAssignableRoles($db) {
     }
 
     if ($isAdminCeo) {
-        $allowed = ["'chief'", "'moderator'"];
+        $allowed = ["'ceo'", "'chief'", "'moderator'"];
     }
 
     if (empty($allowed)) return [];
@@ -92,6 +92,26 @@ function canManageRole($targetLevel) {
     $userLevel = $levels[$_SESSION['admin_role_level'] ?? 'moderator'] ?? 0;
     $target = $levels[$targetLevel] ?? 0;
     return $userLevel > $target;
+}
+
+function canEditUser($targetId) {
+    $currentId = (int)($_SESSION['admin_user_id'] ?? 0);
+    $currentLevel = $_SESSION['admin_role_level'] ?? 'moderator';
+    if ($currentId === 1) return true;
+    if ((int)$targetId === 1) return false;
+    if ((int)$targetId === $currentId) return true;
+    $levels = ['moderator' => 0, 'chief' => 1, 'ceo' => 2];
+    $currentRank = $levels[$currentLevel] ?? 0;
+    $db = getDB();
+    $stmt = $db->prepare("SELECT r.level FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = ?");
+    $stmt->execute([$targetId]);
+    $targetLevel = $stmt->fetchColumn();
+    $targetRank = $levels[$targetLevel ?: 'moderator'] ?? 0;
+    return $currentRank > $targetRank;
+}
+
+function isSmtpConfigured() {
+    return defined('SMTP_PASS') && SMTP_PASS !== '';
 }
 
 function redirectOrError($msg, $detail) {

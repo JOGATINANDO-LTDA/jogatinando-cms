@@ -7,11 +7,11 @@ $id = (int)($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     $id = (int)($_POST['id'] ?? $id);
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: faq'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/faq'); exit; }
     if ($_POST['action'] === 'save') {
         $question = trim($_POST['question']); $answer = trim($_POST['answer']);
         $sort_order = (int)($_POST['sort_order'] ?? 0); $active = isset($_POST['active']) ? 1 : 0;
-        if (empty($question) || empty($answer)) { flashMessage('error', 'Pergunta e resposta são obrigatórias.'); ob_end_clean(); header('Location: faq?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+        if (empty($question) || empty($answer)) { flashMessage('error', 'Pergunta e resposta são obrigatórias.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/faq?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         if ($id > 0) {
             dbExec("UPDATE faq_items SET question=?, answer=?, sort_order=?, active=? WHERE id=?", [$question, $answer, $sort_order, $active, $id]);
             flashMessage('success', 'FAQ atualizada!');
@@ -20,15 +20,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'FAQ criada!');
         }
         ob_end_clean();
-        header('Location: faq'); exit;
+        header('Location: ' . ADMIN_URL . '/faq'); exit;
     }
-    if ($_POST['action'] === 'delete') { dbDelete('faq_items', $id); flashMessage('success', 'FAQ excluída.'); ob_end_clean(); header('Location: faq'); exit; }
-    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM faq_items WHERE id = ?", [$id]); if ($r) dbExec("UPDATE faq_items SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: faq'); exit; }
+    if ($_POST['action'] === 'delete') { dbDelete('faq_items', $id); flashMessage('success', 'FAQ excluída.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/faq'); exit; }
+    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM faq_items WHERE id = ?", [$id]); if ($r) dbExec("UPDATE faq_items SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/faq'); exit; }
 }
 
 if ($action === 'new' || $action === 'edit') {
     $item = $id > 0 ? dbQueryOne("SELECT * FROM faq_items WHERE id = ?", [$id]) : null;
-    if ($action === 'edit' && !$item) { flashMessage('error', 'Não encontrada.'); ob_end_clean(); header('Location: faq'); exit; }
+    if ($action === 'edit' && !$item) { flashMessage('error', 'Não encontrada.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/faq'); exit; }
     ?>
     <div class="card">
         <div class="card-header"><h2 class="card-title"><?= $action === 'new' ? 'Nova FAQ' : 'Editar FAQ' ?></h2><a href="faq" class="btn btn-outline btn-sm">← Voltar</a></div>

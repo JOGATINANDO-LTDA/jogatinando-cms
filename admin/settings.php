@@ -7,7 +7,7 @@ $userId = $_SESSION['admin_user_id'] ?? 0;
 
 // Avatar upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_avatar') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
     if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
         $result = uploadFile($_FILES['avatar'], 'avatars', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
@@ -22,13 +22,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     }
     ob_end_clean();
-    header('Location: settings');
+    header('Location: ' . ADMIN_URL . '/settings');
     exit;
 }
 
 // Avatar remove
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'remove_avatar') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
     $db = getDB();
     $stmt = $db->prepare("SELECT avatar_url FROM users WHERE id = ?");
@@ -46,13 +46,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $_SESSION['admin_avatar_url'] = '';
     flashMessage('success', 'Foto de perfil removida.');
     ob_end_clean();
-    header('Location: settings');
+    header('Location: ' . ADMIN_URL . '/settings');
     exit;
 }
 
 // Password change
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'change_password') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
     $currentPass = $_POST['current_password'] ?? '';
     $newPass = $_POST['new_password'] ?? '';
@@ -75,12 +75,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         flashMessage('success', 'Senha alterada com sucesso!');
     }
     ob_end_clean();
-    header('Location: settings');
+    header('Location: ' . ADMIN_URL . '/settings');
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
     $settings = [
         'site_name' => trim($_POST['site_name']),
@@ -101,12 +101,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
     flashMessage('success', 'Configurações salvas!');
     ob_end_clean();
-    header('Location: settings');
+    header('Location: ' . ADMIN_URL . '/settings');
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['save_smtp', 'test_smtp'])) {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
     $smtpHost  = trim($_POST['smtp_host'] ?? '');
     $smtpPort  = trim($_POST['smtp_port'] ?? '');
@@ -117,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
 
     if (empty($smtpHost) || empty($smtpPort)) {
         flashMessage('error', 'Servidor e porta são obrigatórios.');
-        ob_end_clean(); header('Location: settings'); exit;
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
     }
 
     $contactRecipient = trim($_POST['contact_recipient'] ?? '');
@@ -126,14 +126,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
     if ($_POST['action'] === 'test_smtp') {
         if (empty($smtpUser) || empty($smtpPass)) {
             flashMessage('error', 'Usuário e senha são obrigatórios para testar a conexão.');
-            ob_end_clean(); header('Location: settings'); exit;
+            ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
         }
 
         $error = null;
         $fp = @fsockopen($smtpHost, (int)$smtpPort, $errno, $errstr, 15);
         if (!$fp) {
             flashMessage('error', "Falha ao conectar em $smtpHost:$smtpPort — $errstr");
-            ob_end_clean(); header('Location: settings'); exit;
+            ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
         }
 
         $read = function($fp) {
@@ -165,7 +165,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
         if (!$authSupported) {
             fclose($fp);
             flashMessage('error', 'Servidor SMTP não suporta autenticação (AUTH não listado).');
-            ob_end_clean(); header('Location: settings'); exit;
+            ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
         }
 
         // AUTH LOGIN
@@ -184,7 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
                     // Test passed — save config
                     _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom, $smtpFromName, $contactRecipient);
                     flashMessage('success', 'Teste SMTP OK — conexão e autenticação funcionam. Configurações salvas!');
-                    ob_end_clean(); header('Location: settings'); exit;
+                    ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
                 } else {
                     $error = "Falha na autenticação: $passResp";
                 }
@@ -197,14 +197,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
 
         fclose($fp);
         flashMessage('error', $error);
-        ob_end_clean(); header('Location: settings'); exit;
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
     }
 
     // --- save_smtp: just write config ---
     _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom, $smtpFromName, $contactRecipient);
     flashMessage('success', 'Configurações SMTP salvas!');
     ob_end_clean();
-    header('Location: settings');
+    header('Location: ' . ADMIN_URL . '/settings');
     exit;
 }
 
