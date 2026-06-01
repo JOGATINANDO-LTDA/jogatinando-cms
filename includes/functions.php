@@ -113,14 +113,16 @@ function sendVerificationEmail($userId) {
     $stmt->execute([$token, $userId]);
 
     $verifyLink = ADMIN_URL . '/verify-email?token=' . urlencode($token);
-    $subject = 'Confirme seu email — ' . SITE_NAME;
+    $subject = 'Verificação de Email';
+    $noreplyEmail = getSetting('noreply_email', 'noreply@seudominio.com');
+    $noreplyName = getSetting('noreply_name', 'No Reply');
     $body = "Olá {$user['username']},\n\n"
           . "Confirme seu email clicando no link abaixo:\n\n"
           . "$verifyLink\n\n"
           . "Se você não criou uma conta, ignore este email.\n"
           . SITE_NAME;
 
-    return sendSmtpMail($user['email'], $subject, $body);
+    return sendSmtpMail($user['email'], $subject, $body, $noreplyEmail, $noreplyName);
 }
 
 function generateSlug($text) {

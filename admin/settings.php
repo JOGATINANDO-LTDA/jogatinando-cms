@@ -106,6 +106,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['action'] === 'save_noreply') {
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
+    setSetting('noreply_email', trim($_POST['noreply_email'] ?? ''));
+    setSetting('noreply_name', trim($_POST['noreply_name'] ?? ''));
+    flashMessage('success', 'Configurações de notificação salvas!');
+    ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['save_smtp', 'test_smtp'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
@@ -125,9 +133,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
 
     // --- test_smtp: try connection before saving ---
     if ($_POST['action'] === 'test_smtp') {
-        if (empty($smtpUser) || empty($smtpPass)) {
-            flashMessage('error', 'Usuário e senha são obrigatórios para testar a conexão.');
-            ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
+        // Fall back to existing values if fields were left empty (SMTP locked)
+        if (empty($smtpUser) && defined('SMTP_USER') && SMTP_USER !== '') {
+            $smtpUser = SMTP_USER;
+        }
+        if (empty($smtpPass) && defined('SMTP_PASS') && SMTP_PASS !== '') {
+            $smtpPass = SMTP_PASS;
+        }
+        if (empty($smtpHost) && defined('SMTP_HOST') && SMTP_HOST !== '') {
+            $smtpHost = SMTP_HOST;
+            $smtpPort = defined('SMTP_PORT') ? SMTP_PORT : '587';
         }
 
         $error = null;
@@ -466,6 +481,26 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
                 <button type="button" class="btn btn-outline" onclick="relockSmtp()">Cancelar</button>
             </div>
             <?php endif; ?>
+        </form>
+
+        <hr style="border: none; border-top: 1px solid oklch(22% 0.025 260); margin: 20px 0;">
+        <form method="POST" id="noreply-form">
+            <?= csrfField() ?>
+            <h4 style="font-size:14px;font-weight:700;color:var(--fg);margin:0 0 4px;">Notificações Automáticas</h4>
+            <p style="font-size:12px;color:oklch(60% 0.012 250);margin:0 0 12px;">Usado para verificação de email e outros avisos do sistema.</p>
+            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1; min-width: 200px;">
+                    <label for="noreply_email">E-mail noreply</label>
+                    <input type="email" id="noreply_email" name="noreply_email" value="<?= e(getSetting('noreply_email', '')) ?>" placeholder="noreply@seudominio.com">
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 200px;">
+                    <label for="noreply_name">Nome do remetente</label>
+                    <input type="text" id="noreply_name" name="noreply_name" value="<?= e(getSetting('noreply_name', '')) ?>" placeholder="No Reply">
+                </div>
+            </div>
+            <div class="form-actions" style="margin-top: 12px;">
+                <button type="submit" class="btn btn-gold btn-sm" name="action" value="save_noreply">Salvar</button>
+            </div>
         </form>
     </div>
 </div>

@@ -64,7 +64,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
 
                 if ($isEditingMaster) {
-                    $db->prepare("UPDATE users SET email = ? WHERE id = ?")->execute([$email, $id]);
+                    $db->prepare("UPDATE users SET username = ?, email = ? WHERE id = ?")->execute([$username, $email, $id]);
                     if ($changePassword) {
                         $hash = password_hash($_POST['new_password'], PASSWORD_DEFAULT);
                         $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$hash, $id]);
