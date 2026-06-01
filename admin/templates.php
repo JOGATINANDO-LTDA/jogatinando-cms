@@ -50,9 +50,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $featured = isset($_POST['featured']) ? 1 : 0;
         $sort_order = (int)($_POST['sort_order'] ?? 0);
         $active = isset($_POST['active']) ? 1 : 0;
+        $has_free_file = isset($_POST['has_free_file']) ? 1 : 0;
         $thumbnail_url = '';
         $game_path = '';
         $slug = generateSlug($title);
+
+        if (empty($title)) {
+            flashMessage('error', 'Título é obrigatório.');
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/templates?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            exit;
+        }
 
         // Handle thumbnail upload
         if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
@@ -67,43 +75,107 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        // Load existing values on edit
+        if ($id > 0) {
+            $existing = dbQueryOne("SELECT * FROM game_templates WHERE id = ?", [$id]);
+            if (!$thumbnail_url) {
+                $thumbnail_url = $existing['thumbnail_url'] ?? '';
+            }
+            $gallery = json_decode($existing['gallery'] ?? '[]', true) ?: [];
+        } else {
+            $gallery = [];
+        }
+
+        // Handle gallery image removals
+        $removeGallery = $_POST['remove_gallery'] ?? [];
+        foreach ($removeGallery as $imgUrl) {
+            $key = array_search($imgUrl, $gallery);
+            if ($key !== false) {
+                $filePath = UPLOAD_PATH . str_replace('/uploads', '', $imgUrl);
+                if (file_exists($filePath)) {
+                    @unlink($filePath);
+                }
+                array_splice($gallery, $key, 1);
+            }
+        }
+
+        // Handle gallery image uploads
+        $newUploadCount = 0;
+        if (isset($_FILES['gallery']) && is_array($_FILES['gallery']['name'])) {
+            $fileCount = count($_FILES['gallery']['name']);
+            for ($i = 0; $i < $fileCount; $i++) {
+                if ($_FILES['gallery']['error'][$i] === UPLOAD_ERR_OK) {
+                    $newUploadCount++;
+                }
+            }
+        }
+
+        $finalCount = count($gallery) + $newUploadCount;
+        if ($finalCount > 5) {
+            $remainingSlots = 5 - count($gallery);
+            flashMessage('error', "Máximo de 5 imagens na galeria. Você pode adicionar mais " . max(0, $remainingSlots) . ".");
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/templates?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            exit;
+        }
+
+        if (isset($_FILES['gallery']) && is_array($_FILES['gallery']['name'])) {
+            $fileCount = count($_FILES['gallery']['name']);
+            for ($i = 0; $i < $fileCount; $i++) {
+                if ($_FILES['gallery']['error'][$i] === UPLOAD_ERR_OK) {
+                    $singleFile = [
+                        'name' => $_FILES['gallery']['name'][$i],
+                        'type' => $_FILES['gallery']['type'][$i],
+                        'tmp_name' => $_FILES['gallery']['tmp_name'][$i],
+                        'error' => $_FILES['gallery']['error'][$i],
+                        'size' => $_FILES['gallery']['size'][$i],
+                    ];
+                    $result = uploadFile($singleFile, 'templates', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+                    if ($result['success']) {
+                        $gallery[] = $result['url'];
+                    }
+                }
+            }
+        }
+
+        $gallery_json = json_encode($gallery);
+
         // Handle template archive upload (zip only)
-        if (isset($_FILES['template_archive']) && $_FILES['template_archive']['error'] === UPLOAD_ERR_OK) {
-            $result = uploadAndExtractGame($_FILES['template_archive'], $engine, $title);
+        if ($has_free_file && isset($_FILES['template_archive']) && $_FILES['template_archive']['error'] === UPLOAD_ERR_OK) {
+            // Delete old archive if exists
+            if ($id > 0 && !empty($existing['game_path'])) {
+                $oldFile = UPLOAD_PATH . str_replace('/uploads', '', $existing['game_path']);
+                if (file_exists($oldFile)) {
+                    @unlink($oldFile);
+                }
+            }
+            $result = uploadFile($_FILES['template_archive'], 'templates', ['zip']);
             if ($result['success']) {
-                $game_path = $result['game_path'];
+                $game_path = $result['url'];
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
                 header('Location: ' . ADMIN_URL . '/templates?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
-        }
-
-        if (empty($title)) {
-            flashMessage('error', 'Título é obrigatório.');
-            ob_end_clean();
-            header('Location: ' . ADMIN_URL . '/templates?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
-            exit;
+        } elseif ($id > 0 && !$has_free_file && !empty($existing['game_path'])) {
+            // has_free_file was unchecked — delete old archive
+            $oldFile = UPLOAD_PATH . str_replace('/uploads', '', $existing['game_path']);
+            if (file_exists($oldFile)) {
+                @unlink($oldFile);
+            }
+        } elseif ($id > 0 && !empty($existing['game_path'])) {
+            $game_path = $existing['game_path'];
         }
 
         try {
             if ($id > 0) {
-                if (!$game_path) {
-                    $existing = dbQueryOne("SELECT game_path FROM game_templates WHERE id = ?", [$id]);
-                    $game_path = $existing['game_path'] ?? '';
-                }
-                if (!$thumbnail_url) {
-                    $existing = dbQueryOne("SELECT thumbnail_url FROM game_templates WHERE id = ?", [$id]);
-                    $thumbnail_url = $existing['thumbnail_url'] ?? '';
-                }
-
-                dbExec("UPDATE game_templates SET title=?, slug=?, engine=?, description=?, language=?, language_version=?, store_url=?, game_path=?, thumbnail_url=?, features=?, requirements=?, featured=?, sort_order=?, active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    [$title, $slug, $engine, $description, $language, $language_version, $store_url, $game_path, $thumbnail_url, $features, $requirements, $featured, $sort_order, $active, $id]);
+                dbExec("UPDATE game_templates SET title=?, slug=?, engine=?, description=?, language=?, language_version=?, store_url=?, game_path=?, thumbnail_url=?, gallery=?, features=?, requirements=?, has_free_file=?, featured=?, sort_order=?, active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    [$title, $slug, $engine, $description, $language, $language_version, $store_url, $game_path, $thumbnail_url, $gallery_json, $features, $requirements, $has_free_file, $featured, $sort_order, $active, $id]);
                 flashMessage('success', 'Template atualizado!');
             } else {
-                $id = dbExec("INSERT INTO game_templates (title, slug, engine, description, language, language_version, store_url, game_path, thumbnail_url, features, requirements, featured, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$title, $slug, $engine, $description, $language, $language_version, $store_url, $game_path, $thumbnail_url, $features, $requirements, $featured, $sort_order, $active]);
+                $id = dbExec("INSERT INTO game_templates (title, slug, engine, description, language, language_version, store_url, game_path, thumbnail_url, gallery, features, requirements, has_free_file, featured, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$title, $slug, $engine, $description, $language, $language_version, $store_url, $game_path, $thumbnail_url, $gallery_json, $features, $requirements, $has_free_file, $featured, $sort_order, $active]);
                 flashMessage('success', 'Template criado!');
             }
         } catch (Exception $ex) {
@@ -118,7 +190,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $template = dbQueryOne("SELECT * FROM game_templates WHERE id = ?", [$id]);
         if ($template) {
             if (!empty($template['game_path'])) {
-                deleteGameDir($template['game_path']);
+                $archiveFile = UPLOAD_PATH . str_replace('/uploads', '', $template['game_path']);
+                if (file_exists($archiveFile)) {
+                    @unlink($archiveFile);
+                }
+            }
+            $gallery = json_decode($template['gallery'] ?? '[]', true) ?: [];
+            foreach ($gallery as $imgUrl) {
+                $filePath = UPLOAD_PATH . str_replace('/uploads', '', $imgUrl);
+                if (file_exists($filePath)) {
+                    @unlink($filePath);
+                }
             }
             dbDelete('game_templates', $id);
             flashMessage('success', 'Template excluído.');
@@ -205,23 +287,31 @@ if ($action === 'new' || $action === 'edit') {
 
             <h3 class="form-section-title">Mídia</h3>
 
-            <div class="form-row">
-                <div class="form-group">
-                    <label>Thumbnail</label>
-                    <div class="file-upload">
-                        <input type="file" name="thumbnail" accept="image/*">
-                        <div class="upload-icon">
-                            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                        </div>
-                        <div class="upload-text">Clique ou arraste uma imagem</div>
-                        <div class="upload-hint">JPG, PNG, WebP — máx <?= e($postMax ?: '30M') ?></div>
+            <div class="form-group">
+                <label>Thumbnail</label>
+                <div class="file-upload">
+                    <input type="file" name="thumbnail" accept="image/*">
+                    <div class="upload-icon">
+                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                     </div>
-                    <?php if (!empty($template['thumbnail_url'])): ?>
-                        <img src="<?= e($template['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail">
-                    <?php endif; ?>
+                    <div class="upload-text">Clique ou arraste uma imagem</div>
+                    <div class="upload-hint">JPG, PNG, WebP — máx <?= e($postMax ?: '30M') ?></div>
                 </div>
+                <?php if (!empty($template['thumbnail_url'])): ?>
+                    <img src="<?= e($template['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail">
+                <?php endif; ?>
+            </div>
+
+            <div class="form-group">
+                <div class="toggle-group" style="margin-top:8px">
+                    <input type="checkbox" id="has_free_file" name="has_free_file" <?= ($template['has_free_file'] ?? 0) ? 'checked' : '' ?>>
+                    <label for="has_free_file">Possui arquivo gratuito para download</label>
+                </div>
+            </div>
+
+            <div id="archive-upload-section" style="display:<?= ($template['has_free_file'] ?? 0) ? 'block' : 'none' ?>">
                 <div class="form-group">
-                    <label>Arquivo do Template</label>
+                    <label>Arquivo do Template (ZIP)</label>
                     <div class="file-upload">
                         <input type="file" name="template_archive" accept=".zip">
                         <div class="upload-icon">
@@ -231,9 +321,163 @@ if ($action === 'new' || $action === 'edit') {
                         <div class="upload-hint">ZIP — máx <?= e($postMax ?: '30M') ?></div>
                     </div>
                     <?php if (!empty($template['game_path'])): ?>
-                        <p style="margin-top:8px;font-size:13px;color:var(--muted)">📎 <?= e($template['game_path']) ?> (envie outro para substituir)</p>
+                        <p style="margin-top:8px;font-size:13px;color:var(--muted)">📎 <?= e(basename($template['game_path'])) ?> (envie outro para substituir)</p>
                     <?php endif; ?>
                 </div>
+            </div>
+
+            <h3 class="form-section-title">Galeria de Imagens</h3>
+
+            <div class="form-group" id="gallery-section">
+                <?php
+                $galleryImages = json_decode($template['gallery'] ?? '[]', true) ?: [];
+                $galleryCount = count($galleryImages);
+                ?>
+                <label>Imagens da Galeria <span style="font-weight:400;color:var(--muted)">(máx 5)</span></label>
+
+                <?php if (!empty($galleryImages)): ?>
+                <div id="gallery-existing" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;margin-bottom:12px">
+                    <?php foreach ($galleryImages as $img): ?>
+                    <div class="gallery-existing-item" style="position:relative;width:130px;border-radius:8px;overflow:hidden;border:2px solid var(--border)">
+                        <img src="<?= e($img) ?>" style="width:100%;height:85px;object-fit:cover;display:block">
+                        <button type="button" onclick="removeGalleryImg(this, '<?= e($img) ?>')" style="position:absolute;top:4px;right:4px;border:none;background:oklch(10% 0.03 260 / 0.7);color:#fff;border-radius:4px;cursor:pointer;padding:2px 8px;font-size:12px;line-height:1">✕</button>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+
+                <div id="gallery-slots"></div>
+
+                <input type="file" id="gallery-multiple" name="gallery[]" accept="image/*" multiple style="display:none">
+
+                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px">
+                    <button type="button" id="gallery-add-btn" class="btn btn-outline btn-sm">📁 Selecionar Imagens</button>
+                    <button type="button" id="gallery-slot-btn" class="btn btn-outline btn-sm" title="Adicionar 1 imagem">➕</button>
+                    <span id="gallery-counter" style="font-size:13px;color:var(--muted)"><?= $galleryCount ?>/5 imagens</span>
+                </div>
+
+                <div id="gallery-previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+
+                <script>
+                var MAX = 5;
+                var existingTotal = <?= $galleryCount ?>;
+                var multipleInput = document.getElementById('gallery-multiple');
+                var previews = document.getElementById('gallery-previews');
+                var counter = document.getElementById('gallery-counter');
+                var slots = document.getElementById('gallery-slots');
+                var addBtn = document.getElementById('gallery-add-btn');
+                var slotBtn = document.getElementById('gallery-slot-btn');
+
+                function countRemoved() {
+                    return document.querySelectorAll('#gallery-section input[name="remove_gallery[]"]').length;
+                }
+
+                function countNew() {
+                    var n = 0;
+                    if (multipleInput.files) n += multipleInput.files.length;
+                    slots.querySelectorAll('.gallery-slot input[type=file]').forEach(function(i) {
+                        if (i.files && i.files.length > 0) n++;
+                    });
+                    return n;
+                }
+
+                function countTotal() {
+                    return existingTotal - countRemoved() + countNew();
+                }
+
+                function refresh() {
+                    var c = countTotal();
+                    if (c > MAX) c = MAX;
+                    counter.textContent = c + '/' + MAX + ' imagens';
+                    var full = c >= MAX;
+                    addBtn.disabled = full;
+                    slotBtn.disabled = full;
+                    addBtn.style.opacity = full ? '0.4' : '';
+                    slotBtn.style.opacity = full ? '0.4' : '';
+
+                    previews.innerHTML = '';
+                    slots.querySelectorAll('.gallery-slot').forEach(function(slot) {
+                        var f = slot.querySelector('input[type=file]').files;
+                        if (f && f[0]) {
+                            var box = document.createElement('div');
+                            box.style.cssText = 'position:relative;width:100px;border-radius:6px;overflow:hidden;border:1px solid var(--border)';
+                            var img = document.createElement('img');
+                            img.style.cssText = 'width:100%;height:70px;object-fit:cover;display:block';
+                            var r = new FileReader();
+                            r.onload = function(e) { img.src = e.target.result; };
+                            r.readAsDataURL(f[0]);
+                            box.appendChild(img);
+                            previews.appendChild(box);
+                        }
+                    });
+                    if (multipleInput.files) {
+                        for (var i = 0; i < multipleInput.files.length; i++) {
+                            (function(f) {
+                                var box = document.createElement('div');
+                                box.style.cssText = 'position:relative;width:100px;border-radius:6px;overflow:hidden;border:1px solid var(--border)';
+                                var img = document.createElement('img');
+                                img.style.cssText = 'width:100%;height:70px;object-fit:cover;display:block';
+                                var r = new FileReader();
+                                r.onload = function(e) { img.src = e.target.result; };
+                                r.readAsDataURL(f);
+                                box.appendChild(img);
+                                previews.appendChild(box);
+                            })(multipleInput.files[i]);
+                        }
+                    }
+                }
+
+                function removeGalleryImg(btn, url) {
+                    btn.parentElement.style.display = 'none';
+                    var hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.name = 'remove_gallery[]';
+                    hidden.value = url;
+                    document.getElementById('gallery-section').appendChild(hidden);
+                    refresh();
+                }
+
+                addBtn.addEventListener('click', function() {
+                    if (countTotal() >= MAX) { alert('Máximo de ' + MAX + ' imagens.'); return; }
+                    multipleInput.click();
+                });
+
+                multipleInput.addEventListener('change', function() {
+                    if (countTotal() > MAX) {
+                        alert('Máximo de ' + MAX + ' imagens.');
+                        this.value = '';
+                        return;
+                    }
+                    refresh();
+                });
+
+                slotBtn.addEventListener('click', function() {
+                    if (countTotal() >= MAX) {
+                        alert('Máximo de ' + MAX + ' imagens.');
+                        return;
+                    }
+                    var wrap = document.createElement('div');
+                    wrap.className = 'gallery-slot';
+                    wrap.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px';
+                    var inp = document.createElement('input');
+                    inp.type = 'file';
+                    inp.name = 'gallery[]';
+                    inp.accept = 'image/*';
+                    inp.style.cssText = 'font-size:13px;flex:1';
+                    var rm = document.createElement('button');
+                    rm.type = 'button';
+                    rm.textContent = '✕';
+                    rm.style.cssText = 'border:none;background:oklch(55% 0.20 25 / 0.15);color:oklch(55% 0.20 25);border-radius:4px;cursor:pointer;padding:2px 8px;font-size:12px';
+                    rm.addEventListener('click', function() { wrap.remove(); refresh(); });
+                    inp.addEventListener('change', refresh);
+                    wrap.appendChild(inp);
+                    wrap.appendChild(rm);
+                    slots.appendChild(wrap);
+                    refresh();
+                });
+
+                refresh();
+                </script>
             </div>
 
             <h3 class="form-section-title">Links e Detalhes</h3>
@@ -282,6 +526,17 @@ if ($action === 'new' || $action === 'edit') {
                 <button type="submit" class="btn btn-gold">Salvar Template</button>
                 <a href="templates" class="btn btn-outline">Cancelar</a>
             </div>
+            <script>
+            (function() {
+                var checkbox = document.getElementById('has_free_file');
+                var section = document.getElementById('archive-upload-section');
+                if (checkbox && section) {
+                    checkbox.addEventListener('change', function() {
+                        section.style.display = this.checked ? 'block' : 'none';
+                    });
+                }
+            })();
+            </script>
         </form>
         </div>
     </div>
@@ -310,6 +565,7 @@ if ($action === 'new' || $action === 'edit') {
                             <th>Engine</th>
                             <th class="hide-tablet">Linguagem</th>
                             <th class="hide-tablet">Loja</th>
+                            <th class="hide-tablet">Download</th>
                             <th>Status</th>
                             <th>Ações</th>
                         </tr>
@@ -321,6 +577,7 @@ if ($action === 'new' || $action === 'edit') {
                             <td><span class="game-engine-badge" style="background:<?= getEngineColor($t['engine']) ?>"><?= getEngineIcon($t['engine']) ?> <?= e($t['engine']) ?></span></td>
                             <td class="hide-tablet"><?= e($t['language'] ?: '—') ?></td>
                             <td class="hide-tablet"><?= $t['store_url'] ? '<a href="' . e($t['store_url']) . '" target="_blank" rel="noopener" style="color:var(--gold)">🔗 Link</a>' : '—' ?></td>
+                            <td class="hide-tablet"><?= $t['has_free_file'] ? '<span style="color:var(--green,#4ade80)">✅ Grátis</span>' : '<span style="color:var(--muted)">—</span>' ?></td>
                             <td>
                                 <?php if ($t['active']): ?>
                                     <span class="badge badge-active">Ativo</span>

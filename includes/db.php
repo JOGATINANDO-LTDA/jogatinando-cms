@@ -154,6 +154,7 @@ function getMigrationList() {
         17 => 'make_password_hash_nullable',
         18 => 'add_email_verification',
         19 => 'create_levels_table',
+        20 => 'add_template_free_file_gallery',
     ];
 }
 

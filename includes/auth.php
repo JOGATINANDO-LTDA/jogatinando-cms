@@ -168,7 +168,7 @@ function redirectOrError($msg, $detail) {
         exit;
     }
     http_response_code(500);
-    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>CMS — Erro</title>';
+    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>CMS — Erro</title><link rel="icon" href="/assets/svg/logo.svg" type="image/svg+xml">';
     echo '<style>body{font-family:sans-serif;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px}';
     echo '.card{background:#1a1a2e;border:1px solid #c9a84c;border-radius:12px;padding:40px;max-width:520px;text-align:center}';
     echo 'h1{font-family:Georgia,serif;color:#c9a84c;margin-bottom:12px}';

@@ -29,6 +29,7 @@ $siteName = getSetting('site_name', SITE_NAME);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($template['title']) ?> — Templates — <?= e($siteName) ?></title>
     <meta name="description" content="<?= e(truncateText($template['description'], 160)) ?>">
+    <link rel="icon" href="/assets/svg/logo.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -51,7 +52,7 @@ $siteName = getSetting('site_name', SITE_NAME);
     </nav>
 
     <!-- Template Preview -->
-    <?php if (!empty($template['game_path']) && !empty($template['thumbnail_url'])): ?>
+    <?php if (!empty($template['thumbnail_url'])): ?>
     <section class="theater-section">
         <div class="theater-container">
             <div class="theater-player" style="aspect-ratio:16/9;background:#0a0a12;display:flex;align-items:center;justify-content:center;border:2px solid var(--border-gold);border-radius:var(--radius-lg);overflow:hidden">
@@ -69,6 +70,7 @@ $siteName = getSetting('site_name', SITE_NAME);
                     <div class="game-info-header">
                         <div class="game-info-badges">
                             <span class="game-engine-badge" style="background:<?= e($template['engine_color'] ?? getEngineColor($template['engine'])) ?>"><?= e($template['engine_icon'] ?? getEngineIcon($template['engine'])) ?> <?= e($template['engine']) ?></span>
+                            <?php if ($template['has_free_file']): ?><span class="game-badge-featured" style="background:oklch(55% 0.18 145);color:white">⬇ Download Grátis</span><?php endif; ?>
                             <?php if ($template['featured']): ?><span class="game-badge-featured">Destaque</span><?php endif; ?>
                             <?php if (!empty($template['language'])): ?><span class="game-badge-featured" style="background:oklch(55% 0.18 200);color:white"><?= e($template['language']) ?></span><?php endif; ?>
                         </div>
@@ -91,6 +93,22 @@ $siteName = getSetting('site_name', SITE_NAME);
                     <div class="game-info-description">
                         <h3>Sobre o Template</h3>
                         <p><?= nl2br(e($template['description'])) ?></p>
+                    </div>
+                    <?php endif; ?>
+
+                    <?php
+                    $gallery = json_decode($template['gallery'] ?? '[]', true) ?: [];
+                    if (!empty($gallery)):
+                    ?>
+                    <div class="game-info-description">
+                        <h3>Galeria</h3>
+                        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:8px">
+                            <?php foreach ($gallery as $img): ?>
+                            <a href="<?= e($img) ?>" target="_blank" style="display:block;border-radius:8px;overflow:hidden;border:2px solid var(--border);transition:border-color .2s">
+                                <img src="<?= e($img) ?>" alt="Gallery" style="width:100%;height:130px;object-fit:cover;display:block">
+                            </a>
+                            <?php endforeach; ?>
+                        </div>
                     </div>
                     <?php endif; ?>
 
@@ -154,8 +172,12 @@ $siteName = getSetting('site_name', SITE_NAME);
                     </div>
                     <?php endif; ?>
 
+                    <?php if ($template['has_free_file'] && !empty($template['game_path'])): ?>
+                    <a href="<?= e($template['game_path']) ?>" download class="btn btn-gold btn-block">⬇ Download Grátis</a>
+                    <?php endif; ?>
+
                     <?php if (!empty($template['store_url'])): ?>
-                    <a href="<?= e($template['store_url']) ?>" target="_blank" rel="noopener" class="btn btn-gold btn-block">🛒 Obter Template</a>
+                    <a href="<?= e($template['store_url']) ?>" target="_blank" rel="noopener" class="btn btn-outline btn-block">🛒 Obter na Loja</a>
                     <?php endif; ?>
 
                     <a href="/templates" class="btn btn-outline btn-block">← Voltar aos Templates</a>

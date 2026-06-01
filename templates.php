@@ -138,6 +138,9 @@ $engines = dbQuery('SELECT name, slug, icon FROM engines WHERE active = 1 ORDER 
                                     <?php if ($t['featured']): ?>
                                         <span class="catalog-badge catalog-badge-autoral">Destaque</span>
                                     <?php endif; ?>
+                                    <?php if ($t['has_free_file']): ?>
+                                        <span class="catalog-badge" style="background:oklch(55% 0.18 145);color:white">⬇ Download Grátis</span>
+                                    <?php endif; ?>
                                     <?php if ($hasStore): ?>
                                         <span class="catalog-badge catalog-badge-web">Loja</span>
                                     <?php endif; ?>

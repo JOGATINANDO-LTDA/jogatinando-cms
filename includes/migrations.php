@@ -811,6 +811,30 @@ function migration_019($db, $type) {
     }
 }
 
+function migration_020($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $tblCheck = $db->query("SHOW COLUMNS FROM game_templates LIKE 'has_free_file'")->fetch();
+            if (!$tblCheck) {
+                $db->exec("ALTER TABLE game_templates ADD COLUMN has_free_file TINYINT(1) NOT NULL DEFAULT 0 AFTER requirements");
+            }
+            $tblCheck = $db->query("SHOW COLUMNS FROM game_templates LIKE 'gallery'")->fetch();
+            if (!$tblCheck) {
+                $db->exec("ALTER TABLE game_templates ADD COLUMN gallery TEXT AFTER thumbnail_url");
+                $db->exec("UPDATE game_templates SET gallery = '[]' WHERE gallery IS NULL");
+            }
+        } else {
+            $cols = $db->query("PRAGMA table_info(game_templates)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('has_free_file', $cols)) {
+                $db->exec("ALTER TABLE game_templates ADD COLUMN has_free_file INTEGER NOT NULL DEFAULT 0");
+            }
+            if (!in_array('gallery', $cols)) {
+                $db->exec("ALTER TABLE game_templates ADD COLUMN gallery TEXT DEFAULT '[]'");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();
