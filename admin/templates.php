@@ -710,12 +710,12 @@ if ($action === 'new' || $action === 'edit') {
                                     foreach ($links as $pl) {
                                         $badge = '';
                                         if (!empty($pl['use_logo']) && !empty($pl['logo_path'])) {
-                                            $badge .= '<img src="/' . e($pl['logo_path']) . '" alt="" style="height:14px;width:auto;vertical-align:middle;margin-right:3px">';
+                                            $badge .= '<img src="/' . e($pl['logo_path']) . '" alt="" style="height:14px;width:auto">';
                                         } else {
-                                            $badge .= '<span style="font-size:14px;vertical-align:middle;margin-right:3px">' . e($pl['icon'] ?? '🛒') . '</span>';
+                                            $badge .= e($pl['icon'] ?? '🛒');
                                         }
-                                        $badge .= e($pl['name']);
-                                        echo '<span class="badge" style="background:var(--gold);color:var(--bg-dark);padding:2px 8px;border-radius:4px;font-size:11px;margin-right:4px;display:inline-flex;align-items:center;gap:2px">' . $badge . '</span>';
+                                        $badge .= ' ' . e($pl['name']);
+                                        echo '<span class="badge" style="background:oklch(60% 0.15 75);color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;line-height:1;margin-right:4px;display:inline-flex;align-items:center;gap:3px;white-space:nowrap">' . $badge . '</span>';
                                     }
                                 } else {
                                     echo '—';
