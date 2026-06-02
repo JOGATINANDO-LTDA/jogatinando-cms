@@ -124,7 +124,7 @@ if ($action === 'new' || $action === 'edit') {
             <div class="form-row">
                 <div class="form-group">
                     <label for="icon">Ícone (emoji)</label>
-                    <input type="text" id="icon" name="icon" value="<?= e($platform['icon'] ?? '🛒') ?>" maxlength="10">
+                    <input type="text" id="icon" name="icon" class="emoji-field" value="<?= e($platform['icon'] ?? '🛒') ?>" maxlength="10">
                     <div class="field-hint">Clique no seletor para escolher um emoji</div>
                 </div>
                 <div class="form-group">

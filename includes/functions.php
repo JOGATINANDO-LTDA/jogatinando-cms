@@ -153,6 +153,17 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
         return ['success' => false, 'message' => 'Extensão não permitida: .' . $ext];
     }
 
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+    $allowedMimes = [
+        'image/jpeg','image/png','image/gif','image/webp',
+        'application/zip','application/x-zip-compressed',
+    ];
+    if (!in_array($mime, $allowedMimes)) {
+        return ['success' => false, 'message' => 'Tipo de arquivo não permitido.'];
+    }
+
     $filename = uniqid('upl_', true) . '.' . $ext;
     $relPath = $directory . '/' . $filename;
 

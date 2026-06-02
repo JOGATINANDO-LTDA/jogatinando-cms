@@ -9,13 +9,15 @@ function isLoggedIn() {
 
 function requireLogin() {
     if (!isLoggedIn()) {
-        header('Location: ' . ADMIN_URL . '/login');
+        $redirect = isset($_SERVER['REQUEST_URI']) ? '?redirect=' . urlencode($_SERVER['REQUEST_URI']) : '';
+        header('Location: ' . ADMIN_URL . '/login' . $redirect);
         exit;
     }
     $timeout = 1800;
     if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity']) > $timeout) {
         session_destroy();
-        header('Location: ' . ADMIN_URL . '/login');
+        $redirect = isset($_SERVER['REQUEST_URI']) ? '?redirect=' . urlencode($_SERVER['REQUEST_URI']) : '';
+        header('Location: ' . ADMIN_URL . '/login' . $redirect);
         exit;
     }
     $_SESSION['admin_last_activity'] = time();

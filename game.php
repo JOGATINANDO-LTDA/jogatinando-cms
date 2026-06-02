@@ -5,18 +5,23 @@ $engine = $_GET['engine'] ?? '';
 $slug = $_GET['slug'] ?? '';
 
 if (!$engine || !$slug) {
-    header('Location: /');
+    http_response_code(404);
+    require __DIR__ . '/404.php';
     exit;
 }
 
 try {
     $game = dbQueryOne("SELECT g.*, e.icon as engine_icon, e.color as engine_color FROM games g LEFT JOIN engines e ON g.engine = e.name WHERE (LOWER(g.engine) = LOWER(?) OR LOWER(e.slug) = LOWER(?)) AND g.slug = ? AND g.active = 1", [$engine, $engine, $slug]);
 } catch (Exception $ex) {
-    die('DB Error: ' . $ex->getMessage());
+    error_log('Game query failed: ' . $ex->getMessage());
+    http_response_code(500);
+    require __DIR__ . '/404.php';
+    exit;
 }
 
 if (!$game) {
-    header('Location: /');
+    http_response_code(404);
+    require __DIR__ . '/404.php';
     exit;
 }
 
@@ -32,7 +37,8 @@ if ($isExterno) {
     $gameUrl = UPLOAD_URL . '/games/' . $game['game_path'] . '/';
     if (!file_exists($gameDir . '/index.html')) {
         http_response_code(404);
-        die('<h1 style="color:white;text-align:center;margin-top:40vh;font-family:sans-serif">Arquivo do jogo não encontrado.</h1>');
+        require __DIR__ . '/404.php';
+        exit;
     }
 } else {
     $gameUrl = '';

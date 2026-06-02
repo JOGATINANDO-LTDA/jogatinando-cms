@@ -1455,7 +1455,7 @@ tbody tr:last-child td { border-bottom: none; }
     width: 44px;
     height: 44px;
     border: 2px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-md);
     background: var(--bg-elevated);
     cursor: pointer;
     font-size: 24px;
@@ -1495,7 +1495,7 @@ tbody tr:last-child td { border-bottom: none; }
     width: 100%;
     padding: 6px 10px;
     border: 1px solid var(--border);
-    border-radius: var(--radius);
+    border-radius: var(--radius-md);
     background: var(--bg);
     color: var(--fg);
     font-size: 13px;
@@ -1522,7 +1522,7 @@ tbody tr:last-child td { border-bottom: none; }
     width: 100%;
     aspect-ratio: 1;
     border: none;
-    border-radius: var(--radius);
+    border-radius: var(--radius-md);
     background: transparent;
     cursor: pointer;
     font-size: 20px;

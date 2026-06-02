@@ -113,8 +113,8 @@ document.addEventListener('DOMContentLoaded', function() {
     'Symbols': ['✅','❌','⚠️','❗','❓','💯','🔴','🟢','🔵','🟡','🟣','⚫','⚪','➕','➖','💲']
   };
 
-  function createEmojiPicker(inputId) {
-    var input = document.getElementById(inputId);
+  function createEmojiPicker(el) {
+    var input = typeof el === 'string' ? document.getElementById(el) : el;
     if (!input) return;
 
     var currentValue = input.value || '🎮';
@@ -198,9 +198,9 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 
-  // Initialize emoji pickers for icon fields
-  ['icon'].forEach(function(id) {
-    createEmojiPicker(id);
+  // Initialize emoji pickers for all icon fields
+  document.querySelectorAll('.emoji-field').forEach(function(input) {
+    createEmojiPicker(input);
   });
 
   // Close emoji pickers on outside click

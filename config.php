@@ -1,9 +1,18 @@
 <?php
 
-session_start();
-error_reporting(E_ALL);
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT & ~E_NOTICE);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
+
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'domain' => '',
+    'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
+session_start();
 
 // Paths
 if (!defined('ROOT_PATH')) define('ROOT_PATH', dirname(__FILE__));
@@ -116,7 +125,8 @@ if (defined('SITE_URL')) {
     define('SITE_URL', rtrim($_ENV['SITE_URL'], '/'));
 } elseif (php_sapi_name() !== 'cli') {
     $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] == 443) ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $host = strtolower(trim($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    $host = preg_replace('/[^a-z0-9.:\[\]-]/', '', $host);
     define('SITE_URL', $proto . '://' . $host);
 } else {
     define('SITE_URL', 'http://localhost');

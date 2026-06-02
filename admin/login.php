@@ -11,6 +11,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         $error = 'Token de segurança inválido.';
     } else {
+        $attempts = $_SESSION['login_attempts'] ?? 0;
+        $lockoutTime = $_SESSION['login_lockout'] ?? 0;
+        if ($lockoutTime > time()) {
+            $error = 'Muitas tentativas. Tente novamente em ' . ceil(($lockoutTime - time()) / 60) . ' min.';
+        } elseif ($attempts >= 5) {
+            $_SESSION['login_lockout'] = time() + 300;
+            $_SESSION['login_attempts'] = 0;
+            $error = 'Muitas tentativas. Tente novamente em 5 minutos.';
+        } else {
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
 
@@ -24,13 +33,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($userStatus === 'pending') {
                 $error = 'Conta pendente de ativação. Verifique seu email para confirmar o cadastro.';
             } elseif (login($username, $password)) {
-                header('Location: ' . ADMIN_URL . '/dashboard');
+                unset($_SESSION['login_attempts'], $_SESSION['login_lockout']);
+                $redirect = $_GET['redirect'] ?? '';
+                if ($redirect && str_starts_with($redirect, ADMIN_URL)) {
+                    header('Location: ' . $redirect);
+                } else {
+                    header('Location: ' . ADMIN_URL . '/dashboard');
+                }
                 exit;
             } else {
                 $error = 'Usuário ou senha incorretos.';
+                $_SESSION['login_attempts'] = ($_SESSION['login_attempts'] ?? 0) + 1;
             }
         } else {
             $error = 'Erro de conexão com o banco de dados.';
+        }
         }
     }
 }

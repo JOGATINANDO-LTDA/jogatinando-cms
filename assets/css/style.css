@@ -11,6 +11,7 @@
     --fg-secondary: oklch(82% 0.006 250);
     --muted: oklch(60% 0.012 250);
     --gold: oklch(75% 0.15 85);
+    --gold-subtle: oklch(75% 0.15 85 / 0.08);
     --gold-light: oklch(85% 0.13 85);
     --gold-dark: oklch(62% 0.13 85);
     --gold-glow: oklch(75% 0.15 85 / 0.4);
@@ -509,7 +510,7 @@ input, textarea, select { font-family: inherit; }
 .hero-carousel {
     position: relative;
     width: 100%;
-    height: calc(100vh - 104px);
+    height: calc(100svh - 104px);
     overflow: hidden;
     border-radius: var(--radius-xl);
     border: 1px solid var(--border-gold);
@@ -1870,7 +1871,7 @@ input, textarea, select { font-family: inherit; }
     margin-top: 16px;
     background: oklch(15% 0.02 250 / 0.3);
     border: 1px solid oklch(45% 0.15 250 / 0.3);
-    border-radius: var(--radius);
+    border-radius: var(--radius-md);
 }
 
 .theater-fallback p {

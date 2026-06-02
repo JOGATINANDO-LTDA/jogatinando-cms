@@ -246,7 +246,9 @@ function dbExec($sql, $params = []) {
 function dbDelete($table, $id) {
     $db = getDB();
     if (!$db) return false;
-    $stmt = $db->prepare("DELETE FROM $table WHERE id = ?");
+    $allowed = ['banners','games','blog_posts','testimonials','faq_items','team_members','users','engines','store_platforms','game_links','template_links','retro_games','retro_consoles','levels','roles','site_settings'];
+    if (!in_array($table, $allowed)) return false;
+    $stmt = $db->prepare("DELETE FROM `$table` WHERE id = ?");
     return $stmt->execute([$id]);
 }
 

@@ -123,7 +123,7 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-row">
                     <div class="form-group">
                         <label for="icon">Ícone (emoji)</label>
-                        <input type="text" id="icon" name="icon" value="<?= e($console['icon'] ?? '🎮') ?>" maxlength="10">
+                        <input type="text" id="icon" name="icon" class="emoji-field" value="<?= e($console['icon'] ?? '🎮') ?>" maxlength="10">
                     </div>
                     <div class="form-group">
                         <label for="emulator_core">Core EmulatorJS</label>

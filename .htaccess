@@ -39,12 +39,15 @@ RewriteEngine On
     ExpiresByType font/woff2 "access plus 1 year"
 </IfModule>
 
-# === KEEP-ALIVE ===
+# === HEADERS DE SEGURANÇA ===
 <IfModule mod_headers.c>
     Header set Connection keep-alive
-    Header set Access-Control-Allow-Origin "*"
     Header set Cross-Origin-Opener-Policy "same-origin-allow-popups"
     Header set Cross-Origin-Embedder-Policy "credentialless"
+    Header set X-Content-Type-Options "nosniff"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    # Access-Control-Allow-Origin definido dinamicamente via PHP para uploads
 </IfModule>
 
 # === MIME TYPES PARA ROMS RETRO ===

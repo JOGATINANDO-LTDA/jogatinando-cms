@@ -181,8 +181,8 @@ $footerDescription = getSetting('footer_description', '');
             <div class="hero-crest">
                 <img src="/assets/svg/logo.svg" alt="Logo">
             </div>
-            <h1><?= $heroTitle ?></h1>
-            <p class="hero-subtitle"><?= $heroSubtitle ?></p>
+            <h1><?= strip_tags($heroTitle, '<span><br><em><strong>') ?></h1>
+            <p class="hero-subtitle"><?= strip_tags($heroSubtitle, '<span><br><em><strong>') ?></p>
             <div class="hero-actions">
                 <a href="#games" class="btn btn-gold">Ver Portfólio</a>
                 <a href="#contact" class="btn btn-outline">Solicitar Orçamento</a>
