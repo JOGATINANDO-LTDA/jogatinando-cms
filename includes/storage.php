@@ -63,6 +63,13 @@ class Storage {
         if ($res !== true) {
             return false;
         }
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (strpos($name, '..') !== false || strpos($name, '/') === 0) {
+                $zip->close();
+                return false;
+            }
+        }
         $zip->extractTo($destDir);
         $zip->close();
         return true;

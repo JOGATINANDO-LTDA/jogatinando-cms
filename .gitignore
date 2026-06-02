@@ -8,6 +8,7 @@ data/config.local.php
 # === Uploads (managed by Docker volumes) ===
 uploads/*
 !uploads/.gitkeep
+!uploads/.htaccess
 
 # === PHP ===
 *.log

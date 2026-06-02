@@ -9,7 +9,11 @@ $action = $_GET['action'] ?? $_POST['action'] ?? 'index';
 $message = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    verifyCSRF();
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
+        flashMessage('error', 'Token de segurança inválido.');
+        header('Location: ' . ADMIN_URL . '/optimize');
+        exit;
+    }
     if ($action === 'optimize_all') {
         $results = optimizeAllGames();
         $message = ['type' => 'success', 'results' => $results];
@@ -120,6 +124,7 @@ require_once __DIR__ . '/../includes/header.php';
 
         <div class="optimizer-actions">
             <form method="POST" id="optimizeAllForm">
+                <?= csrfField() ?>
                 <input type="hidden" name="action" value="optimize_all">
                 <button type="submit" class="btn btn-gold btn-lg" id="optimizeAllBtn">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
@@ -148,6 +153,7 @@ require_once __DIR__ . '/../includes/header.php';
                     <?php endif; ?>
                 </div>
                 <form method="POST" class="game-optimize-form">
+                    <?= csrfField() ?>
                     <input type="hidden" name="action" value="optimize_single">
                     <input type="hidden" name="game_path" value="<?= e($game['game_path']) ?>">
                     <button type="submit" class="btn btn-outline btn-sm">Otimizar</button>

@@ -259,7 +259,7 @@ input, textarea, select, button { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg / 0.95);
+  background: oklch(10% 0.025 260 / 0.95);
   backdrop-filter: blur(12px);
   position: sticky;
   top: 0;

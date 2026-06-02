@@ -8,26 +8,30 @@ if (isLoggedIn()) {
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
-
-    $db = getDB();
-    if ($db) {
-        $stmt = $db->prepare("SELECT status, email, email_verified_at, email_verification_token FROM users WHERE username = ?");
-        $stmt->execute([$username]);
-        $userRow = $stmt->fetch(PDO::FETCH_ASSOC);
-        $userStatus = $userRow ? $userRow['status'] : null;
-
-        if ($userStatus === 'pending') {
-            $error = 'Conta pendente de ativação. Verifique seu email para confirmar o cadastro.';
-        } elseif (login($username, $password)) {
-            header('Location: ' . ADMIN_URL . '/dashboard');
-            exit;
-        } else {
-            $error = 'Usuário ou senha incorretos.';
-        }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança inválido.';
     } else {
-        $error = 'Erro de conexão com o banco de dados.';
+        $username = trim($_POST['username'] ?? '');
+        $password = $_POST['password'] ?? '';
+
+        $db = getDB();
+        if ($db) {
+            $stmt = $db->prepare("SELECT status, email, email_verified_at, email_verification_token FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            $userRow = $stmt->fetch(PDO::FETCH_ASSOC);
+            $userStatus = $userRow ? $userRow['status'] : null;
+
+            if ($userStatus === 'pending') {
+                $error = 'Conta pendente de ativação. Verifique seu email para confirmar o cadastro.';
+            } elseif (login($username, $password)) {
+                header('Location: ' . ADMIN_URL . '/dashboard');
+                exit;
+            } else {
+                $error = 'Usuário ou senha incorretos.';
+            }
+        } else {
+            $error = 'Erro de conexão com o banco de dados.';
+        }
     }
 }
 ?>
@@ -287,6 +291,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" autocomplete="on">
+                <?= csrfField() ?>
                 <div class="form-group">
                     <label for="username">Usuário</label>
                     <input type="text" id="username" name="username" required autofocus autocomplete="username" placeholder="seu-usuario">
