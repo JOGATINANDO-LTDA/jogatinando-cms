@@ -97,6 +97,12 @@ if ($uri === '/cliente') {
     exit;
 }
 
+if ($uri === '/externo') {
+    $_GET['type'] = 'externo';
+    require __DIR__ . '/catalogo.php';
+    exit;
+}
+
 if ($uri === '/catalogo') {
     require __DIR__ . '/catalogo.php';
     exit;

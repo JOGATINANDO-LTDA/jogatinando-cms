@@ -97,7 +97,7 @@ $routeEngineSlug = function ($value) {
                 <p>Filtre por tipo e engine. Jogos web-playable abrem direto; os demais seguem para a página de detalhes.</p>
             </div>
 
-            <form method="GET" class="catalog-filters-panel">
+            <form method="GET" action="/catalogo" class="catalog-filters-panel">
                 <div class="catalog-filters-grid">
                     <div class="catalog-filter">
                         <label for="type">Tipo</label>
@@ -129,7 +129,6 @@ $routeEngineSlug = function ($value) {
                 </div>
 
                 <div class="catalog-filter-actions">
-                    <button type="submit" class="btn btn-outline btn-sm">Aplicar filtros</button>
                     <?php if ($type !== '' || $engine !== '' || $search !== ''): ?>
                         <a href="/catalogo" class="btn btn-outline btn-sm">Limpar</a>
                     <?php endif; ?>

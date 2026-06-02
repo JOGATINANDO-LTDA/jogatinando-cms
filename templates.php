@@ -82,7 +82,7 @@ $engines = dbQuery('SELECT name, slug, icon FROM engines WHERE active = 1 ORDER 
                 <p>Bases prontas para novos projetos. Filtre por engine e faça download do código fonte.</p>
             </div>
 
-            <form method="GET" class="catalog-filters-panel">
+            <form method="GET" action="/templates" class="catalog-filters-panel">
                 <div class="catalog-filters-grid">
                     <div class="catalog-filter">
                         <label for="engine">Engine</label>
@@ -104,7 +104,6 @@ $engines = dbQuery('SELECT name, slug, icon FROM engines WHERE active = 1 ORDER 
                 </div>
 
                 <div class="catalog-filter-actions">
-                    <button type="submit" class="btn btn-outline btn-sm">Aplicar filtros</button>
                     <?php if ($engine !== '' || $search !== ''): ?>
                         <a href="/templates" class="btn btn-outline btn-sm">Limpar</a>
                     <?php endif; ?>

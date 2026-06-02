@@ -243,7 +243,20 @@ $footerDescription = getSetting('footer_description', '');
                             <p class="game-desc">Jogos desenvolvidos para parceiros e clientes.</p>
                         </div>
                     </a>
-                    <a href="/templates" class="game-card category-card" data-index="2">
+                    <a href="/externo" class="game-card category-card" data-index="2">
+                        <div class="game-thumb">
+                            <div class="game-thumb-placeholder">🌐</div>
+                            <div class="game-badges">
+                                <span class="game-badge-featured">Externos</span>
+                            </div>
+                        </div>
+                        <div class="game-info">
+                            <h3>Externos</h3>
+                            <p class="game-engine">Jogos hospedados externamente</p>
+                            <p class="game-desc">Títulos que rodam em sites de terceiros via iframe.</p>
+                        </div>
+                    </a>
+                    <a href="/templates" class="game-card category-card" data-index="3">
                         <div class="game-thumb">
                             <div class="game-thumb-placeholder">📦</div>
                             <div class="game-badges">
