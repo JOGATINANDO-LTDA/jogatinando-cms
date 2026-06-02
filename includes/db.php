@@ -156,6 +156,7 @@ function getMigrationList() {
         19 => 'create_levels_table',
         20 => 'add_template_free_file_gallery',
         21 => 'add_platform_logo',
+        22 => 'add_template_links',
     ];
 }
 

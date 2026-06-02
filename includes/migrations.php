@@ -855,6 +855,53 @@ function migration_021($db, $type) {
     } catch (Exception $e) {}
 }
 
+function migration_022($db, $type) {
+    // Create template_links table
+    try {
+        if ($type === 'mysql') {
+            $db->exec("CREATE TABLE IF NOT EXISTS template_links (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                template_id INT NOT NULL,
+                platform_id INT NOT NULL,
+                url VARCHAR(500) NOT NULL,
+                sort_order INT DEFAULT 0,
+                FOREIGN KEY (template_id) REFERENCES game_templates(id) ON DELETE CASCADE,
+                FOREIGN KEY (platform_id) REFERENCES store_platforms(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } else {
+            $db->exec("CREATE TABLE IF NOT EXISTS template_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id INTEGER NOT NULL,
+                platform_id INTEGER NOT NULL,
+                url TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                FOREIGN KEY (template_id) REFERENCES game_templates(id) ON DELETE CASCADE,
+                FOREIGN KEY (platform_id) REFERENCES store_platforms(id) ON DELETE CASCADE
+            )");
+        }
+    } catch (Exception $e) {}
+
+    // Migrate existing store_url to template_links
+    try {
+        $rows = $db->query("SELECT id, store_url FROM game_templates WHERE store_url IS NOT NULL AND store_url != ''")->fetchAll();
+        if ($rows) {
+            $genericPlatformId = $db->query("SELECT id FROM store_platforms WHERE slug = 'store'")->fetchColumn();
+            if (!$genericPlatformId) {
+                if ($type === 'mysql') {
+                    $db->exec("INSERT INTO store_platforms (name, slug, icon, sort_order, active) VALUES ('Loja', 'store', '🛒', 999, 1)");
+                } else {
+                    $db->exec("INSERT INTO store_platforms (name, slug, icon, sort_order, active) VALUES ('Loja', 'store', '🛒', 999, 1)");
+                }
+                $genericPlatformId = $db->lastInsertId();
+            }
+            $stmt = $db->prepare("INSERT INTO template_links (template_id, platform_id, url, sort_order) VALUES (?, ?, ?, 0)");
+            foreach ($rows as $row) {
+                $stmt->execute([$row['id'], $genericPlatformId, $row['store_url']]);
+            }
+        }
+    } catch (Exception $e) {}
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();

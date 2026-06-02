@@ -172,12 +172,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($id > 0) {
                 dbExec("UPDATE game_templates SET title=?, slug=?, engine=?, description=?, language=?, language_version=?, store_url=?, game_path=?, thumbnail_url=?, gallery=?, features=?, requirements=?, has_free_file=?, featured=?, sort_order=?, active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
                     [$title, $slug, $engine, $description, $language, $language_version, $store_url, $game_path, $thumbnail_url, $gallery_json, $features, $requirements, $has_free_file, $featured, $sort_order, $active, $id]);
-                flashMessage('success', 'Template atualizado!');
             } else {
                 $id = dbExec("INSERT INTO game_templates (title, slug, engine, description, language, language_version, store_url, game_path, thumbnail_url, gallery, features, requirements, has_free_file, featured, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     [$title, $slug, $engine, $description, $language, $language_version, $store_url, $game_path, $thumbnail_url, $gallery_json, $features, $requirements, $has_free_file, $featured, $sort_order, $active]);
-                flashMessage('success', 'Template criado!');
             }
+
+            // Save template_links
+            $db = getDB();
+            $db->prepare("DELETE FROM template_links WHERE template_id = ?")->execute([$id]);
+            if (isset($_POST['link_platform']) && is_array($_POST['link_platform'])) {
+                $stmt = $db->prepare("INSERT INTO template_links (template_id, platform_id, url, sort_order) VALUES (?, ?, ?, ?)");
+                $order = 0;
+                foreach ($_POST['link_platform'] as $i => $platformId) {
+                    $url = trim($_POST['link_url'][$i] ?? '');
+                    if ($platformId > 0 && !empty($url)) {
+                        $stmt->execute([$id, (int)$platformId, $url, $order++]);
+                    }
+                }
+            }
+
+            flashMessage('success', $id > 0 ? 'Template atualizado!' : 'Template criado!');
         } catch (Exception $ex) {
             flashMessage('error', 'Erro ao salvar: ' . $ex->getMessage());
         }
@@ -228,6 +242,8 @@ if ($action === 'new' || $action === 'edit') {
         header('Location: ' . ADMIN_URL . '/templates');
         exit;
     }
+    $templateLinks = $id > 0 ? dbQuery("SELECT tl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM template_links tl JOIN store_platforms p ON tl.platform_id = p.id WHERE tl.template_id = ? ORDER BY tl.sort_order", [$id]) : [];
+    $platforms = dbQuery("SELECT id, name, icon, use_logo, logo_path FROM store_platforms WHERE active = 1 ORDER BY sort_order ASC, name ASC");
     $postMax = @ini_get('post_max_size');
     ?>
     <div class="card">
@@ -480,12 +496,44 @@ if ($action === 'new' || $action === 'edit') {
                 </script>
             </div>
 
-            <h3 class="form-section-title">Links e Detalhes</h3>
-
-            <div class="form-group">
-                <label for="store_url">URL da Loja / Marketplace</label>
-                <input type="url" id="store_url" name="store_url" value="<?= e($template['store_url'] ?? '') ?>" placeholder="https://...">
-                <div class="field-hint">Link para onde o template pode ser adquirido (Asset Store, itch.io, etc.)</div>
+            <h3 class="form-section-title">Links de Distribuição</h3>
+            <div id="templateLinksContainer">
+                <div class="field-hint" style="margin-bottom:12px">Links para lojas onde o template pode ser adquirido.</div>
+                <div style="display:flex;gap:8px;margin-bottom:8px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase">
+                    <div style="flex:0 0 30%">Plataforma</div>
+                    <div style="flex:0 0 50%">URL do Link</div>
+                    <div style="flex:0 0 20%;text-align:center">Ação</div>
+                </div>
+                <div id="templateLinksList">
+                    <?php if (!empty($templateLinks)): ?>
+                        <?php foreach ($templateLinks as $tl): ?>
+                        <div class="template-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
+                            <div class="form-group" style="flex:0 0 30%;margin-bottom:0">
+                                <div style="display:flex;align-items:center;gap:6px">
+                                    <?php if (!empty($tl['use_logo']) && !empty($tl['logo_path'])): ?>
+                                        <img src="/<?= e($tl['logo_path']) ?>" alt="" class="platform-thumb" style="height:18px;width:auto;flex-shrink:0">
+                                    <?php else: ?>
+                                        <span class="platform-thumb" style="font-size:18px;flex-shrink:0"><?= e($tl['platform_icon'] ?? '🛒') ?></span>
+                                    <?php endif; ?>
+                                    <select name="link_platform[]" style="width:100%">
+                                        <option value="">Selecione...</option>
+                                        <?php foreach ($platforms as $p): ?>
+                                        <option value="<?= $p['id'] ?>" <?= $tl['platform_id'] == $p['id'] ? 'selected' : '' ?>><?= e($p['name']) ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="form-group" style="flex:0 0 50%;margin-bottom:0">
+                                <input type="url" name="link_url[]" value="<?= e($tl['url']) ?>" placeholder="https://..." style="width:100%">
+                            </div>
+                            <div style="flex:0 0 20%;text-align:center;padding-bottom:2px">
+                                <button type="button" class="btn btn-danger btn-sm template-link-remove" title="Remover link">🗑️ Excluir</button>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" id="addTemplateLink">+ Adicionar Link</button>
             </div>
 
             <div class="form-group">
@@ -537,12 +585,73 @@ if ($action === 'new' || $action === 'edit') {
                 }
             })();
             </script>
+            <script>
+            (function() {
+                var list = document.getElementById('templateLinksList');
+                var addBtn = document.getElementById('addTemplateLink');
+                if (!list || !addBtn) return;
+
+                const platforms = <?= json_encode(array_map(function($p) {
+                    return ['id' => $p['id'], 'name' => $p['name'], 'icon' => $p['icon'] ?? '', 'use_logo' => !empty($p['use_logo']) ? 1 : 0, 'logo_path' => $p['logo_path'] ?? ''];
+                }, $platforms ?? [])) ?>;
+
+                function createLinkRow(platformId, url) {
+                    let selectHtml = '<select name="link_platform[]"><option value="">Selecione...</option>';
+                    let thumbHtml = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">🛒</span>';
+                    platforms.forEach(function(p) {
+                        selectHtml += '<option value="' + p.id + '" ' + (p.id == platformId ? 'selected' : '') + '>' + p.name + '</option>';
+                        if (p.id == platformId) {
+                            thumbHtml = p.use_logo && p.logo_path
+                                ? '<img class="platform-thumb" src="/' + p.logo_path + '" alt="" style="height:18px;width:auto;flex-shrink:0">'
+                                : '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">' + p.icon + '</span>';
+                        }
+                    });
+                    selectHtml += '</select>';
+                    return '<div class="template-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">' +
+                        '<div class="form-group" style="flex:0 0 30%;margin-bottom:0">' +
+                            '<div style="display:flex;align-items:center;gap:6px">' + thumbHtml + selectHtml + '</div>' +
+                        '</div>' +
+                        '<div class="form-group" style="flex:0 0 50%;margin-bottom:0"><input type="url" name="link_url[]" value="' + url + '" placeholder="https://..." style="width:100%"></div>' +
+                        '<div style="flex:0 0 20%;text-align:center;padding-bottom:2px"><button type="button" class="btn btn-danger btn-sm template-link-remove" title="Remover link">🗑️ Excluir</button></div>' +
+                    '</div>';
+                }
+
+                addBtn.addEventListener('click', function() {
+                    var div = document.createElement('div');
+                    div.innerHTML = createLinkRow(0, '');
+                    list.appendChild(div.firstElementChild);
+                });
+
+                list.addEventListener('click', function(e) {
+                    if (e.target.classList.contains('template-link-remove')) {
+                        e.target.closest('.template-link-row').remove();
+                    }
+                });
+
+                list.addEventListener('change', function(e) {
+                    if (e.target.matches('select[name="link_platform[]"]')) {
+                        var row = e.target.closest('.template-link-row');
+                        var thumb = row.querySelector('.platform-thumb');
+                        var selected = platforms.find(function(p) { return p.id == e.target.value; });
+                        if (selected) {
+                            if (selected.use_logo && selected.logo_path) {
+                                thumb.outerHTML = '<img class="platform-thumb" src="/' + selected.logo_path + '" alt="" style="height:18px;width:auto;flex-shrink:0">';
+                            } else {
+                                thumb.outerHTML = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">' + selected.icon + '</span>';
+                            }
+                        } else {
+                            thumb.outerHTML = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">🛒</span>';
+                        }
+                    }
+                });
+            })();
+            </script>
         </form>
         </div>
     </div>
     <?php
 } else {
-    $templates = dbQuery("SELECT * FROM game_templates ORDER BY sort_order ASC, id DESC");
+    $templates = dbQuery("SELECT gt.*, (SELECT GROUP_CONCAT(p.name, '||') FROM template_links tl JOIN store_platforms p ON tl.platform_id = p.id WHERE tl.template_id = gt.id) as platform_names FROM game_templates gt ORDER BY gt.sort_order ASC, gt.id DESC");
     ?>
     <div class="card">
         <div class="card-header">
@@ -576,7 +685,18 @@ if ($action === 'new' || $action === 'edit') {
                             <td><strong style="color:var(--fg)"><?= e($t['title']) ?></strong></td>
                             <td><span class="game-engine-badge" style="background:<?= getEngineColor($t['engine']) ?>"><?= getEngineIcon($t['engine']) ?> <?= e($t['engine']) ?></span></td>
                             <td class="hide-tablet"><?= e($t['language'] ?: '—') ?></td>
-                            <td class="hide-tablet"><?= $t['store_url'] ? '<a href="' . e($t['store_url']) . '" target="_blank" rel="noopener" style="color:var(--gold)">🔗 Link</a>' : '—' ?></td>
+                            <td class="hide-tablet"><?php
+                                $pnames = $t['platform_names'] ?? '';
+                                if ($pnames) {
+                                    $parts = explode('||', $pnames);
+                                    $parts = array_unique(array_filter($parts));
+                                    foreach ($parts as $pn) {
+                                        echo '<span class="badge" style="background:var(--gold);color:var(--bg-dark);padding:2px 8px;border-radius:4px;font-size:11px;margin-right:4px">' . e(trim($pn)) . '</span>';
+                                    }
+                                } else {
+                                    echo '—';
+                                }
+                            ?></td>
                             <td class="hide-tablet"><?= $t['has_free_file'] ? '<span style="color:var(--green,#4ade80)">✅ Grátis</span>' : '<span style="color:var(--muted)">—</span>' ?></td>
                             <td>
                                 <?php if ($t['active']): ?>

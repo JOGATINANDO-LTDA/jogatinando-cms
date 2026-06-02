@@ -20,6 +20,7 @@ if (!$template) {
     exit;
 }
 
+$templateLinks = dbQuery("SELECT tl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM template_links tl JOIN store_platforms p ON tl.platform_id = p.id WHERE tl.template_id = ? ORDER BY tl.sort_order", [$template['id']]);
 $siteName = getSetting('site_name', SITE_NAME);
 ?>
 <!DOCTYPE html>
@@ -77,14 +78,21 @@ $siteName = getSetting('site_name', SITE_NAME);
                         <h1><?= e($template['title']) ?></h1>
                     </div>
 
-                    <?php if (!empty($template['store_url'])): ?>
+                    <?php if (!empty($templateLinks)): ?>
                     <div class="game-info-description">
-                        <h3>Obter Template</h3>
-                        <div class="store-links-grid">
-                            <a class="store-link-card" href="<?= e($template['store_url']) ?>" target="_blank" rel="noopener">
-                                <span class="store-link-icon">🛒</span>
-                                <span class="store-link-name">Acessar Loja</span>
+                        <h3>Links de Distribuição</h3>
+                        <div class="store-links-list">
+                            <?php foreach ($templateLinks as $tl): ?>
+                            <a class="store-link-item" href="<?= e($tl['url']) ?>" target="_blank" rel="noopener">
+                                <?php if (!empty($tl['use_logo']) && !empty($tl['logo_path'])): ?>
+                                <img src="/<?= e($tl['logo_path']) ?>" alt="<?= e($tl['platform_name']) ?>" class="store-link-logo">
+                                <?php else: ?>
+                                <span class="store-link-icon"><?= e($tl['platform_icon'] ?? '🛒') ?></span>
+                                <?php endif; ?>
+                                <span class="store-link-name"><?= e($tl['platform_name']) ?></span>
+                                <span class="store-link-game">— Adquirir Template</span>
                             </a>
+                            <?php endforeach; ?>
                         </div>
                     </div>
                     <?php endif; ?>
@@ -176,8 +184,22 @@ $siteName = getSetting('site_name', SITE_NAME);
                     <a href="<?= e($template['game_path']) ?>" download class="btn btn-gold btn-block">⬇ Download Grátis</a>
                     <?php endif; ?>
 
-                    <?php if (!empty($template['store_url'])): ?>
-                    <a href="<?= e($template['store_url']) ?>" target="_blank" rel="noopener" class="btn btn-outline btn-block">🛒 Obter na Loja</a>
+                    <?php if (!empty($templateLinks)): ?>
+                    <div class="sidebar-card">
+                        <h3>Links de Distribuição</h3>
+                        <div class="store-links-list">
+                            <?php foreach ($templateLinks as $tl): ?>
+                            <a class="store-link-item store-link-item--sidebar" href="<?= e($tl['url']) ?>" target="_blank" rel="noopener">
+                                <?php if (!empty($tl['use_logo']) && !empty($tl['logo_path'])): ?>
+                                <img src="/<?= e($tl['logo_path']) ?>" alt="<?= e($tl['platform_name']) ?>" class="store-link-logo">
+                                <?php else: ?>
+                                <span class="store-link-icon"><?= e($tl['platform_icon'] ?? '🛒') ?></span>
+                                <?php endif; ?>
+                                <span class="store-link-name"><?= e($tl['platform_name']) ?></span>
+                            </a>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
                     <?php endif; ?>
 
                     <a href="/templates" class="btn btn-outline btn-block">← Voltar aos Templates</a>
