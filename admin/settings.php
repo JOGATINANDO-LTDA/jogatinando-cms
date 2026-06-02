@@ -558,7 +558,7 @@ function relockSmtp() {
                 try {
                     $host = $_POST['db_host'] ?? '127.0.0.1';
                     $port = $_POST['db_port'] ?? '3306';
-                    $name = $_POST['db_name'] ?? 'cms_db';
+                    $name = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_POST['db_name'] ?? 'cms_db');
                     $user = $_POST['db_user'] ?? 'root';
                     $pass = $_POST['db_pass'] ?? '';
 

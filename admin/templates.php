@@ -69,7 +69,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $thumbnail_url = $result['url'];
                 if (!empty($oldThumb)) {
                     $thumbPath = UPLOAD_PATH . str_replace('/uploads', '', $oldThumb);
-                    if (file_exists($thumbPath)) @unlink($thumbPath);
+                    $thumbPath = realpath($thumbPath);
+                    if ($thumbPath && str_starts_with($thumbPath, realpath(UPLOAD_PATH))) {
+                        @unlink($thumbPath);
+                    }
                 }
             } else {
                 flashMessage('error', $result['message']);
@@ -96,7 +99,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $key = array_search($imgUrl, $gallery);
             if ($key !== false) {
                 $filePath = UPLOAD_PATH . str_replace('/uploads', '', $imgUrl);
-                if (file_exists($filePath)) {
+                $filePath = realpath($filePath);
+                if ($filePath && str_starts_with($filePath, realpath(UPLOAD_PATH))) {
                     @unlink($filePath);
                 }
                 array_splice($gallery, $key, 1);
