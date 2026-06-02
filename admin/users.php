@@ -18,8 +18,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         if ($username === '' || $roleId === 0) {
             flashMessage('error', 'Usuário e cargo são obrigatórios.');
-        } elseif ($email === '') {
-            flashMessage('error', 'Email é obrigatório para todos os usuários.');
         } elseif (strlen($password) < 6) {
             flashMessage('error', 'A senha deve ter no mínimo 6 caracteres.');
         } else {
@@ -101,8 +99,8 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending' 
                     <input type="text" id="username" name="username" required placeholder="nome-de-usuario">
                 </div>
                 <div class="form-group">
-                    <label for="email">Email *</label>
-                    <input type="email" id="email" name="email" required placeholder="usuario@exemplo.com">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" placeholder="usuario@exemplo.com">
                 </div>
             </div>
             <div class="form-group" style="margin-top: 12px;">

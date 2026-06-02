@@ -45,7 +45,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $status = $_POST['status'] ?? 'active';
 
         if ($username === '') { flashMessage('error', 'Usuário é obrigatório.'); }
-        elseif ($email === '') { flashMessage('error', 'Email é obrigatório.'); }
         else {
             $existing = dbQueryOne("SELECT id FROM users WHERE username = ? AND id != ?", [$username, $id]);
             if ($existing) { flashMessage('error', 'Este nome de usuário já existe.'); }
@@ -173,8 +172,8 @@ $assignableRoles = getAssignableRoles($db);
                     <input type="text" id="username" name="username" value="<?= e($user['username']) ?>" required <?= (!$isSelf && $currentUserId !== 1) ? 'readonly' : '' ?>>
                 </div>
                 <div class="form-group">
-                    <label for="email">Email *</label>
-                    <input type="email" id="email" name="email" value="<?= e($user['email']) ?>" required>
+                    <label for="email">Email</label>
+                    <input type="email" id="email" name="email" value="<?= e($user['email']) ?>">
                 </div>
             </div>
 
