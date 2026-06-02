@@ -3,6 +3,8 @@
  * Utility functions
  */
 
+require_once __DIR__ . '/storage.php';
+
 function e($string) {
     return htmlspecialchars($string ?? '', ENT_QUOTES, 'UTF-8');
 }
@@ -163,15 +165,10 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
         return ['success' => false, 'message' => 'Extensão não permitida: .' . $ext];
     }
 
-    $uploadDir = UPLOAD_PATH . '/' . $directory;
-    if (!is_dir($uploadDir)) {
-        mkdir($uploadDir, 0755, true);
-    }
-
     $filename = uniqid('upl_', true) . '.' . $ext;
-    $destination = $uploadDir . '/' . $filename;
+    $relPath = $directory . '/' . $filename;
 
-    if (!move_uploaded_file($file['tmp_name'], $destination)) {
+    if (!Storage::upload($file['tmp_name'], $relPath)) {
         return ['success' => false, 'message' => 'Falha ao salvar o arquivo.'];
     }
 
@@ -179,7 +176,7 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
         'success' => true,
         'filename' => $filename,
         'url' => '/uploads/' . $directory . '/' . $filename,
-        'path' => $destination
+        'path' => UPLOAD_PATH . '/' . $relPath
     ];
 }
 
@@ -355,19 +352,16 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
 
     $engineSlug = generateSlug($engine);
     $gameSlug = generateSlug($gameTitle);
-    $gameDir = UPLOAD_PATH . '/games/' . $engineSlug . '/' . $gameSlug;
+    $gameRelDir = 'games/' . $engineSlug . '/' . $gameSlug;
+    $gameDir = UPLOAD_PATH . '/' . $gameRelDir;
 
     // If game already exists, delete old version first
     if (is_dir($gameDir)) {
-        deleteGameDir($engineSlug . '/' . $gameSlug);
+        Storage::delete($gameRelDir);
     }
 
-    if (!is_dir($gameDir)) {
-        mkdir($gameDir, 0755, true);
-    }
-
-    $tmpFile = $gameDir . '/_upload.' . $ext;
-    if (!move_uploaded_file($file['tmp_name'], $tmpFile)) {
+    $tmpRelPath = $gameRelDir . '/_upload.' . $ext;
+    if (!Storage::upload($file['tmp_name'], $tmpRelPath)) {
         return ['success' => false, 'message' => 'Falha ao salvar o arquivo.'];
     }
 
@@ -375,33 +369,19 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
     $extractError = '';
 
     if ($ext === 'zip') {
-        $zip = new ZipArchive();
-        $result = $zip->open($tmpFile);
-        if ($result === true) {
-            $zip->extractTo($gameDir);
-            $zip->close();
+        if (Storage::extractZip($tmpRelPath, $gameRelDir)) {
             $extracted = true;
         } else {
-            $reasons = [
-                ZipArchive::ER_EXISTS => 'Arquivo já existe',
-                ZipArchive::ER_INCONS => 'Arquivo ZIP inconsistente',
-                ZipArchive::ER_MEMORY => 'Erro de memória',
-                ZipArchive::ER_NOENT => 'Arquivo não encontrado',
-                ZipArchive::ER_NOZIP => 'Não é um arquivo ZIP válido',
-                ZipArchive::ER_OPEN => 'Não foi possível abrir o arquivo',
-                ZipArchive::ER_READ => 'Erro de leitura',
-                ZipArchive::ER_SEEK => 'Erro de seek',
-            ];
-            $extractError = 'ZIP inválido: ' . ($reasons[$result] ?? 'código ' . $result);
+            $extractError = 'Não é um arquivo ZIP válido';
         }
     }
 
+    Storage::delete($tmpRelPath);
+
     if (!$extracted) {
-        @unlink($tmpFile);
+        Storage::delete($gameRelDir);
         return ['success' => false, 'message' => 'Falha ao extrair: ' . $extractError];
     }
-
-    @unlink($tmpFile);
 
     // Detect and flatten nested folder structure
     $items = scandir($gameDir);
@@ -431,6 +411,7 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
             // Remove empty subdirectories
             cleanupEmptyDirs($gameDir);
         } else {
+            Storage::delete($gameRelDir);
             return ['success' => false, 'message' => 'Arquivo index.html não encontrado no pacote. O jogo precisa ter um index.html na raiz.'];
         }
     }
