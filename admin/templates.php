@@ -697,7 +697,7 @@ if ($action === 'new' || $action === 'edit') {
                             <th>Engine</th>
                             <th class="hide-tablet">Linguagem</th>
                             <th class="hide-tablet">Loja</th>
-                            <th class="hide-tablet">Download</th>
+                            <th class="hide-tablet">Gratuito</th>
                             <th>Status</th>
                             <th>Ações</th>
                         </tr>
