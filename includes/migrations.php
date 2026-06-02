@@ -835,6 +835,26 @@ function migration_020($db, $type) {
     } catch (Exception $e) {}
 }
 
+function migration_021($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $cols = $db->query("SHOW COLUMNS FROM store_platforms LIKE 'use_logo'")->fetch();
+            if (!$cols) {
+                $db->exec("ALTER TABLE store_platforms ADD COLUMN use_logo TINYINT(1) NOT NULL DEFAULT 0 AFTER icon");
+                $db->exec("ALTER TABLE store_platforms ADD COLUMN logo_path VARCHAR(500) NOT NULL DEFAULT '' AFTER use_logo");
+            }
+        } else {
+            $cols = $db->query("PRAGMA table_info(store_platforms)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('use_logo', $cols)) {
+                $db->exec("ALTER TABLE store_platforms ADD COLUMN use_logo INTEGER NOT NULL DEFAULT 0");
+            }
+            if (!in_array('logo_path', $cols)) {
+                $db->exec("ALTER TABLE store_platforms ADD COLUMN logo_path TEXT NOT NULL DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();

@@ -23,7 +23,7 @@ if (!$game) {
 $isWebPlayable = !empty($game['is_web_playable']);
 $isExterno = ($game['game_type'] ?? '') === 'externo' && !empty($game['external_url']);
 $isUploadado = !$isExterno && !empty($game['game_path']);
-$gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon FROM game_links gl INNER JOIN store_platforms p ON p.id = gl.platform_id WHERE gl.game_id = ? AND p.active = 1 ORDER BY gl.sort_order ASC, p.sort_order ASC, p.name ASC", [$game['id']]);
+$gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM game_links gl INNER JOIN store_platforms p ON p.id = gl.platform_id WHERE gl.game_id = ? AND p.active = 1 ORDER BY gl.sort_order ASC, p.sort_order ASC, p.name ASC", [$game['id']]);
 
 if ($isExterno) {
     $gameUrl = $game['external_url'];
@@ -129,11 +129,16 @@ $orientation = $game['orientation'] ?? 'auto';
                     <?php if ($gameLinks): ?>
                     <div class="game-info-description">
                         <h3><?= $isExterno ? 'Links de Download' : 'Onde comprar' ?></h3>
-                        <div class="store-links-grid">
+                        <div class="store-links-list">
                             <?php foreach ($gameLinks as $link): ?>
-                            <a class="store-link-card" href="<?= e($link['url']) ?>" target="_blank" rel="noopener">
-                                <span class="store-link-icon"><?= e($link['platform_icon'] ?? '🛒') ?></span>
+                            <a class="store-link-item" href="<?= e($link['url']) ?>" target="_blank" rel="noopener">
+                                <?php if (!empty($link['use_logo']) && !empty($link['logo_path'])): ?>
+                                    <img class="store-link-logo" src="/<?= e($link['logo_path']) ?>" alt="<?= e($link['platform_name']) ?>">
+                                <?php else: ?>
+                                    <span class="store-link-icon"><?= e($link['platform_icon'] ?? '🛒') ?></span>
+                                <?php endif; ?>
                                 <span class="store-link-name"><?= e($link['platform_name']) ?></span>
+                                <span class="store-link-game"><?= e($game['title']) ?></span>
                             </a>
                             <?php endforeach; ?>
                         </div>
@@ -232,7 +237,11 @@ $orientation = $game['orientation'] ?? 'auto';
                         <div class="sidebar-links-list">
                             <?php foreach ($gameLinks as $link): ?>
                             <a href="<?= e($link['url']) ?>" target="_blank" rel="noopener" class="sidebar-store-link">
-                                <span><?= e($link['platform_icon'] ?? '🛒') ?></span>
+                                <?php if (!empty($link['use_logo']) && !empty($link['logo_path'])): ?>
+                                    <img class="store-link-logo" src="/<?= e($link['logo_path']) ?>" alt="<?= e($link['platform_name']) ?>">
+                                <?php else: ?>
+                                    <span><?= e($link['platform_icon'] ?? '🛒') ?></span>
+                                <?php endif; ?>
                                 <span><?= e($link['platform_name']) ?></span>
                             </a>
                             <?php endforeach; ?>

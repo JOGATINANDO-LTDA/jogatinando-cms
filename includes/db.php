@@ -155,6 +155,7 @@ function getMigrationList() {
         18 => 'add_email_verification',
         19 => 'create_levels_table',
         20 => 'add_template_free_file_gallery',
+        21 => 'add_platform_logo',
     ];
 }
 

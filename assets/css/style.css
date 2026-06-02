@@ -2128,34 +2128,65 @@ input, textarea, select { font-family: inherit; }
     letter-spacing: 0.02em;
 }
 
-.store-links-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-    gap: 12px;
+.store-links-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
-.store-link-card {
+.store-link-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 12px 14px;
+    gap: 10px;
+    padding: 10px 14px;
     background: var(--bg-card);
     border: 1px solid var(--border);
     border-radius: var(--radius-md);
     color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.2s, color 0.2s;
 }
 
-.store-link-card:hover {
+.store-link-item:hover {
     border-color: var(--gold);
     color: var(--gold);
 }
 
 .store-link-icon {
     font-size: 18px;
+    flex-shrink: 0;
+}
+
+.store-link-logo {
+    height: 18px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.sidebar-store-link .store-link-logo {
+    height: 16px;
 }
 
 .store-link-name {
     font-weight: 600;
+    white-space: nowrap;
+}
+
+.store-link-game {
+    color: var(--muted);
+    font-size: 0.85em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.store-link-game::before {
+    content: "— ";
+}
+
+.store-link-item:hover .store-link-game {
+    color: var(--gold-muted, var(--muted));
 }
 
 .sidebar-links-list {

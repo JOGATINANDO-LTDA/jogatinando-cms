@@ -185,7 +185,7 @@ if ($action === 'new' || $action === 'edit') {
     $game = $id > 0 ? dbQueryOne("SELECT * FROM games WHERE id = ?", [$id]) : null;
     $gameLinks = [];
     if ($id > 0) {
-        $gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon FROM game_links gl JOIN store_platforms p ON gl.platform_id = p.id WHERE gl.game_id = ? ORDER BY gl.sort_order", [$id]);
+        $gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM game_links gl JOIN store_platforms p ON gl.platform_id = p.id WHERE gl.game_id = ? ORDER BY gl.sort_order", [$id]);
     }
     if ($action === 'edit' && !$game) {
         flashMessage('error', 'Jogo não encontrado.');
@@ -394,18 +394,25 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
                 <div id="gameLinksList">
                     <?php
-                    $platforms = dbQuery("SELECT id, name, icon FROM store_platforms WHERE active = 1 ORDER BY sort_order ASC, name ASC");
+                    $platforms = dbQuery("SELECT id, name, icon, use_logo, logo_path FROM store_platforms WHERE active = 1 ORDER BY sort_order ASC, name ASC");
                     if (!empty($gameLinks)):
                         foreach ($gameLinks as $gl):
                     ?>
                     <div class="game-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
                         <div class="form-group" style="flex:0 0 30%;margin-bottom:0">
-                            <select name="link_platform[]" style="width:100%">
-                                <option value="">Selecione...</option>
-                                <?php foreach ($platforms as $p): ?>
-                                <option value="<?= $p['id'] ?>" <?= $gl['platform_id'] == $p['id'] ? 'selected' : '' ?>><?= e($p['icon'] ?? '') ?> <?= e($p['name']) ?></option>
-                                <?php endforeach; ?>
-                            </select>
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <?php if (!empty($gl['use_logo']) && !empty($gl['logo_path'])): ?>
+                                    <img src="/<?= e($gl['logo_path']) ?>" alt="" class="platform-thumb" style="height:18px;width:auto;flex-shrink:0">
+                                <?php else: ?>
+                                    <span class="platform-thumb" style="font-size:18px;flex-shrink:0"><?= e($gl['platform_icon'] ?? '🛒') ?></span>
+                                <?php endif; ?>
+                                <select name="link_platform[]" style="width:100%">
+                                    <option value="">Selecione...</option>
+                                    <?php foreach ($platforms as $p): ?>
+                                    <option value="<?= $p['id'] ?>" <?= $gl['platform_id'] == $p['id'] ? 'selected' : '' ?>><?= e($p['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
                         </div>
                         <div class="form-group" style="flex:0 0 50%;margin-bottom:0">
                             <input type="url" name="link_url[]" value="<?= e($gl['url']) ?>" placeholder="https://..." style="width:100%">
@@ -558,17 +565,26 @@ if ($action === 'new' || $action === 'edit') {
         isOpenSource.addEventListener('change', toggleRepoUrl);
     }
 
+    const platforms = <?= json_encode(array_map(function($p) {
+        return ['id' => $p['id'], 'name' => $p['name'], 'icon' => $p['icon'] ?? '', 'use_logo' => !empty($p['use_logo']) ? 1 : 0, 'logo_path' => $p['logo_path'] ?? ''];
+    }, $platforms ?? [])) ?>;
+
     function createLinkRow(platformId, url) {
-        const platforms = <?= json_encode(array_map(function($p) {
-            return ['id' => $p['id'], 'name' => $p['name'], 'icon' => $p['icon'] ?? ''];
-        }, $platforms ?? [])) ?>;
         let selectHtml = '<select name="link_platform[]"><option value="">Selecione...</option>';
+        let thumbHtml = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">🛒</span>';
         platforms.forEach(p => {
-            selectHtml += `<option value="${p.id}" ${p.id == platformId ? 'selected' : ''}>${p.icon} ${p.name}</option>`;
+            selectHtml += `<option value="${p.id}" ${p.id == platformId ? 'selected' : ''}>${p.name}</option>`;
+            if (p.id == platformId) {
+                thumbHtml = p.use_logo && p.logo_path
+                    ? `<img class="platform-thumb" src="/${p.logo_path}" alt="" style="height:18px;width:auto;flex-shrink:0">`
+                    : `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">${p.icon}</span>`;
+            }
         });
         selectHtml += '</select>';
         return `<div class="game-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
-            <div class="form-group" style="flex:0 0 30%;margin-bottom:0">${selectHtml}</div>
+            <div class="form-group" style="flex:0 0 30%;margin-bottom:0">
+                <div style="display:flex;align-items:center;gap:6px">${thumbHtml}${selectHtml}</div>
+            </div>
             <div class="form-group" style="flex:0 0 50%;margin-bottom:0"><input type="url" name="link_url[]" value="${url}" placeholder="https://..." style="width:100%"></div>
             <div style="flex:0 0 20%;text-align:center;padding-bottom:2px"><button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">🗑️ Excluir</button></div>
         </div>`;
@@ -585,6 +601,23 @@ if ($action === 'new' || $action === 'edit') {
     list.addEventListener('click', (e) => {
         if (e.target.classList.contains('game-link-remove')) {
             e.target.closest('.game-link-row').remove();
+        }
+    });
+
+    list.addEventListener('change', (e) => {
+        if (e.target.matches('select[name="link_platform[]"]')) {
+            const row = e.target.closest('.game-link-row');
+            const thumb = row.querySelector('.platform-thumb');
+            const selected = platforms.find(p => p.id == e.target.value);
+            if (selected) {
+                if (selected.use_logo && selected.logo_path) {
+                    thumb.outerHTML = `<img class="platform-thumb" src="/${selected.logo_path}" alt="" style="height:18px;width:auto;flex-shrink:0">`;
+                } else {
+                    thumb.outerHTML = `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">${selected.icon}</span>`;
+                }
+            } else {
+                thumb.outerHTML = `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">🛒</span>`;
+            }
         }
     });
     </script>

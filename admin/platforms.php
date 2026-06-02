@@ -17,23 +17,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($_POST['action'] === 'save') {
+        $saveId = (int)($_POST['id'] ?? 0);
+        $existing = $saveId > 0 ? dbQueryOne("SELECT logo_path FROM store_platforms WHERE id = ?", [$saveId]) : null;
         $name = trim($_POST['name']);
         $slug = !empty(trim($_POST['slug'])) ? generateSlug(trim($_POST['slug'])) : generateSlug($name);
         $icon = trim($_POST['icon']);
         $sortOrder = (int)($_POST['sort_order'] ?? 0);
         $active = isset($_POST['active']) ? 1 : 0;
+        $useLogo = isset($_POST['use_logo']) ? 1 : 0;
+        $logoPath = $existing['logo_path'] ?? '';
 
         if (empty($name)) {
             flashMessage('error', 'Nome é obrigatório.');
         } else {
             try {
-                if ($id > 0) {
-                    dbExec("UPDATE store_platforms SET name=?, slug=?, icon=?, sort_order=?, active=? WHERE id=?",
-                        [$name, $slug, $icon, $sortOrder, $active, $id]);
+                if ($useLogo && isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
+                    $uploadResult = uploadFile($_FILES['logo'], 'platforms', ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']);
+                    if ($uploadResult['success']) {
+                        if ($logoPath) deleteFile(UPLOAD_PATH . '/' . $logoPath);
+                        $logoPath = ltrim($uploadResult['url'], '/');
+                    } else {
+                        flashMessage('error', 'Erro no upload da logo: ' . $uploadResult['message']);
+                    }
+                } elseif (!$useLogo && $logoPath) {
+                    deleteFile(UPLOAD_PATH . '/' . $logoPath);
+                    $logoPath = '';
+                }
+
+                if ($saveId > 0) {
+                    dbExec("UPDATE store_platforms SET name=?, slug=?, icon=?, use_logo=?, logo_path=?, sort_order=?, active=? WHERE id=?",
+                        [$name, $slug, $icon, $useLogo, $logoPath, $sortOrder, $active, $saveId]);
                     flashMessage('success', 'Plataforma atualizada com sucesso.');
                 } else {
-                    dbExec("INSERT INTO store_platforms (name, slug, icon, sort_order, active) VALUES (?, ?, ?, ?, ?)",
-                        [$name, $slug, $icon, $sortOrder, $active]);
+                    dbExec("INSERT INTO store_platforms (name, slug, icon, use_logo, logo_path, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                        [$name, $slug, $icon, $useLogo, $logoPath, $sortOrder, $active]);
                     flashMessage('success', 'Plataforma criada com sucesso.');
                 }
             } catch (Exception $ex) {
@@ -50,6 +67,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($used && $used['cnt'] > 0) {
             flashMessage('error', 'Não é possível excluir: existem jogos vinculados a esta plataforma.');
         } else {
+            $delPlatform = dbQueryOne("SELECT logo_path FROM store_platforms WHERE id = ?", [$id]);
+            if ($delPlatform && !empty($delPlatform['logo_path'])) {
+                deleteFile(UPLOAD_PATH . '/' . $delPlatform['logo_path']);
+            }
             dbDelete('store_platforms', $id);
             flashMessage('success', 'Plataforma excluída.');
         }
@@ -83,7 +104,7 @@ if ($action === 'new' || $action === 'edit') {
             <a href="platforms" class="btn btn-outline btn-sm">← Voltar</a>
         </div>
         <div class="card-body">
-        <form method="POST">
+        <form method="POST" enctype="multipart/form-data">
             <input type="hidden" name="action" value="save">
             <?php if ($id > 0): ?><input type="hidden" name="id" value="<?= $id ?>"><?php endif; ?>
             <?= csrfField() ?>
@@ -111,6 +132,36 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
             </div>
 
+            <div class="form-row">
+                <div class="form-group">
+                    <div class="toggle-group">
+                        <input type="checkbox" id="use_logo" name="use_logo" <?= ($platform['use_logo'] ?? 0) ? 'checked' : '' ?>>
+                        <label for="use_logo">Usar logo da marca</label>
+                    </div>
+                    <div class="field-hint">Se marcado, substitui o emoji pela logo enviada</div>
+                </div>
+            </div>
+
+            <div id="logoUploadRow" style="<?= ($platform['use_logo'] ?? 0) ? '' : 'display:none' ?>">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="logo">Logo (PNG recomendado)</label>
+                        <input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
+                        <div class="field-hint">Dimensões recomendadas: 32x32px. Máximo: 500KB.</div>
+                    </div>
+                </div>
+                <?php if (!empty($platform['logo_path'])): ?>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Logo atual</label>
+                        <div>
+                            <img src="/<?= e($platform['logo_path']) ?>" alt="Logo" style="height:32px;width:auto;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);padding:4px">
+                        </div>
+                    </div>
+                </div>
+                <?php endif; ?>
+            </div>
+
             <div class="form-group">
                 <div class="toggle-group">
                     <input type="checkbox" id="active" name="active" <?= ($platform['active'] ?? 1) ? 'checked' : '' ?>>
@@ -125,6 +176,17 @@ if ($action === 'new' || $action === 'edit') {
         </form>
         </div>
     </div>
+    <script>
+    (function() {
+        var useLogo = document.getElementById('use_logo');
+        var logoRow = document.getElementById('logoUploadRow');
+        if (useLogo && logoRow) {
+            useLogo.addEventListener('change', function() {
+                logoRow.style.display = this.checked ? '' : 'none';
+            });
+        }
+    })();
+    </script>
     <?php
 } else {
     $platforms = dbQuery("SELECT p.*, (SELECT COUNT(*) FROM game_links WHERE platform_id = p.id) as link_count FROM store_platforms p ORDER BY p.active DESC, p.sort_order ASC, p.name ASC");
@@ -158,7 +220,11 @@ if ($action === 'new' || $action === 'edit') {
                         <tr>
                             <td>
                                 <span style="display:inline-flex;align-items:center;gap:8px">
-                                    <span style="font-size:20px"><?= e($p['icon'] ?? '🛒') ?></span>
+                                    <?php if (!empty($p['use_logo']) && !empty($p['logo_path'])): ?>
+                                        <img src="/<?= e($p['logo_path']) ?>" alt="<?= e($p['name']) ?>" style="height:20px;width:auto">
+                                    <?php else: ?>
+                                        <span style="font-size:20px"><?= e($p['icon'] ?? '🛒') ?></span>
+                                    <?php endif; ?>
                                     <span style="font-weight:600;color:var(--fg)"><?= e($p['name']) ?></span>
                                 </span>
                             </td>
