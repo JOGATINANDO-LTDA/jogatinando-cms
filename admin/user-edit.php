@@ -11,7 +11,7 @@ $id = (int)($_GET['id'] ?? 0);
 if ($id <= 0) { flashMessage('error', 'Usuário inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/users'); exit; }
 
 $user = dbQueryOne("
-    SELECT u.*, r.name AS role_name, r.level AS role_level,
+    SELECT u.*, r.name AS role_name,
            l.name AS level_name, l.slug AS level_slug
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id
@@ -126,7 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 }
 
 $user = dbQueryOne("
-    SELECT u.*, r.name AS role_name, r.level AS role_level,
+    SELECT u.*, r.name AS role_name,
            l.name AS level_name, l.slug AS level_slug
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id

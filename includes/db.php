@@ -156,8 +156,12 @@ function getMigrationList() {
         19 => 'create_levels_table',
         20 => 'add_template_free_file_gallery',
         21 => 'add_platform_logo',
-        22 => 'add_template_links',
-    ];
+         22 => 'add_template_links',
+         23 => 'drop_banners_engine_tag',
+         24 => 'drop_games_zip_filename',
+         25 => 'drop_retro_games_patch_url',
+         26 => 'drop_templates_store_url_users_role_roles_level',
+     ];
 }
 
 function dbInit($dsn = null, $user = null, $pass = null, $type = null) {

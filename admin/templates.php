@@ -44,7 +44,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $description = trim($_POST['description']);
         $language = trim($_POST['language'] ?? '');
         $language_version = trim($_POST['language_version'] ?? '');
-        $store_url = trim($_POST['store_url'] ?? '');
         $features = trim($_POST['features'] ?? '');
         $requirements = trim($_POST['requirements'] ?? '');
         $featured = isset($_POST['featured']) ? 1 : 0;
@@ -175,11 +174,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
             if ($id > 0) {
-                dbExec("UPDATE game_templates SET title=?, slug=?, engine=?, description=?, language=?, language_version=?, store_url=?, game_path=?, thumbnail_url=?, gallery=?, features=?, requirements=?, has_free_file=?, featured=?, sort_order=?, active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    [$title, $slug, $engine, $description, $language, $language_version, $store_url, $game_path, $thumbnail_url, $gallery_json, $features, $requirements, $has_free_file, $featured, $sort_order, $active, $id]);
+                dbExec("UPDATE game_templates SET title=?, slug=?, engine=?, description=?, language=?, language_version=?, game_path=?, thumbnail_url=?, gallery=?, features=?, requirements=?, has_free_file=?, featured=?, sort_order=?, active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    [$title, $slug, $engine, $description, $language, $language_version, $game_path, $thumbnail_url, $gallery_json, $features, $requirements, $has_free_file, $featured, $sort_order, $active, $id]);
             } else {
-                $id = dbExec("INSERT INTO game_templates (title, slug, engine, description, language, language_version, store_url, game_path, thumbnail_url, gallery, features, requirements, has_free_file, featured, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$title, $slug, $engine, $description, $language, $language_version, $store_url, $game_path, $thumbnail_url, $gallery_json, $features, $requirements, $has_free_file, $featured, $sort_order, $active]);
+                $id = dbExec("INSERT INTO game_templates (title, slug, engine, description, language, language_version, game_path, thumbnail_url, gallery, features, requirements, has_free_file, featured, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$title, $slug, $engine, $description, $language, $language_version, $game_path, $thumbnail_url, $gallery_json, $features, $requirements, $has_free_file, $featured, $sort_order, $active]);
             }
 
             // Save template_links

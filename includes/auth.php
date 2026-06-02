@@ -25,7 +25,7 @@ function login($username, $password) {
     $db = getDB();
     $stmt = $db->prepare("
         SELECT u.id, u.password_hash, u.avatar_url, u.role_id, u.status,
-               r.name AS role_name, r.level AS role_level,
+               r.name AS role_name,
                r.level_id, l.name AS level_name, l.slug AS level_slug,
                l.perm_banners, l.perm_games, l.perm_blog, l.perm_testimonials,
                l.perm_faq, l.perm_team, l.perm_users, l.perm_roles,
@@ -50,7 +50,7 @@ function login($username, $password) {
         $_SESSION['admin_avatar_url'] = $user['avatar_url'] ?? '';
         $_SESSION['admin_role_id'] = $user['role_id'] ? (int)$user['role_id'] : null;
         $_SESSION['admin_role_name'] = $user['role_name'] ?? '';
-        $_SESSION['admin_role_level'] = $user['role_level'] ?? 'moderator';
+        $_SESSION['admin_role_level'] = $user['level_slug'] ?? 'moderator';
         $_SESSION['admin_level_slug'] = $user['level_slug'] ?? 'moderator';
         $_SESSION['admin_level_name'] = $user['level_name'] ?? 'Moderator';
         $_SESSION['admin_permissions'] = [];

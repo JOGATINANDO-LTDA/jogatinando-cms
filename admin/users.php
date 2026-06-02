@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($existing) {
                 flashMessage('error', 'Este nome de usuário já existe.');
             } else {
-                $roleCheck = $db->prepare("SELECT r.level, r.level_id FROM roles r WHERE r.id = ?");
+                $roleCheck = $db->prepare("SELECT r.level_id FROM roles r WHERE r.id = ?");
                 $roleCheck->execute([$roleId]);
                 $roleRow = $roleCheck->fetch();
 
@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 $users = $db->query("
     SELECT u.id, u.username, u.email, u.status, u.role_id, u.created_at, u.email_verified_at,
-           r.name AS role_name, r.level AS role_level,
+           r.name AS role_name,
            l.name AS level_name, l.slug AS level_slug
     FROM users u
     LEFT JOIN roles r ON u.role_id = r.id

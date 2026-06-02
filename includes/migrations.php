@@ -902,17 +902,79 @@ function migration_022($db, $type) {
     } catch (Exception $e) {}
 }
 
+function migration_023($db, $type) {
+    // Drop banners.engine_tag — banner is carousel, not engine-specific
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE banners DROP COLUMN IF EXISTS engine_tag");
+        } else {
+            $db->exec("ALTER TABLE banners DROP COLUMN engine_tag");
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_024($db, $type) {
+    // Drop games.zip_filename — never used
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games DROP COLUMN IF EXISTS zip_filename");
+        } else {
+            $db->exec("ALTER TABLE games DROP COLUMN zip_filename");
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_025($db, $type) {
+    // Drop retro_games.patch_url — never used
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE retro_games DROP COLUMN IF EXISTS patch_url");
+        } else {
+            $db->exec("ALTER TABLE retro_games DROP COLUMN patch_url");
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_026($db, $type) {
+    // Drop game_templates.store_url — migrated to template_links
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE game_templates DROP COLUMN IF EXISTS store_url");
+        } else {
+            $db->exec("ALTER TABLE game_templates DROP COLUMN store_url");
+        }
+    } catch (Exception $e) {}
+
+    // Drop users.role — legacy, all logic uses role_id
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users DROP COLUMN IF EXISTS `role`");
+        } else {
+            $db->exec("ALTER TABLE users DROP COLUMN `role`");
+        }
+    } catch (Exception $e) {}
+
+    // Drop roles.level — never used, display-only was from level_id
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE roles DROP COLUMN IF EXISTS `level`");
+        } else {
+            $db->exec("ALTER TABLE roles DROP COLUMN `level`");
+        }
+    } catch (Exception $e) {}
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();
     if ($roleCount == 0) {
-        $stmt = $db->prepare("INSERT INTO roles (name, level, description) VALUES (?, ?, ?)");
-        $stmt->execute(['CEO Administrador', 'ceo', 'Administrador master do sistema — controle total sobre todas as operações']);
-        $stmt->execute(['CEO Sócio', 'ceo', 'Sócio com poderes administrativos — pode criar cargos de nível chief e moderator']);
-        $stmt->execute(['CEO Investidor', 'ceo', 'Investidor com poderes administrativos — pode criar cargos de nível chief e moderator']);
-        $stmt->execute(['CTO', 'chief', 'Chief Technology Officer — gerencia conteúdo, jogos e cargos moderator']);
-        $stmt->execute(['CMO', 'chief', 'Chief Marketing Officer — gerencia conteúdo, blog e cargos moderator']);
-        $stmt->execute(['Moderator', 'moderator', 'Gerenciamento operacional da plataforma — conteúdo e suporte']);
+        $stmt = $db->prepare("INSERT INTO roles (name, description) VALUES (?, ?)");
+        $stmt->execute(['CEO Administrador', 'Administrador master do sistema — controle total sobre todas as operações']);
+        $stmt->execute(['CEO Sócio', 'Sócio com poderes administrativos — pode criar cargos de nível chief e moderator']);
+        $stmt->execute(['CEO Investidor', 'Investidor com poderes administrativos — pode criar cargos de nível chief e moderator']);
+        $stmt->execute(['CTO', 'Chief Technology Officer — gerencia conteúdo, jogos e cargos moderator']);
+        $stmt->execute(['CMO', 'Chief Marketing Officer — gerencia conteúdo, blog e cargos moderator']);
+        $stmt->execute(['Moderator', 'Gerenciamento operacional da plataforma — conteúdo e suporte']);
     }
 
     // Seed default admin user
@@ -920,7 +982,7 @@ function dbSeed($db, $type) {
     $row = $stmt->fetch();
     if ($row['cnt'] == 0) {
         $ceoRoleId = $db->query("SELECT id FROM roles WHERE name = 'CEO Administrador'")->fetchColumn();
-        $stmt = $db->prepare("INSERT INTO users (username, password_hash, role, role_id) VALUES (?, ?, 'ceo', ?)");
+        $stmt = $db->prepare("INSERT INTO users (username, password_hash, role_id) VALUES (?, ?, ?)");
         $stmt->execute([ADMIN_USERNAME, ADMIN_PASSWORD_HASH, $ceoRoleId]);
     } else {
         // Ensure admin user has role_id set
@@ -962,27 +1024,27 @@ function seedDefaultData($db) {
     if ($count > 0) return;
 
     $banners = [
-        ['title' => 'Seu Portfólio de Jogos', 'subtitle' => 'Publique em qualquer engine', 'description' => 'Gerencie e publique seus jogos digitais em uma plataforma unificada. Compatível com GDevelop, Godot, Unity, RPG Maker e muito mais.', 'image_url' => '', 'cta_text' => 'Ver Portfólio', 'cta_url' => '#portfolio', 'engine_tag' => '', 'sort_order' => 1, 'active' => 1],
-        ['title' => 'Multi-Engine', 'subtitle' => 'Qualquer engine, qualquer plataforma', 'description' => 'GDevelop, Godot, RPG Maker, Unity, Construct, Game Maker e outras. Sua escolha, seu jogo.', 'image_url' => '', 'cta_text' => 'Ver Engines', 'cta_url' => '#engines', 'engine_tag' => '', 'sort_order' => 2, 'active' => 1],
-        ['title' => 'Demonstração', 'subtitle' => 'Explore os recursos do CMS', 'description' => 'Este é um ambiente de demonstração. Configure seus banners, adicione jogos e personalize seu site.', 'image_url' => '', 'cta_text' => 'Começar', 'cta_url' => '#start', 'engine_tag' => '', 'sort_order' => 3, 'active' => 1],
+        ['title' => 'Seu Portfólio de Jogos', 'subtitle' => 'Publique em qualquer engine', 'description' => 'Gerencie e publique seus jogos digitais em uma plataforma unificada. Compatível com GDevelop, Godot, Unity, RPG Maker e muito mais.', 'image_url' => '', 'cta_text' => 'Ver Portfólio', 'cta_url' => '#portfolio', 'sort_order' => 1, 'active' => 1],
+        ['title' => 'Multi-Engine', 'subtitle' => 'Qualquer engine, qualquer plataforma', 'description' => 'GDevelop, Godot, RPG Maker, Unity, Construct, Game Maker e outras. Sua escolha, seu jogo.', 'image_url' => '', 'cta_text' => 'Ver Engines', 'cta_url' => '#engines', 'sort_order' => 2, 'active' => 1],
+        ['title' => 'Demonstração', 'subtitle' => 'Explore os recursos do CMS', 'description' => 'Este é um ambiente de demonstração. Configure seus banners, adicione jogos e personalize seu site.', 'image_url' => '', 'cta_text' => 'Começar', 'cta_url' => '#start', 'sort_order' => 3, 'active' => 1],
     ];
 
-    $stmt = $db->prepare("INSERT INTO banners (title, subtitle, description, image_url, cta_text, cta_url, engine_tag, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO banners (title, subtitle, description, image_url, cta_text, cta_url, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     foreach ($banners as $b) {
-        $stmt->execute([$b['title'], $b['subtitle'], $b['description'], $b['image_url'], $b['cta_text'], $b['cta_url'], $b['engine_tag'], $b['sort_order'], $b['active']]);
+        $stmt->execute([$b['title'], $b['subtitle'], $b['description'], $b['image_url'], $b['cta_text'], $b['cta_url'], $b['sort_order'], $b['active']]);
     }
 
     $games = [
-        ['title' => 'Meu Primeiro Jogo', 'slug' => 'meu-primeiro-jogo', 'engine' => 'GDevelop', 'description' => 'Um jogo de exemplo criado com GDevelop para demonstrar os recursos do CMS.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 1, 'active' => 1],
-        ['title' => 'Aventura em Pixel', 'slug' => 'aventura-em-pixel', 'engine' => 'Godot', 'description' => 'Jogo de plataforma 2D com pixel art e física precisa.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 2, 'active' => 1],
-        ['title' => 'RPG das Dungeons', 'slug' => 'rpg-das-dungeons', 'engine' => 'RPG Maker', 'description' => 'RPG clássico com exploração, batalhas e uma história envolvente.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 3, 'active' => 1],
-        ['title' => 'Corrida Arcade', 'slug' => 'corrida-arcade', 'engine' => 'Unity', 'description' => 'Jogo de corrida arcade com gráficos 3D e trilha sonora eletrônica.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 4, 'active' => 1],
-        ['title' => 'Visual Novel Demo', 'slug' => 'visual-novel-demo', 'engine' => "Ren'py", 'description' => 'Uma visual novel interativa demonstrando recursos de narrativa e escolhas.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'portrait', 'sort_order' => 5, 'active' => 1],
+        ['title' => 'Meu Primeiro Jogo', 'slug' => 'meu-primeiro-jogo', 'engine' => 'GDevelop', 'description' => 'Um jogo de exemplo criado com GDevelop para demonstrar os recursos do CMS.', 'thumbnail_url' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 1, 'active' => 1],
+        ['title' => 'Aventura em Pixel', 'slug' => 'aventura-em-pixel', 'engine' => 'Godot', 'description' => 'Jogo de plataforma 2D com pixel art e física precisa.', 'thumbnail_url' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 2, 'active' => 1],
+        ['title' => 'RPG das Dungeons', 'slug' => 'rpg-das-dungeons', 'engine' => 'RPG Maker', 'description' => 'RPG clássico com exploração, batalhas e uma história envolvente.', 'thumbnail_url' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 3, 'active' => 1],
+        ['title' => 'Corrida Arcade', 'slug' => 'corrida-arcade', 'engine' => 'Unity', 'description' => 'Jogo de corrida arcade com gráficos 3D e trilha sonora eletrônica.', 'thumbnail_url' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 4, 'active' => 1],
+        ['title' => 'Visual Novel Demo', 'slug' => 'visual-novel-demo', 'engine' => "Ren'py", 'description' => 'Uma visual novel interativa demonstrando recursos de narrativa e escolhas.', 'thumbnail_url' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'portrait', 'sort_order' => 5, 'active' => 1],
     ];
 
-    $stmt = $db->prepare("INSERT INTO games (title, slug, engine, description, thumbnail_url, zip_filename, game_path, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     foreach ($games as $g) {
-        $stmt->execute([$g['title'], $g['slug'], $g['engine'], $g['description'], $g['thumbnail_url'], $g['zip_filename'], $g['game_path'], $g['featured'], $g['orientation'], $g['sort_order'], $g['active']]);
+        $stmt->execute([$g['title'], $g['slug'], $g['engine'], $g['description'], $g['thumbnail_url'], $g['game_path'], $g['featured'], $g['orientation'], $g['sort_order'], $g['active']]);
     }
 
     $testimonials = [

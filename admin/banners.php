@@ -23,7 +23,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $description = trim($_POST['description']);
         $cta_text = trim($_POST['cta_text']);
         $cta_url = trim($_POST['cta_url']);
-        $engine_tag = trim($_POST['engine_tag']);
         $sort_order = (int)($_POST['sort_order'] ?? 0);
         $active = isset($_POST['active']) ? 1 : 0;
         $image_url = '';
@@ -56,17 +55,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if ($id > 0) {
             // Update
             if ($image_url) {
-                dbExec("UPDATE banners SET title=?, subtitle=?, description=?, image_url=?, cta_text=?, cta_url=?, engine_tag=?, sort_order=?, active=? WHERE id=?",
-                    [$title, $subtitle, $description, $image_url, $cta_text, $cta_url, $engine_tag, $sort_order, $active, $id]);
+                dbExec("UPDATE banners SET title=?, subtitle=?, description=?, image_url=?, cta_text=?, cta_url=?, sort_order=?, active=? WHERE id=?",
+                    [$title, $subtitle, $description, $image_url, $cta_text, $cta_url, $sort_order, $active, $id]);
             } else {
-                dbExec("UPDATE banners SET title=?, subtitle=?, description=?, cta_text=?, cta_url=?, engine_tag=?, sort_order=?, active=? WHERE id=?",
-                    [$title, $subtitle, $description, $cta_text, $cta_url, $engine_tag, $sort_order, $active, $id]);
+                dbExec("UPDATE banners SET title=?, subtitle=?, description=?, cta_text=?, cta_url=?, sort_order=?, active=? WHERE id=?",
+                    [$title, $subtitle, $description, $cta_text, $cta_url, $sort_order, $active, $id]);
             }
             flashMessage('success', 'Banner atualizado com sucesso!');
         } else {
             // Insert
-            dbExec("INSERT INTO banners (title, subtitle, description, image_url, cta_text, cta_url, engine_tag, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [$title, $subtitle, $description, $image_url, $cta_text, $cta_url, $engine_tag, $sort_order, $active]);
+            dbExec("INSERT INTO banners (title, subtitle, description, image_url, cta_text, cta_url, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [$title, $subtitle, $description, $image_url, $cta_text, $cta_url, $sort_order, $active]);
             flashMessage('success', 'Banner criado com sucesso!');
         }
         ob_end_clean();
@@ -131,10 +130,6 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-group">
                     <label for="subtitle">Subtítulo</label>
                     <input type="text" id="subtitle" name="subtitle" value="<?= e($banner['subtitle'] ?? '') ?>">
-                </div>
-                <div class="form-group">
-                    <label for="engine_tag">Tag Engine (opcional)</label>
-                    <input type="text" id="engine_tag" name="engine_tag" value="<?= e($banner['engine_tag'] ?? '') ?>" placeholder="e.g. GDevelop">
                 </div>
             </div>
 

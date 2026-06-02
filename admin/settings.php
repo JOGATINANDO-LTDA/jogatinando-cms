@@ -281,7 +281,7 @@ $smtpConfigured = defined('SMTP_PASS') && SMTP_PASS !== '';
 // Current user data for profile card
 $userData = null;
 $db = getDB();
-$stmt = $db->prepare("SELECT u.username, u.avatar_url, r.name as role_name, r.level as role_level, l.name as level_name FROM users u LEFT JOIN roles r ON u.role_id = r.id LEFT JOIN levels l ON r.level_id = l.id WHERE u.id = ?");
+$stmt = $db->prepare("SELECT u.username, u.avatar_url, r.name as role_name, l.name as level_name FROM users u LEFT JOIN roles r ON u.role_id = r.id LEFT JOIN levels l ON r.level_id = l.id WHERE u.id = ?");
 $stmt->execute([$userId]);
 $userData = $stmt->fetch(PDO::FETCH_ASSOC);
 $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
