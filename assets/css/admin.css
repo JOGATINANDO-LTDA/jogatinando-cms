@@ -792,6 +792,12 @@ tbody tr:last-child td { border-bottom: none; }
   line-height: 1.2;
 }
 
+.store-badges-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 /* ── Actions Column ── */
 .actions {
   display: flex;

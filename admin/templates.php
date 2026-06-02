@@ -707,6 +707,8 @@ if ($action === 'new' || $action === 'edit') {
                             <td class="hide-tablet"><?php
                                 $links = $platformLinks[$t['id']] ?? [];
                                 if ($links) {
+                                    $showCompact = count($links) > 2;
+                                    echo '<div class="store-badges-cell">';
                                     foreach ($links as $pl) {
                                         $badge = '';
                                         if (!empty($pl['use_logo']) && !empty($pl['logo_path'])) {
@@ -714,9 +716,12 @@ if ($action === 'new' || $action === 'edit') {
                                         } else {
                                             $badge .= e($pl['icon'] ?? '🛒');
                                         }
-                                        $badge .= ' ' . e($pl['name']);
+                                        if (!$showCompact) {
+                                            $badge .= ' ' . e($pl['name']);
+                                        }
                                         echo '<span class="badge badge-store">' . $badge . '</span>';
                                     }
+                                    echo '</div>';
                                 } else {
                                     echo '—';
                                 }
