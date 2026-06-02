@@ -702,7 +702,7 @@ if ($action === 'new' || $action === 'edit') {
                         <?php foreach ($templates as $t): ?>
                         <tr>
                             <td><strong style="color:var(--fg)"><?= e($t['title']) ?></strong></td>
-                            <td><span class="game-engine-badge" style="background:<?= getEngineColor($t['engine']) ?>"><?= getEngineIcon($t['engine']) ?> <?= e($t['engine']) ?></span></td>
+                            <td><span class="badge" style="background:<?= getEngineColor($t['engine']) ?>;color:#fff;font-weight:600;text-transform:none;letter-spacing:normal;font-size:10px"><?= getEngineIcon($t['engine']) ?> <?= e($t['engine']) ?></span></td>
                             <td class="hide-tablet"><?= e($t['language'] ?: '—') ?></td>
                             <td class="hide-tablet"><?php
                                 $links = $platformLinks[$t['id']] ?? [];
@@ -715,7 +715,7 @@ if ($action === 'new' || $action === 'edit') {
                                             $badge .= e($pl['icon'] ?? '🛒');
                                         }
                                         $badge .= ' ' . e($pl['name']);
-                                        echo '<span class="badge" style="background:oklch(60% 0.15 75);color:#fff;padding:2px 8px;border-radius:4px;font-size:11px;line-height:1;margin-right:4px;display:inline-flex;align-items:center;gap:3px;white-space:nowrap">' . $badge . '</span>';
+                                        echo '<span class="badge badge-store">' . $badge . '</span>';
                                     }
                                 } else {
                                     echo '—';

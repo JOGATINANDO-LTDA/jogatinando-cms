@@ -674,7 +674,7 @@ if ($action === 'new' || $action === 'edit') {
                                     <span class="badge badge-autoral">Autoral</span>
                                 <?php endif; ?>
                             </td>
-                            <td><span class="game-engine-badge" style="background:<?= getEngineColor($g['engine']) ?>"><?= getEngineIcon($g['engine']) ?> <?= e($g['engine']) ?></span></td>
+                            <td><span class="badge" style="background:<?= getEngineColor($g['engine']) ?>;color:#fff;font-weight:600;text-transform:none;letter-spacing:normal;font-size:10px"><?= getEngineIcon($g['engine']) ?> <?= e($g['engine']) ?></span></td>
                             <td class="hide-tablet">
                                 <?php if (($g['game_type'] ?? '') === 'externo'): ?>
                                     🌐 <?= e($g['external_url'] ? mb_strimwidth($g['external_url'], 0, 40, '...') : '—') ?>
