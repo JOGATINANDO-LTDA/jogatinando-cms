@@ -144,7 +144,7 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending' 
                             <?php if ($u['status'] === 'pending'): ?>
                                 <span class="badge badge-inactive" style="background:oklch(55% 0.20 25 / 0.15);color:oklch(55% 0.20 25);">Pendente</span>
                             <?php elseif (!$u['email_verified_at']): ?>
-                                <span class="badge badge-active" style="background:oklch(55% 0.20 25 / 0.15);color:oklch(55% 0.20 25);">Ativo</span>
+                                <span class="badge badge-active" style="background:oklch(75% 0.15 85 / 0.2);color:oklch(75% 0.15 85);">Ativo</span>
                                 <span class="badge badge-inactive" style="margin-left:4px;font-size:10px;">Email não verif.</span>
                             <?php else: ?>
                                 <span class="badge badge-active">Ativo</span>
