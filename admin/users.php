@@ -11,11 +11,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/users'); exit; }
 
     if ($_POST['action'] === 'create') {
-        if (!isSmtpConfigured()) {
-            flashMessage('error', 'Configure o SMTP nas Configurações antes de criar novos usuários.');
-            ob_end_clean(); header('Location: ' . ADMIN_URL . '/users'); exit;
-        }
-
         $username = trim($_POST['username'] ?? '');
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
@@ -26,6 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('error', 'Usuário e cargo são obrigatórios.');
         } elseif ($email === '') {
             flashMessage('error', 'Email é obrigatório para todos os usuários.');
+        } elseif ($sendInvite && !isSmtpConfigured()) {
+            flashMessage('error', 'Configure o SMTP para usar convite ou defina uma senha manualmente.');
         } elseif (!$sendInvite && strlen($password) < 6) {
             flashMessage('error', 'A senha deve ter no mínimo 6 caracteres.');
         } else {
@@ -51,15 +48,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $newId = $db->lastInsertId();
                     } else {
                         $hash = password_hash($password, PASSWORD_DEFAULT);
-                        $stmt = $db->prepare("INSERT INTO users (username, email, password_hash, role_id, status) VALUES (?, ?, ?, ?, 'pending')");
+                        $stmt = $db->prepare("INSERT INTO users (username, email, password_hash, role_id, status) VALUES (?, ?, ?, ?, 'active')");
                         $stmt->execute([$username, $email, $hash, $roleId]);
                         $newId = $db->lastInsertId();
                     }
 
-                    if ($newId && sendVerificationEmail($newId)) {
-                        flashMessage('success', "Usuário '$username' criado! Email de confirmação enviado para $email.");
-                    } else {
-                        flashMessage('warning', "Usuário '$username' criado, mas falha ao enviar email de confirmação.");
+                    if ($newId) {
+                        if ($sendInvite || isSmtpConfigured()) {
+                            if (sendVerificationEmail($newId)) {
+                                flashMessage('success', "Usuário '$username' criado! Email de confirmação enviado para $email.");
+                            } else {
+                                flashMessage('warning', "Usuário '$username' criado, mas falha ao enviar email de confirmação.");
+                            }
+                        } else {
+                            flashMessage('success', "Usuário '$username' criado com sucesso!");
+                        }
                     }
                     ob_end_clean();
                     header('Location: ' . ADMIN_URL . '/users');

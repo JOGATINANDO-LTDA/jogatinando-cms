@@ -115,6 +115,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Location: ' . ADMIN_URL . '/user-edit?id=' . $id);
         exit;
     }
+
+    if ($_POST['action'] === 'verify_manually') {
+        $db->prepare("UPDATE users SET email_verified_at = CURRENT_TIMESTAMP, email_verification_token = NULL WHERE id = ?")->execute([$id]);
+        flashMessage('success', 'Email verificado manualmente com sucesso!');
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/user-edit?id=' . $id);
+        exit;
+    }
 }
 
 $user = dbQueryOne("
@@ -158,9 +166,12 @@ $assignableRoles = getAssignableRoles($db);
                 <input type="hidden" name="action" value="resend_verification">
                 <button type="submit" class="btn btn-outline btn-sm" style="margin-left:8px;">Reenviar confirmação</button>
             </form>
-            <?php else: ?>
-            <span style="color: var(--fg-muted);">Configure o SMTP para enviar confirmação.</span>
             <?php endif; ?>
+            <form method="POST" style="display:inline">
+                <?= csrfField() ?>
+                <input type="hidden" name="action" value="verify_manually">
+                <button type="submit" class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="return confirm('Confirmar verificação manual do email?')">Verificar manualmente</button>
+            </form>
         </div>
         <?php elseif (empty($user['email'])): ?>
         <div style="margin-bottom: 20px; padding: 12px 16px; background: oklch(55% 0.20 25 / 0.1); border: 1px solid oklch(55% 0.20 25 / 0.3); border-radius: 8px; font-size: 13px;">

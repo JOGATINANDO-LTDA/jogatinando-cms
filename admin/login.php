@@ -13,14 +13,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $db = getDB();
     if ($db) {
-        $stmt = $db->prepare("SELECT status, email, email_verified_at FROM users WHERE username = ?");
+        $stmt = $db->prepare("SELECT status, email, email_verified_at, email_verification_token FROM users WHERE username = ?");
         $stmt->execute([$username]);
         $userRow = $stmt->fetch(PDO::FETCH_ASSOC);
         $userStatus = $userRow ? $userRow['status'] : null;
 
         if ($userStatus === 'pending') {
             $error = 'Conta pendente de ativação. Verifique seu email para confirmar o cadastro.';
-        } elseif ($userStatus === 'active' && isSmtpConfigured() && !$userRow['email_verified_at'] && !empty($userRow['email'])) {
+        } elseif ($userStatus === 'active' && !$userRow['email_verified_at'] && !empty($userRow['email']) && !empty($userRow['email_verification_token'])) {
             $error = 'Confirme seu email antes de fazer login. Verifique sua caixa de entrada.';
         } elseif (login($username, $password)) {
             header('Location: ' . ADMIN_URL . '/dashboard');
