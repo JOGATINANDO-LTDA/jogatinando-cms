@@ -661,7 +661,16 @@ if ($action === 'new' || $action === 'edit') {
     </div>
     <?php
 } else {
-    $templates = dbQuery("SELECT gt.*, (SELECT GROUP_CONCAT(p.name SEPARATOR '||') FROM template_links tl JOIN store_platforms p ON tl.platform_id = p.id WHERE tl.template_id = gt.id) as platform_names FROM game_templates gt ORDER BY gt.sort_order ASC, gt.id DESC");
+    $templates = dbQuery("SELECT gt.* FROM game_templates gt ORDER BY gt.sort_order ASC, gt.id DESC");
+    $templateIds = array_column($templates, 'id');
+    $platformLinks = [];
+    if ($templateIds) {
+        $ids = implode(',', array_map('intval', $templateIds));
+        $links = dbQuery("SELECT tl.template_id, p.name, p.icon, p.use_logo, p.logo_path FROM template_links tl JOIN store_platforms p ON tl.platform_id = p.id WHERE tl.template_id IN ($ids) AND p.active = 1 ORDER BY tl.sort_order, p.sort_order, p.name");
+        foreach ($links as $l) {
+            $platformLinks[$l['template_id']][] = $l;
+        }
+    }
     ?>
     <div class="card">
         <div class="card-header">
@@ -696,12 +705,17 @@ if ($action === 'new' || $action === 'edit') {
                             <td><span class="game-engine-badge" style="background:<?= getEngineColor($t['engine']) ?>"><?= getEngineIcon($t['engine']) ?> <?= e($t['engine']) ?></span></td>
                             <td class="hide-tablet"><?= e($t['language'] ?: '—') ?></td>
                             <td class="hide-tablet"><?php
-                                $pnames = $t['platform_names'] ?? '';
-                                if ($pnames) {
-                                    $parts = explode('||', $pnames);
-                                    $parts = array_unique(array_filter($parts));
-                                    foreach ($parts as $pn) {
-                                        echo '<span class="badge" style="background:var(--gold);color:var(--bg-dark);padding:2px 8px;border-radius:4px;font-size:11px;margin-right:4px">' . e(trim($pn)) . '</span>';
+                                $links = $platformLinks[$t['id']] ?? [];
+                                if ($links) {
+                                    foreach ($links as $pl) {
+                                        $badge = '';
+                                        if (!empty($pl['use_logo']) && !empty($pl['logo_path'])) {
+                                            $badge .= '<img src="/' . e($pl['logo_path']) . '" alt="" style="height:14px;width:auto;vertical-align:middle;margin-right:3px">';
+                                        } else {
+                                            $badge .= '<span style="font-size:14px;vertical-align:middle;margin-right:3px">' . e($pl['icon'] ?? '🛒') . '</span>';
+                                        }
+                                        $badge .= e($pl['name']);
+                                        echo '<span class="badge" style="background:var(--gold);color:var(--bg-dark);padding:2px 8px;border-radius:4px;font-size:11px;margin-right:4px;display:inline-flex;align-items:center;gap:2px">' . $badge . '</span>';
                                     }
                                 } else {
                                     echo '—';
