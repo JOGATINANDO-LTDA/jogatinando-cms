@@ -30,13 +30,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         // Handle image upload
         if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+            $oldImage = $id > 0 ? dbQueryOne("SELECT image_url FROM banners WHERE id = ?", [$id])['image_url'] ?? '' : '';
             $result = uploadFile($_FILES['image'], 'banners', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
             if ($result['success']) {
                 $image_url = $result['url'];
+                if (!empty($oldImage)) {
+                    $oldPath = UPLOAD_PATH . str_replace('/uploads', '', $oldImage);
+                    if (file_exists($oldPath)) @unlink($oldPath);
+                }
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: ' . ADMIN_URL . '/banners?action=new');
+                header('Location: ' . ADMIN_URL . '/banners?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -72,6 +77,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if ($_POST['action'] === 'delete') {
         $banner = dbQueryOne("SELECT * FROM banners WHERE id = ?", [$id]);
         if ($banner) {
+            if (!empty($banner['image_url'])) {
+                $imgPath = UPLOAD_PATH . str_replace('/uploads', '', $banner['image_url']);
+                if (file_exists($imgPath)) @unlink($imgPath);
+            }
             dbDelete('banners', $id);
             flashMessage('success', 'Banner excluído.');
         }

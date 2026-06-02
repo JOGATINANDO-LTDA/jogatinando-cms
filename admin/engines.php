@@ -46,9 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($_POST['action'] === 'delete') {
-        $used = dbQueryOne("SELECT COUNT(*) as cnt FROM games WHERE engine = (SELECT name FROM engines WHERE id = ?)", [$id]);
-        if ($used && $used['cnt'] > 0) {
-            flashMessage('error', 'Não é possível excluir: existem jogos usando esta engine.');
+        $usedGames = dbQueryOne("SELECT COUNT(*) as cnt FROM games WHERE engine = (SELECT name FROM engines WHERE id = ?)", [$id]);
+        $usedTemplates = dbQueryOne("SELECT COUNT(*) as cnt FROM game_templates WHERE engine = (SELECT name FROM engines WHERE id = ?)", [$id]);
+        if (($usedGames && $usedGames['cnt'] > 0) || ($usedTemplates && $usedTemplates['cnt'] > 0)) {
+            flashMessage('error', 'Não é possível excluir: existem jogos ou templates usando esta engine.');
         } else {
             dbDelete('engines', $id);
             flashMessage('success', 'Engine excluída.');

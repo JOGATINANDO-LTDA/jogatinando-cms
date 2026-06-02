@@ -64,9 +64,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Handle thumbnail upload
         if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
+            $oldThumb = $id > 0 ? dbQueryOne("SELECT thumbnail_url FROM game_templates WHERE id = ?", [$id])['thumbnail_url'] ?? '' : '';
             $result = uploadFile($_FILES['thumbnail'], 'thumbnails', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
             if ($result['success']) {
                 $thumbnail_url = $result['url'];
+                if (!empty($oldThumb)) {
+                    $thumbPath = UPLOAD_PATH . str_replace('/uploads', '', $oldThumb);
+                    if (file_exists($thumbPath)) @unlink($thumbPath);
+                }
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
@@ -203,6 +208,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($_POST['action'] === 'delete') {
         $template = dbQueryOne("SELECT * FROM game_templates WHERE id = ?", [$id]);
         if ($template) {
+            if (!empty($template['thumbnail_url'])) {
+                $thumbPath = UPLOAD_PATH . str_replace('/uploads', '', $template['thumbnail_url']);
+                if (file_exists($thumbPath)) {
+                    @unlink($thumbPath);
+                }
+            }
             if (!empty($template['game_path'])) {
                 $archiveFile = UPLOAD_PATH . str_replace('/uploads', '', $template['game_path']);
                 if (file_exists($archiveFile)) {

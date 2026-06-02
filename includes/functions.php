@@ -245,8 +245,8 @@ function deleteFile($path) {
 }
 
 function truncateText($text, $length = 150) {
-    if (strlen($text) <= $length) return $text;
-    return substr($text, 0, $length) . '...';
+    if (mb_strlen($text) <= $length) return $text;
+    return mb_substr($text, 0, $length) . '...';
 }
 
 function timeAgo($datetime) {

@@ -25,8 +25,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $thumbnail_url = '';
 
         if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
+            $oldThumb = $id > 0 ? dbQueryOne("SELECT thumbnail_url FROM blog_posts WHERE id = ?", [$id])['thumbnail_url'] ?? '' : '';
             $result = uploadFile($_FILES['thumbnail'], 'blog', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
-            if ($result['success']) $thumbnail_url = $result['url'];
+            if ($result['success']) {
+                $thumbnail_url = $result['url'];
+                if (!empty($oldThumb)) deleteFile($oldThumb);
+            }
             else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         }
 
@@ -44,7 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Location: ' . ADMIN_URL . '/blog'); exit;
     }
 
-    if ($_POST['action'] === 'delete') { dbDelete('blog_posts', $id); flashMessage('success', 'Post excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog'); exit; }
+    if ($_POST['action'] === 'delete') { $post = dbQueryOne("SELECT thumbnail_url FROM blog_posts WHERE id = ?", [$id]); if ($post && !empty($post['thumbnail_url'])) deleteFile($post['thumbnail_url']); dbDelete('blog_posts', $id); flashMessage('success', 'Post excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog'); exit; }
     if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM blog_posts WHERE id = ?", [$id]); if ($r) dbExec("UPDATE blog_posts SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog'); exit; }
 }
 

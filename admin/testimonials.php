@@ -14,8 +14,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $sort_order = (int)($_POST['sort_order'] ?? 0); $active = isset($_POST['active']) ? 1 : 0;
         $avatar_url = '';
         if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+            $oldAvatar = $id > 0 ? dbQueryOne("SELECT avatar_url FROM testimonials WHERE id = ?", [$id])['avatar_url'] ?? '' : '';
             $result = uploadFile($_FILES['avatar'], 'avatars', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
-            if ($result['success']) $avatar_url = $result['url'];
+            if ($result['success']) {
+                $avatar_url = $result['url'];
+                if (!empty($oldAvatar)) deleteFile($oldAvatar);
+            }
             else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         }
         if (empty($name) || empty($quote)) { flashMessage('error', 'Nome e depoimento são obrigatórios.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
@@ -30,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         ob_end_clean();
         header('Location: ' . ADMIN_URL . '/testimonials'); exit;
     }
-    if ($_POST['action'] === 'delete') { dbDelete('testimonials', $id); flashMessage('success', 'Depoimento excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials'); exit; }
+    if ($_POST['action'] === 'delete') { $item = dbQueryOne("SELECT avatar_url FROM testimonials WHERE id = ?", [$id]); if ($item && !empty($item['avatar_url'])) deleteFile($item['avatar_url']); dbDelete('testimonials', $id); flashMessage('success', 'Depoimento excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials'); exit; }
     if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM testimonials WHERE id = ?", [$id]); if ($r) dbExec("UPDATE testimonials SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials'); exit; }
 }
 

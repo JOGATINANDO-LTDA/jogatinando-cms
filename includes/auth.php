@@ -12,6 +12,13 @@ function requireLogin() {
         header('Location: ' . ADMIN_URL . '/login');
         exit;
     }
+    $timeout = 1800;
+    if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity']) > $timeout) {
+        session_destroy();
+        header('Location: ' . ADMIN_URL . '/login');
+        exit;
+    }
+    $_SESSION['admin_last_activity'] = time();
 }
 
 function login($username, $password) {

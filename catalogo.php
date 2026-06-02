@@ -97,7 +97,7 @@ $routeEngineSlug = function ($value) {
                 <p>Filtre por tipo e engine. Jogos web-playable abrem direto; os demais seguem para a página de detalhes.</p>
             </div>
 
-            <form method="GET" action="/catalogo" class="catalog-filters-panel">
+            <form method="GET" action="<?= e($type ? '/catalogo?type=' . $type : '/catalogo') ?>" class="catalog-filters-panel">
                 <div class="catalog-filters-grid">
                     <div class="catalog-filter">
                         <label for="type">Tipo</label>

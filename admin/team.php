@@ -15,8 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $sort_order = (int)($_POST['sort_order'] ?? 0); $active = isset($_POST['active']) ? 1 : 0;
         $avatar_url = '';
         if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+            $oldAvatar = $id > 0 ? dbQueryOne("SELECT avatar_url FROM team_members WHERE id = ?", [$id])['avatar_url'] ?? '' : '';
             $result = uploadFile($_FILES['avatar'], 'avatars', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
-            if ($result['success']) $avatar_url = $result['url'];
+            if ($result['success']) {
+                $avatar_url = $result['url'];
+                if (!empty($oldAvatar)) deleteFile($oldAvatar);
+            }
             else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         }
         if (empty($name) || empty($role)) { flashMessage('error', 'Nome e cargo são obrigatórios.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
@@ -31,7 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         ob_end_clean();
         header('Location: ' . ADMIN_URL . '/team'); exit;
     }
-    if ($_POST['action'] === 'delete') { dbDelete('team_members', $id); flashMessage('success', 'Membro excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit; }
+    if ($_POST['action'] === 'delete') { $member = dbQueryOne("SELECT avatar_url FROM team_members WHERE id = ?", [$id]); if ($member && !empty($member['avatar_url'])) deleteFile($member['avatar_url']); dbDelete('team_members', $id); flashMessage('success', 'Membro excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit; }
     if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM team_members WHERE id = ?", [$id]); if ($r) dbExec("UPDATE team_members SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit; }
 }
 

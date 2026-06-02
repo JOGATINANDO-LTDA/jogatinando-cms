@@ -9,6 +9,7 @@ $action = $_GET['action'] ?? $_POST['action'] ?? 'index';
 $message = null;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    verifyCSRF();
     if ($action === 'optimize_all') {
         $results = optimizeAllGames();
         $message = ['type' => 'success', 'results' => $results];

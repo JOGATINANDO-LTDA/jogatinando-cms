@@ -11,8 +11,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
     if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+        $stmt = $db->prepare("SELECT avatar_url FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $oldAvatar = $stmt->fetchColumn();
         $result = uploadFile($_FILES['avatar'], 'avatars', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
         if ($result['success']) {
+            if (!empty($oldAvatar)) {
+                if (str_starts_with($oldAvatar, '/')) {
+                    deleteFile(ROOT_PATH . $oldAvatar);
+                } else {
+                    deleteFile(str_replace(SITE_URL . '/', ROOT_PATH . '/', $oldAvatar));
+                }
+            }
             $db = getDB();
             $stmt = $db->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
             $stmt->execute([$result['url'], $userId]);

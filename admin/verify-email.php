@@ -27,7 +27,7 @@ if (!$user) {
     exit;
 }
 
-$stmt = $db->prepare("UPDATE users SET email_verified_at = NOW(), email_verification_token = NULL, status = 'active' WHERE id = ? AND email_verification_token = ?");
+$stmt = $db->prepare("UPDATE users SET email_verified_at = CURRENT_TIMESTAMP, email_verification_token = NULL, status = 'active' WHERE id = ? AND email_verification_token = ?");
 $stmt->execute([$user['id'], $token]);
 
 if ($stmt->rowCount() > 0) {

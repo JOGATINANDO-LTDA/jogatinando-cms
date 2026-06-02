@@ -269,7 +269,7 @@ $footerDescription = getSetting('footer_description', '');
                             <p class="game-desc">Estruturas reutilizáveis por engine.</p>
                         </div>
                     </a>
-                    <a href="/retro" class="game-card category-card" data-index="3">
+                    <a href="/retro" class="game-card category-card" data-index="4">
                         <div class="game-thumb">
                             <div class="game-thumb-placeholder">🕹️</div>
                             <div class="game-badges">

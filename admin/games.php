@@ -66,9 +66,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Handle thumbnail upload
         if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
+            $oldThumb = $id > 0 ? dbQueryOne("SELECT thumbnail_url FROM games WHERE id = ?", [$id])['thumbnail_url'] ?? '' : '';
             $result = uploadFile($_FILES['thumbnail'], 'thumbnails', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
             if ($result['success']) {
                 $thumbnail_url = $result['url'];
+                if (!empty($oldThumb)) deleteFile($oldThumb);
             } else {
                 flashMessage('error', $result['message']);
                 header('Location: ' . ADMIN_URL . '/games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
@@ -157,6 +159,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($game) {
             if (!empty($game['game_path'])) {
                 deleteGameDir($game['game_path']);
+            }
+            if (!empty($game['thumbnail_url'])) {
+                deleteFile($game['thumbnail_url']);
             }
             dbDelete('games', $id);
             flashMessage('success', 'Jogo excluído.');

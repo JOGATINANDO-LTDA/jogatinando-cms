@@ -20,7 +20,7 @@ if (!$template) {
     exit;
 }
 
-$templateLinks = dbQuery("SELECT tl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM template_links tl JOIN store_platforms p ON tl.platform_id = p.id WHERE tl.template_id = ? ORDER BY tl.sort_order", [$template['id']]);
+$templateLinks = dbQuery("SELECT tl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM template_links tl JOIN store_platforms p ON tl.platform_id = p.id WHERE tl.template_id = ? AND p.active = 1 ORDER BY tl.sort_order ASC, p.sort_order ASC, p.name ASC", [$template['id']]);
 $siteName = getSetting('site_name', SITE_NAME);
 ?>
 <!DOCTYPE html>

@@ -63,9 +63,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($_POST['action'] === 'delete') {
-        $used = dbQueryOne("SELECT COUNT(*) as cnt FROM game_links WHERE platform_id = ?", [$id]);
-        if ($used && $used['cnt'] > 0) {
-            flashMessage('error', 'Não é possível excluir: existem jogos vinculados a esta plataforma.');
+        $usedGames = dbQueryOne("SELECT COUNT(*) as cnt FROM game_links WHERE platform_id = ?", [$id]);
+        $usedTemplates = dbQueryOne("SELECT COUNT(*) as cnt FROM template_links WHERE platform_id = ?", [$id]);
+        if (($usedGames && $usedGames['cnt'] > 0) || ($usedTemplates && $usedTemplates['cnt'] > 0)) {
+            flashMessage('error', 'Não é possível excluir: existem jogos ou templates vinculados a esta plataforma.');
         } else {
             $delPlatform = dbQueryOne("SELECT logo_path FROM store_platforms WHERE id = ?", [$id]);
             if ($delPlatform && !empty($delPlatform['logo_path'])) {

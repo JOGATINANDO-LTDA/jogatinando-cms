@@ -146,5 +146,6 @@ if (preg_match('#^/([a-zA-Z0-9-]+)/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
     exit;
 }
 
-// ---- Default: Homepage ----
-require __DIR__ . '/index.php';
+// ---- 404 ----
+http_response_code(404);
+require __DIR__ . '/404.php';

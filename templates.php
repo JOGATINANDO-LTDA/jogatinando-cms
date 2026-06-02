@@ -23,7 +23,7 @@ if ($search !== '') {
     $params[] = '%' . $search . '%';
 }
 
-$sql = 'SELECT t.*, e.slug as engine_slug, e.icon as engine_icon, e.color as engine_color FROM game_templates t LEFT JOIN engines e ON t.engine = e.name WHERE ' . implode(' AND ', $where) . ' ORDER BY t.featured DESC, t.sort_order ASC, t.created_at DESC';
+$sql = 'SELECT t.*, e.slug as engine_slug, e.icon as engine_icon, e.color as engine_color, (SELECT COUNT(*) FROM template_links WHERE template_id = t.id) as link_count FROM game_templates t LEFT JOIN engines e ON t.engine = e.name WHERE ' . implode(' AND ', $where) . ' ORDER BY t.featured DESC, t.sort_order ASC, t.created_at DESC';
 
 $templates = dbQuery($sql, $params);
 $engines = dbQuery('SELECT name, slug, icon FROM engines WHERE active = 1 ORDER BY name ASC');
@@ -122,7 +122,7 @@ $engines = dbQuery('SELECT name, slug, icon FROM engines WHERE active = 1 ORDER 
                         <?php
                             $engineSlug = $t['engine_slug'] ?? generateSlug($t['engine']);
                             $templateUrl = '/template/' . $engineSlug . '/' . $t['slug'];
-                            $hasStore = !empty($t['store_url']);
+                            $hasStore = !empty($t['link_count']);
                         ?>
                         <a href="<?= e($templateUrl) ?>" class="catalog-card">
                             <div class="catalog-thumb">
