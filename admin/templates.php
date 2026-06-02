@@ -661,7 +661,7 @@ if ($action === 'new' || $action === 'edit') {
     </div>
     <?php
 } else {
-    $templates = dbQuery("SELECT gt.*, (SELECT GROUP_CONCAT(p.name, '||') FROM template_links tl JOIN store_platforms p ON tl.platform_id = p.id WHERE tl.template_id = gt.id) as platform_names FROM game_templates gt ORDER BY gt.sort_order ASC, gt.id DESC");
+    $templates = dbQuery("SELECT gt.*, (SELECT GROUP_CONCAT(p.name SEPARATOR '||') FROM template_links tl JOIN store_platforms p ON tl.platform_id = p.id WHERE tl.template_id = gt.id) as platform_names FROM game_templates gt ORDER BY gt.sort_order ASC, gt.id DESC");
     ?>
     <div class="card">
         <div class="card-header">
