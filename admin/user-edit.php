@@ -157,23 +157,7 @@ $assignableRoles = getAssignableRoles($db);
         </div>
         <?php endif; ?>
 
-        <?php if (!$user['email_verified_at'] && !empty($user['email'])): ?>
-        <div style="margin-bottom: 20px; padding: 12px 16px; background: oklch(55% 0.20 25 / 0.1); border: 1px solid oklch(55% 0.20 25 / 0.3); border-radius: 8px; font-size: 13px;">
-            ⚠️ Email <strong><?= e($user['email']) ?></strong> não confirmado.
-            <?php if ($smtpConfigured): ?>
-            <form method="POST" style="display:inline">
-                <?= csrfField() ?>
-                <input type="hidden" name="action" value="resend_verification">
-                <button type="submit" class="btn btn-outline btn-sm" style="margin-left:8px;">Reenviar confirmação</button>
-            </form>
-            <?php endif; ?>
-            <form method="POST" style="display:inline">
-                <?= csrfField() ?>
-                <input type="hidden" name="action" value="verify_manually">
-                <button type="submit" class="btn btn-outline btn-sm" style="margin-left:8px;" onclick="return confirm('Confirmar verificação manual do email?')">Verificar manualmente</button>
-            </form>
-        </div>
-        <?php elseif (empty($user['email'])): ?>
+        <?php if (empty($user['email'])): ?>
         <div style="margin-bottom: 20px; padding: 12px 16px; background: oklch(55% 0.20 25 / 0.1); border: 1px solid oklch(55% 0.20 25 / 0.3); border-radius: 8px; font-size: 13px;">
             ⚠️ Este usuário não possui email cadastrado. Adicione um email para permitir confirmação e recuperação de senha.
         </div>

@@ -15,15 +15,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $email = trim($_POST['email'] ?? '');
         $password = $_POST['password'] ?? '';
         $roleId = (int)($_POST['role_id'] ?? 0);
-        $sendInvite = ($password === '');
 
         if ($username === '' || $roleId === 0) {
             flashMessage('error', 'Usuário e cargo são obrigatórios.');
         } elseif ($email === '') {
             flashMessage('error', 'Email é obrigatório para todos os usuários.');
-        } elseif ($sendInvite && !isSmtpConfigured()) {
-            flashMessage('error', 'Configure o SMTP para usar convite ou defina uma senha manualmente.');
-        } elseif (!$sendInvite && strlen($password) < 6) {
+        } elseif (strlen($password) < 6) {
             flashMessage('error', 'A senha deve ter no mínimo 6 caracteres.');
         } else {
             $existing = dbQueryOne("SELECT id FROM users WHERE username = ?", [$username]);
@@ -39,31 +36,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 } elseif ($currentUserId !== 1 && getLevelRank((int)$roleRow['level_id']) >= getSessionRank()) {
                     flashMessage('error', 'Você não pode criar usuários com cargo de nível igual ou superior ao seu.');
                 } else {
-                    $newId = null;
-                    if ($sendInvite) {
-                        $token = bin2hex(random_bytes(32));
-                        $expires = date('Y-m-d H:i:s', strtotime('+7 days'));
-                        $stmt = $db->prepare("INSERT INTO users (username, email, password_hash, role_id, status, setup_token, setup_token_expires) VALUES (?, ?, NULL, ?, 'pending', ?, ?)");
-                        $stmt->execute([$username, $email, $roleId, $token, $expires]);
-                        $newId = $db->lastInsertId();
-                    } else {
-                        $hash = password_hash($password, PASSWORD_DEFAULT);
-                        $stmt = $db->prepare("INSERT INTO users (username, email, password_hash, role_id, status) VALUES (?, ?, ?, ?, 'active')");
-                        $stmt->execute([$username, $email, $hash, $roleId]);
-                        $newId = $db->lastInsertId();
-                    }
+                    $hash = password_hash($password, PASSWORD_DEFAULT);
+                    $db->prepare("INSERT INTO users (username, email, password_hash, role_id, status) VALUES (?, ?, ?, ?, 'active')")
+                        ->execute([$username, $email, $hash, $roleId]);
 
-                    if ($newId) {
-                        if ($sendInvite || isSmtpConfigured()) {
-                            if (sendVerificationEmail($newId)) {
-                                flashMessage('success', "Usuário '$username' criado! Email de confirmação enviado para $email.");
-                            } else {
-                                flashMessage('warning', "Usuário '$username' criado, mas falha ao enviar email de confirmação.");
-                            }
-                        } else {
-                            flashMessage('success', "Usuário '$username' criado com sucesso!");
-                        }
-                    }
+                    flashMessage('success', "Usuário '$username' criado com sucesso!");
                     ob_end_clean();
                     header('Location: ' . ADMIN_URL . '/users');
                     exit;

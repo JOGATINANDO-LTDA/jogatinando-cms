@@ -20,8 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($userStatus === 'pending') {
             $error = 'Conta pendente de ativação. Verifique seu email para confirmar o cadastro.';
-        } elseif ($userStatus === 'active' && !$userRow['email_verified_at'] && !empty($userRow['email']) && !empty($userRow['email_verification_token'])) {
-            $error = 'Confirme seu email antes de fazer login. Verifique sua caixa de entrada.';
         } elseif (login($username, $password)) {
             header('Location: ' . ADMIN_URL . '/dashboard');
             exit;
