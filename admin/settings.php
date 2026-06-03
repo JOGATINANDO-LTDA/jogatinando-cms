@@ -5,6 +5,7 @@ $requiredPerm = 'perm_settings';
 require_once __DIR__ . '/../includes/header.php';
 
 $userId = $_SESSION['admin_user_id'] ?? 0;
+$db = getDB();
 
 // Avatar upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_avatar') {
@@ -23,7 +24,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
                     deleteFile(str_replace(SITE_URL . '/', ROOT_PATH . '/', $oldAvatar));
                 }
             }
-            $db = getDB();
             $stmt = $db->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
             $stmt->execute([$result['url'], $userId]);
             $_SESSION['admin_avatar_url'] = $result['url'];
