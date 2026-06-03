@@ -94,6 +94,13 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 - `SITE_URL` comes from `$_ENV['SITE_URL']`, defaults to `http://localhost` — set for production
 - Errors logged but not displayed (`display_errors=0`, `log_errors=1`)
 
+## Production checklist
+
+- **HSTS**: Already set in `.htaccess` (Strict-Transport-Security). Ensure HTTPS is configured at the reverse proxy.
+- **Session secure flag**: `config.php` checks both `$_SERVER['HTTPS']` and `HTTP_X_FORWARDED_PROTO` (for reverse proxies).
+- **data/**: Protected by `.htaccess` (deny all). SQLite DB is not downloadable.
+- **uploads/**: Protected by `.htaccess` (blocks PHP execution).
+
 ## Style
 
 - Admin UI: dark theme with gold accents, OKLCH color tokens in `assets/css/admin.css`

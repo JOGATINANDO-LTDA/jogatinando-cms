@@ -6,7 +6,7 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-if (defined('APP_ENV') && APP_ENV === 'production') {
+if (file_exists(DATA_PATH . '/config.local.php')) {
     header('Location: /');
     exit;
 }
