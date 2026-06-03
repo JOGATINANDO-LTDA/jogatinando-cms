@@ -964,6 +964,27 @@ function migration_026($db, $type) {
     } catch (Exception $e) {}
 }
 
+function migration_027($db, $type) {
+    // Add user_id to team_members — links team member to a user account
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE team_members ADD COLUMN user_id INT DEFAULT NULL");
+        } else {
+            $db->exec("ALTER TABLE team_members ADD COLUMN user_id INTEGER DEFAULT NULL");
+        }
+    } catch (Exception $e) {}
+
+    // Seed master admin team member (user_id = 1)
+    $masterUserId = $db->query("SELECT id FROM users WHERE id = 1")->fetchColumn();
+    if ($masterUserId) {
+        $exists = $db->query("SELECT id FROM team_members WHERE user_id = 1")->fetchColumn();
+        if (!$exists) {
+            $stmt = $db->prepare("INSERT INTO team_members (name, role, bio, avatar_url, social_youtube, social_twitch, social_linkedin, sort_order, active, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute(['Administrador', 'CEO Administrador', 'Responsável pelo gerenciamento do portfólio de jogos.', '', '', '', '', 0, 1, 1]);
+        }
+    }
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();
@@ -1072,11 +1093,11 @@ function seedDefaultData($db) {
     }
 
     $team = [
-        ['name' => 'Administrador', 'role' => 'Desenvolvedor', 'bio' => 'Responsável pelo gerenciamento do portfólio de jogos.', 'avatar_url' => '', 'social_youtube' => '', 'social_twitch' => '', 'social_linkedin' => '', 'sort_order' => 1, 'active' => 1],
+        ['name' => 'Administrador', 'role' => 'CEO Administrador', 'bio' => 'Responsável pelo gerenciamento do portfólio de jogos.', 'avatar_url' => '', 'social_youtube' => '', 'social_twitch' => '', 'social_linkedin' => '', 'sort_order' => 0, 'active' => 1, 'user_id' => 1],
     ];
 
-    $stmt = $db->prepare("INSERT INTO team_members (name, role, bio, avatar_url, social_youtube, social_twitch, social_linkedin, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO team_members (name, role, bio, avatar_url, social_youtube, social_twitch, social_linkedin, sort_order, active, user_id) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     foreach ($team as $t) {
-        $stmt->execute([$t['name'], $t['role'], $t['bio'], $t['avatar_url'], $t['social_youtube'], $t['social_twitch'], $t['social_linkedin'], $t['sort_order'], $t['active']]);
+        $stmt->execute([$t['name'], $t['role'], $t['bio'], $t['avatar_url'], $t['social_youtube'], $t['social_twitch'], $t['social_linkedin'], $t['sort_order'], $t['active'], $t['user_id']]);
     }
 }

@@ -1,11 +1,14 @@
-# Bloqueia execução de PHP em uploads
+# Bloqueia execução de scripts em uploads
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule \.(?:php|phtml|php3|php4|php5|php7|php8)$ - [F]
+    RewriteRule \.(?:php|phtml|php3|php4|php5|php7|php8|phar|shtml|cgi|pl|py|asp|aspx|jsp)$ - [F]
 </IfModule>
 
-# Proteção adicional: nega acesso a arquivos ocultos
+# Bloqueia acesso a arquivos de configuração e ocultos
 <FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+<FilesMatch "(?i)\.(?:htaccess|user\.ini|htpasswd|env|ini|conf|cfg)$">
     Require all denied
 </FilesMatch>
 

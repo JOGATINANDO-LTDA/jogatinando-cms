@@ -3,6 +3,7 @@ ob_start();
 $pageTitle = 'Equipe';
 $requiredPerm = 'perm_team';
 require_once __DIR__ . '/../includes/header.php';
+$userId = (int)($_SESSION['admin_user_id'] ?? 0);
 $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
@@ -25,7 +26,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
         if (empty($name) || empty($role)) { flashMessage('error', 'Nome e cargo são obrigatórios.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         if ($id > 0) {
-            if (!$avatar_url) { $existing = dbQueryOne("SELECT avatar_url FROM team_members WHERE id = ?", [$id]); $avatar_url = $existing['avatar_url']; }
+            $existing = dbQueryOne("SELECT avatar_url, user_id FROM team_members WHERE id = ?", [$id]);
+            if (!empty($existing['user_id']) && $userId !== 1) {
+                flashMessage('error', 'Somente o administrador master pode editar este membro.');
+                ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit;
+            }
+            if (!$avatar_url) { $avatar_url = $existing['avatar_url']; }
             dbExec("UPDATE team_members SET name=?, role=?, bio=?, avatar_url=?, social_youtube=?, social_twitch=?, social_linkedin=?, sort_order=?, active=? WHERE id=?", [$name, $role, $bio, $avatar_url, $social_youtube, $social_twitch, $social_linkedin, $sort_order, $active, $id]);
             flashMessage('success', 'Membro atualizado!');
         } else {
@@ -35,13 +41,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         ob_end_clean();
         header('Location: ' . ADMIN_URL . '/team'); exit;
     }
-    if ($_POST['action'] === 'delete') { $member = dbQueryOne("SELECT avatar_url FROM team_members WHERE id = ?", [$id]); if ($member && !empty($member['avatar_url'])) deleteFile($member['avatar_url']); dbDelete('team_members', $id); flashMessage('success', 'Membro excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit; }
-    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM team_members WHERE id = ?", [$id]); if ($r) dbExec("UPDATE team_members SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit; }
+    if ($_POST['action'] === 'delete') {
+        $member = dbQueryOne("SELECT avatar_url, user_id FROM team_members WHERE id = ?", [$id]);
+        if ($member && !empty($member['user_id'])) {
+            flashMessage('error', 'Este membro está vinculado a uma conta de usuário e não pode ser excluído.');
+        } else {
+            if ($member && !empty($member['avatar_url'])) deleteFile($member['avatar_url']);
+            dbDelete('team_members', $id);
+            flashMessage('success', 'Membro excluído.');
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit;
+    }
+    if ($_POST['action'] === 'toggle') {
+        $r = dbQueryOne("SELECT active, user_id FROM team_members WHERE id = ?", [$id]);
+        if ($r && !empty($r['user_id']) && $userId !== 1) {
+            flashMessage('error', 'Somente o administrador master pode alterar o status deste membro.');
+        } else if ($r) {
+            dbExec("UPDATE team_members SET active = ? WHERE id = ?", [1 - $r['active'], $id]);
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit;
+    }
 }
 
 if ($action === 'new' || $action === 'edit') {
     $member = $id > 0 ? dbQueryOne("SELECT * FROM team_members WHERE id = ?", [$id]) : null;
     if ($action === 'edit' && !$member) { flashMessage('error', 'Não encontrado.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit; }
+    if ($action === 'edit' && !empty($member['user_id']) && $userId !== 1) {
+        flashMessage('error', 'Somente o administrador master pode editar este membro.');
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit;
+    }
     ?>
     <div class="card">
         <div class="card-header"><h2 class="card-title"><?= $action === 'new' ? 'Novo Membro' : 'Editar Membro' ?></h2><a href="team" class="btn btn-outline btn-sm">← Voltar</a></div>
@@ -56,7 +84,7 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-group"><label for="role">Cargo *</label>
                     <select id="role" name="role" required>
                         <option value="">Selecione...</option>
-                        <?php foreach (dbQuery("SELECT name FROM roles WHERE id != 1 ORDER BY name ASC") as $r): ?>
+                        <?php foreach (dbQuery("SELECT name FROM roles ORDER BY name ASC") as $r): ?>
                         <option value="<?= e($r['name']) ?>" <?= ($member['role'] ?? '') === $r['name'] ? 'selected' : '' ?>><?= e($r['name']) ?></option>
                         <?php endforeach; ?>
                     </select>
@@ -106,15 +134,21 @@ if ($action === 'new' || $action === 'edit') {
                     <tbody>
                         <?php foreach ($members as $m): ?>
                         <tr>
-                            <td><strong style="color:var(--fg)"><?= e($m['name']) ?></strong></td>
+                            <td><strong style="color:var(--fg)"><?= e($m['name']) ?></strong><?php if (!empty($m['user_id'])): ?><span class="badge badge-featured" style="margin-left:6px;font-size:10px">Master</span><?php endif; ?></td>
                             <td><?= e($m['role']) ?></td>
                             <td><?= $m['social_youtube'] ? '🔗' : '—' ?></td>
                             <td><?= $m['social_twitch'] ? '🔗' : '—' ?></td>
                             <td><?= $m['active'] ? '<span class="badge badge-active">Ativo</span>' : '<span class="badge badge-inactive">Inativo</span>' ?></td>
                             <td class="actions">
+                                <?php if (empty($m['user_id']) || $userId === 1): ?>
                                 <form method="POST" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $m['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $m['active'] ? '🔴' : '🟢' ?></button></form>
+                                <?php endif; ?>
+                                <?php if (empty($m['user_id']) || $userId === 1): ?>
                                 <a href="team?action=edit&id=<?= $m['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
+                                <?php endif; ?>
+                                <?php if (empty($m['user_id'])): ?>
                                 <form method="POST" style="display:inline" onsubmit="return confirm('Excluir?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $m['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
+                                <?php endif; ?>
                             </td>
                         </tr><?php endforeach; ?>
                     </tbody>
