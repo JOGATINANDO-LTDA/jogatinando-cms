@@ -127,6 +127,7 @@ function getExpectedSchema() {
                 'social_linkedin' => 'VARCHAR(255) DEFAULT \'\'',
                 'sort_order' => 'INT DEFAULT 0',
                 'active' => 'INT DEFAULT 1',
+                'user_id' => 'INT DEFAULT NULL',
             ],
         ],
         'site_settings' => [
@@ -533,9 +534,112 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
+// ── Integrity checks (orphaned foreign keys) ──
+function getIntegrityChecks($db, $dbType) {
+    $checks = [];
+
+    // game_links → game_templates (template_id)
+    try {
+        $stmt = $db->query("SELECT COUNT(*) FROM game_links gl LEFT JOIN game_templates gt ON gl.template_id = gt.id WHERE gt.id IS NULL");
+        $orphaned = (int)$stmt->fetchColumn();
+        $checks[] = ['label' => 'game_links → game_templates', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
+    } catch (Exception $e) {
+        $checks[] = ['label' => 'game_links → game_templates', 'orphaned' => 0, 'ok' => true, 'skip' => true];
+    }
+
+    // template_links → game_templates (template_id)
+    try {
+        $stmt = $db->query("SELECT COUNT(*) FROM template_links tl LEFT JOIN game_templates gt ON tl.template_id = gt.id WHERE gt.id IS NULL");
+        $orphaned = (int)$stmt->fetchColumn();
+        $checks[] = ['label' => 'template_links → game_templates', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
+    } catch (Exception $e) {
+        $checks[] = ['label' => 'template_links → game_templates', 'orphaned' => 0, 'ok' => true, 'skip' => true];
+    }
+
+    // template_links → store_platforms (platform_id)
+    try {
+        $stmt = $db->query("SELECT COUNT(*) FROM template_links tl LEFT JOIN store_platforms p ON tl.platform_id = p.id WHERE p.id IS NULL");
+        $orphaned = (int)$stmt->fetchColumn();
+        $checks[] = ['label' => 'template_links → store_platforms', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
+    } catch (Exception $e) {
+        $checks[] = ['label' => 'template_links → store_platforms', 'orphaned' => 0, 'ok' => true, 'skip' => true];
+    }
+
+    // game_links → store_platforms (platform_id)
+    try {
+        $stmt = $db->query("SELECT COUNT(*) FROM game_links gl LEFT JOIN store_platforms p ON gl.platform_id = p.id WHERE p.id IS NULL");
+        $orphaned = (int)$stmt->fetchColumn();
+        $checks[] = ['label' => 'game_links → store_platforms', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
+    } catch (Exception $e) {
+        $checks[] = ['label' => 'game_links → store_platforms', 'orphaned' => 0, 'ok' => true, 'skip' => true];
+    }
+
+    // users → roles (role_id)
+    try {
+        $stmt = $db->query("SELECT COUNT(*) FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.role_id IS NOT NULL AND r.id IS NULL");
+        $orphaned = (int)$stmt->fetchColumn();
+        $checks[] = ['label' => 'users → roles', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
+    } catch (Exception $e) {
+        $checks[] = ['label' => 'users → roles', 'orphaned' => 0, 'ok' => true, 'skip' => true];
+    }
+
+    // roles → levels (level_id)
+    try {
+        $stmt = $db->query("SELECT COUNT(*) FROM roles r LEFT JOIN levels l ON r.level_id = l.id WHERE r.level_id IS NOT NULL AND l.id IS NULL");
+        $orphaned = (int)$stmt->fetchColumn();
+        $checks[] = ['label' => 'roles → levels', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
+    } catch (Exception $e) {
+        $checks[] = ['label' => 'roles → levels', 'orphaned' => 0, 'ok' => true, 'skip' => true];
+    }
+
+    // games → engines (engine slug match via slug)
+    try {
+        $stmt = $db->query("SELECT COUNT(*) FROM games g LEFT JOIN engines e ON g.engine = e.name WHERE g.engine != '' AND e.id IS NULL");
+        $orphaned = (int)$stmt->fetchColumn();
+        $checks[] = ['label' => 'games → engines', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
+    } catch (Exception $e) {
+        $checks[] = ['label' => 'games → engines', 'orphaned' => 0, 'ok' => true, 'skip' => true];
+    }
+
+    // retro_games → retro_consoles (console slug match via name)
+    try {
+        $stmt = $db->query("SELECT COUNT(*) FROM retro_games rg LEFT JOIN retro_consoles rc ON rg.console = rc.name WHERE rc.id IS NULL");
+        $orphaned = (int)$stmt->fetchColumn();
+        $checks[] = ['label' => 'retro_games → retro_consoles', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
+    } catch (Exception $e) {
+        $checks[] = ['label' => 'retro_games → retro_consoles', 'orphaned' => 0, 'ok' => true, 'skip' => true];
+    }
+
+    // team_members → users (user_id)
+    try {
+        $stmt = $db->query("SELECT COUNT(*) FROM team_members tm LEFT JOIN users u ON tm.user_id = u.id WHERE tm.user_id IS NOT NULL AND u.id IS NULL");
+        $orphaned = (int)$stmt->fetchColumn();
+        $checks[] = ['label' => 'team_members → users', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
+    } catch (Exception $e) {
+        $checks[] = ['label' => 'team_members → users', 'orphaned' => 0, 'ok' => true, 'skip' => true];
+    }
+
+    return $checks;
+}
+
 // ── Run diagnostic ──
+if (isset($_GET['rescan'])) {
+    flashMessage('success', 'Escaneamento concluído — todas as verificações foram atualizadas.');
+    ob_end_clean();
+    header('Location: ' . ADMIN_URL . '/repair');
+    exit;
+}
 $diagnostic = buildDiagnostic($db, $dbType);
 $svDiag = getSchemaVersionDiagnostic($db);
+$integrityChecks = getIntegrityChecks($db, $dbType);
+$rowCounts = [];
+foreach (array_keys(getExpectedSchema()) as $table) {
+    try {
+        $rowCounts[$table] = (int)$db->query("SELECT COUNT(*) FROM `$table`")->fetchColumn();
+    } catch (Exception $e) {
+        $rowCounts[$table] = null;
+    }
+}
 
 $totalIssues = 0;
 foreach ($diagnostic as $d) {
@@ -565,6 +669,9 @@ if (isset($_GET['repair_result'])) {
     <div class="card-header">
         <h2 class="card-title">🔍 Diagnóstico do Banco de Dados</h2>
         <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <a href="<?= ADMIN_URL ?>/repair?rescan=1" class="btn btn-outline">
+                🔄 Re-escanear
+            </a>
             <form method="POST" style="display:inline" id="repairForm">
                 <?= csrfField() ?>
                 <button type="submit" name="action" value="repair" class="btn btn-gold" <?= $totalIssues === 0 ? 'disabled' : '' ?>>
@@ -578,9 +685,9 @@ if (isset($_GET['repair_result'])) {
     </div>
     <div class="card-body">
         <p style="color:var(--fg-muted);margin-bottom:16px">
-            Compara o schema atual do banco com o esperado após todas as migrações (001–026)
-            e permite corrigir diferenças sem perder dados.
-            Exibe apenas tabelas do schema esperado — tabelas não listadas são ignoradas.
+            Compara o schema atual do banco com o esperado após todas as migrações (001–027),
+            verifica integridade referencial e contagem de registros.
+            Clique em "Re-escanear" para atualizar os resultados.
         </p>
 
         <?php if ($totalIssues > 0): ?>
@@ -612,6 +719,7 @@ if (isset($_GET['repair_result'])) {
                 <thead>
                     <tr>
                         <th>Tabela</th>
+                        <th>Linhas</th>
                         <th>Colunas</th>
                         <th>Status</th>
                     </tr>
@@ -620,6 +728,15 @@ if (isset($_GET['repair_result'])) {
                     <?php foreach ($diagnostic as $d): ?>
                     <tr>
                         <td><code style="font-weight:600;color:var(--cyan, #5bc0de)"><?= e($d['table']) ?></code></td>
+                        <td style="font-family:var(--mono, 'JetBrains Mono', monospace);font-size:13px;color:var(--fg-muted)">
+                            <?php if (!$d['exists']): ?>
+                                —
+                            <?php elseif ($rowCounts[$d['table']] !== null): ?>
+                                <?= number_format($rowCounts[$d['table']], 0, ',', '.') ?>
+                            <?php else: ?>
+                                ?
+                            <?php endif; ?>
+                        </td>
                         <td>
                             <?php if (!$d['exists']): ?>
                                 <span style="color:var(--danger, #e74c3c)">❌ Tabela não existe</span>
@@ -698,6 +815,49 @@ if (isset($_GET['repair_result'])) {
                         </tr>
                         <?php endforeach; ?>
                     <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-top:24px">
+    <div class="card-header">
+        <h3 class="card-title">🔗 Integridade Referencial</h3>
+        <span class="badge" style="background:var(--bg-card, #1a1a2e);color:var(--fg-muted, #888)"><?= count($integrityChecks) ?> verificações</span>
+    </div>
+    <div class="card-body" style="padding:0">
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Relação</th>
+                        <th>Registros Órfãos</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($integrityChecks as $check): ?>
+                    <tr>
+                        <td><code style="font-weight:600;color:var(--cyan, #5bc0de);font-size:13px"><?= e($check['label']) ?></code></td>
+                        <td style="font-family:var(--mono, 'JetBrains Mono', monospace);font-size:13px">
+                            <?php if (!empty($check['skip'])): ?>
+                                <span style="color:var(--fg-muted)">—</span>
+                            <?php else: ?>
+                                <?= $check['orphaned'] ?>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php if (!empty($check['skip'])): ?>
+                                <span class="badge badge-inactive">N/A</span>
+                            <?php elseif ($check['ok']): ?>
+                                <span class="badge badge-active">Ok</span>
+                            <?php else: ?>
+                                <span class="badge badge-featured">Órfãos: <?= $check['orphaned'] ?></span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
         </div>
