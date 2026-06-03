@@ -403,17 +403,578 @@ function migration_008($db, $type) {
     $db->exec("DELETE FROM engines WHERE name = 'Outra'");
 }
 
+function migration_009($db, $type) {
+    // Add game_type and is_web_playable to games
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN game_type VARCHAR(50) NOT NULL DEFAULT 'autoral' AFTER orientation");
+        } else {
+            $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('game_type', $cols)) {
+                $db->exec("ALTER TABLE games ADD COLUMN game_type TEXT NOT NULL DEFAULT 'autoral'");
+            }
+        }
+    } catch (Exception $e) {}
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN is_web_playable INT NOT NULL DEFAULT 1 AFTER game_type");
+        } else {
+            $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('is_web_playable', $cols)) {
+                $db->exec("ALTER TABLE games ADD COLUMN is_web_playable INTEGER NOT NULL DEFAULT 1");
+            }
+        }
+    } catch (Exception $e) {}
+
+    // Create store_platforms table
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS store_platforms (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) NOT NULL UNIQUE,
+            icon VARCHAR(50) NOT NULL DEFAULT '\xF0\x9F\x9B\x92',
+            active INT DEFAULT 1,
+            sort_order INT DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS store_platforms (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            icon TEXT NOT NULL DEFAULT '\xF0\x9F\x9B\x92',
+            active INTEGER DEFAULT 1,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
+
+    // Create game_links table
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS game_links (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            game_id INT NOT NULL,
+            platform_id INT NOT NULL,
+            url VARCHAR(500) NOT NULL,
+            sort_order INT DEFAULT 0,
+            FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+            FOREIGN KEY (platform_id) REFERENCES store_platforms(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS game_links (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            game_id INTEGER NOT NULL,
+            platform_id INTEGER NOT NULL,
+            url TEXT NOT NULL,
+            sort_order INTEGER DEFAULT 0,
+            FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+            FOREIGN KEY (platform_id) REFERENCES store_platforms(id) ON DELETE CASCADE
+        )");
+    }
+
+    // Seed store platforms
+    $count = $db->query("SELECT COUNT(*) FROM store_platforms")->fetchColumn();
+    if ($count == 0) {
+        $platforms = [
+            ['Steam', 'steam', '🔥', 1],
+            ['Epic Games', 'epic', '✨', 1],
+            ['GOG', 'gog', '📦', 1],
+            ['itch.io', 'itchio', '🔴', 1],
+            ['gd.games', 'gdgames', '🎮', 1],
+            ['Nintendo eShop', 'nintendo', '🎹', 0],
+            ['PlayStation Store', 'playstation', '🎮', 0],
+            ['Xbox Store', 'xbox', '🎮', 0],
+            ['Google Play', 'googleplay', '📱', 0],
+            ['App Store', 'appstore', '📱', 0],
+            ['Amazon', 'amazon', '📦', 0],
+        ];
+        $stmt = $db->prepare("INSERT INTO store_platforms (name, slug, icon, active) VALUES (?, ?, ?, ?)");
+        foreach ($platforms as $p) {
+            $stmt->execute($p);
+        }
+    }
+}
+
+function migration_010($db, $type) {
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS game_templates (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) DEFAULT '',
+            engine VARCHAR(255) NOT NULL,
+            description TEXT,
+            language VARCHAR(100) DEFAULT '',
+            language_version VARCHAR(50) DEFAULT '',
+            store_url VARCHAR(500) DEFAULT '',
+            game_path VARCHAR(255) DEFAULT '',
+            thumbnail_url VARCHAR(255) DEFAULT '',
+            features TEXT,
+            requirements TEXT,
+            featured INT DEFAULT 0,
+            active INT DEFAULT 1,
+            sort_order INT DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS game_templates (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            slug TEXT DEFAULT '',
+            engine TEXT NOT NULL,
+            description TEXT DEFAULT '',
+            language TEXT DEFAULT '',
+            language_version TEXT DEFAULT '',
+            store_url TEXT DEFAULT '',
+            game_path TEXT DEFAULT '',
+            thumbnail_url TEXT DEFAULT '',
+            features TEXT DEFAULT '',
+            requirements TEXT DEFAULT '',
+            featured INTEGER DEFAULT 0,
+            active INTEGER DEFAULT 1,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
+}
+
+function migration_011($db, $type) {
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS retro_games (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) DEFAULT '',
+            console VARCHAR(100) NOT NULL,
+            type VARCHAR(20) NOT NULL DEFAULT 'original',
+            rom_path VARCHAR(500) DEFAULT '',
+            patch_url VARCHAR(500) DEFAULT '',
+            description TEXT,
+            thumbnail_url VARCHAR(255) DEFAULT '',
+            emulator_core VARCHAR(100) DEFAULT '',
+            active INT DEFAULT 1,
+            featured INT DEFAULT 0,
+            sort_order INT DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS retro_games (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            slug TEXT DEFAULT '',
+            console TEXT NOT NULL,
+            type TEXT NOT NULL DEFAULT 'original',
+            rom_path TEXT DEFAULT '',
+            patch_url TEXT DEFAULT '',
+            description TEXT DEFAULT '',
+            thumbnail_url TEXT DEFAULT '',
+            emulator_core TEXT DEFAULT '',
+            active INTEGER DEFAULT 1,
+            featured INTEGER DEFAULT 0,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+            updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
+}
+
+function migration_012($db, $type) {
+    if ($type === 'mysql') {
+        $db->exec("CREATE TABLE IF NOT EXISTS retro_consoles (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            name VARCHAR(255) NOT NULL,
+            slug VARCHAR(255) NOT NULL UNIQUE,
+            icon VARCHAR(50) NOT NULL DEFAULT '🎮',
+            emulator_core VARCHAR(100) NOT NULL DEFAULT '',
+            active INT DEFAULT 1,
+            sort_order INT DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    } else {
+        $db->exec("CREATE TABLE IF NOT EXISTS retro_consoles (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT NOT NULL,
+            slug TEXT NOT NULL UNIQUE,
+            icon TEXT NOT NULL DEFAULT '🎮',
+            emulator_core TEXT NOT NULL DEFAULT '',
+            active INTEGER DEFAULT 1,
+            sort_order INTEGER DEFAULT 0,
+            created_at TEXT DEFAULT CURRENT_TIMESTAMP
+        )");
+    }
+
+    $count = $db->query("SELECT COUNT(*) FROM retro_consoles")->fetchColumn();
+    if ($count == 0) {
+        $stmt = $db->prepare("INSERT INTO retro_consoles (name, slug, icon, emulator_core, active, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute(['SNES', 'snes', '🎮', 'snes9x', 1, 1]);
+    }
+}
+
+function migration_013($db, $type) {
+    // Add external_url, repo_url, is_open_source to games
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN external_url VARCHAR(500) DEFAULT '' AFTER game_path");
+        } else {
+            $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('external_url', $cols)) {
+                $db->exec("ALTER TABLE games ADD COLUMN external_url TEXT DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN repo_url VARCHAR(500) DEFAULT '' AFTER external_url");
+        } else {
+            $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('repo_url', $cols)) {
+                $db->exec("ALTER TABLE games ADD COLUMN repo_url TEXT DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN is_open_source INT NOT NULL DEFAULT 0 AFTER repo_url");
+        } else {
+            $cols = $db->query("PRAGMA table_info(games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('is_open_source', $cols)) {
+                $db->exec("ALTER TABLE games ADD COLUMN is_open_source INTEGER NOT NULL DEFAULT 0");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_014($db, $type) {
+    // Seed retro consoles with official EmulatorJS cores
+    $count = $db->query("SELECT COUNT(*) FROM retro_consoles")->fetchColumn();
+    if ($count <= 1) {
+        $consoles = [
+            ['SNES', 'snes', '🎮', 'snes9x', 1, 1],
+            ['NES', 'nes', '🕹️', 'fceumm', 1, 2],
+            ['Game Boy', 'gb', '📱', 'gambatte', 1, 3],
+            ['Game Boy Advance', 'gba', '📱', 'mgba', 1, 4],
+            ['Nintendo 64', 'n64', '🎮', 'mupen64plus_next', 1, 5],
+            ['Nintendo DS', 'nds', '📱', 'melonds', 1, 6],
+            ['Sega Mega Drive', 'megadrive', '🎮', 'genesis_plus_gx', 1, 7],
+            ['Sega Game Gear', 'gamegear', '📱', 'genesis_plus_gx', 1, 8],
+            ['PlayStation', 'psx', '🎮', 'pcsx_rearmed', 1, 9],
+            ['Arcade', 'arcade', '🕹️', 'fbneo', 1, 10],
+        ];
+        $prefix = $type === 'mysql' ? 'INSERT IGNORE INTO' : 'INSERT OR IGNORE INTO';
+        $stmt = $db->prepare("$prefix retro_consoles (name, slug, icon, emulator_core, active, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+        foreach ($consoles as $c) {
+            $stmt->execute($c);
+        }
+    }
+}
+
+function migration_015($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE retro_consoles ADD COLUMN thumbnail_url VARCHAR(255) DEFAULT '' AFTER icon");
+        } else {
+            $cols = $db->query("PRAGMA table_info(retro_consoles)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('thumbnail_url', $cols)) {
+                $db->exec("ALTER TABLE retro_consoles ADD COLUMN thumbnail_url TEXT DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_016($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE retro_games ADD COLUMN modification_description VARCHAR(60) DEFAULT '' AFTER type");
+        } else {
+            $cols = $db->query("PRAGMA table_info(retro_games)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('modification_description', $cols)) {
+                $db->exec("ALTER TABLE retro_games ADD COLUMN modification_description TEXT DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_017($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users MODIFY password_hash VARCHAR(255) NULL");
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_018($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users ADD COLUMN email_verified_at DATETIME NULL AFTER setup_token_expires");
+            $db->exec("ALTER TABLE users ADD COLUMN email_verification_token VARCHAR(64) NULL AFTER email_verified_at");
+        } else {
+            $cols = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('email_verified_at', $cols)) {
+                $db->exec("ALTER TABLE users ADD COLUMN email_verified_at TEXT DEFAULT NULL");
+                $db->exec("ALTER TABLE users ADD COLUMN email_verification_token TEXT DEFAULT NULL");
+            }
+        }
+    } catch (Exception $e) {}
+    $db->prepare("UPDATE users SET email_verified_at = created_at WHERE status = 'active' AND email_verified_at IS NULL")->execute();
+}
+
+function migration_019($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("CREATE TABLE IF NOT EXISTS levels (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                slug VARCHAR(50) NOT NULL UNIQUE,
+                is_protected TINYINT(1) NOT NULL DEFAULT 0,
+                perm_banners TINYINT(1) NOT NULL DEFAULT 0,
+                perm_games TINYINT(1) NOT NULL DEFAULT 0,
+                perm_blog TINYINT(1) NOT NULL DEFAULT 0,
+                perm_testimonials TINYINT(1) NOT NULL DEFAULT 0,
+                perm_faq TINYINT(1) NOT NULL DEFAULT 0,
+                perm_team TINYINT(1) NOT NULL DEFAULT 0,
+                perm_users TINYINT(1) NOT NULL DEFAULT 0,
+                perm_roles TINYINT(1) NOT NULL DEFAULT 0,
+                perm_engines TINYINT(1) NOT NULL DEFAULT 0,
+                perm_platforms TINYINT(1) NOT NULL DEFAULT 0,
+                perm_consoles TINYINT(1) NOT NULL DEFAULT 0,
+                perm_retro_games TINYINT(1) NOT NULL DEFAULT 0,
+                perm_templates TINYINT(1) NOT NULL DEFAULT 0,
+                perm_optimizer TINYINT(1) NOT NULL DEFAULT 0,
+                perm_settings TINYINT(1) NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } else {
+            $db->exec("CREATE TABLE IF NOT EXISTS levels (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                is_protected INTEGER NOT NULL DEFAULT 0,
+                perm_banners INTEGER NOT NULL DEFAULT 0,
+                perm_games INTEGER NOT NULL DEFAULT 0,
+                perm_blog INTEGER NOT NULL DEFAULT 0,
+                perm_testimonials INTEGER NOT NULL DEFAULT 0,
+                perm_faq INTEGER NOT NULL DEFAULT 0,
+                perm_team INTEGER NOT NULL DEFAULT 0,
+                perm_users INTEGER NOT NULL DEFAULT 0,
+                perm_roles INTEGER NOT NULL DEFAULT 0,
+                perm_engines INTEGER NOT NULL DEFAULT 0,
+                perm_platforms INTEGER NOT NULL DEFAULT 0,
+                perm_consoles INTEGER NOT NULL DEFAULT 0,
+                perm_retro_games INTEGER NOT NULL DEFAULT 0,
+                perm_templates INTEGER NOT NULL DEFAULT 0,
+                perm_optimizer INTEGER NOT NULL DEFAULT 0,
+                perm_settings INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )");
+        }
+    } catch (Exception $e) {}
+
+    $count = $db->query("SELECT COUNT(*) FROM levels")->fetchColumn();
+    if ($count == 0) {
+        $stmt = $db->prepare("INSERT INTO levels (name, slug, is_protected, perm_banners, perm_games, perm_blog, perm_testimonials, perm_faq, perm_team, perm_users, perm_roles, perm_engines, perm_platforms, perm_consoles, perm_retro_games, perm_templates, perm_optimizer, perm_settings) VALUES (?, ?, 1, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1)");
+        $stmt->execute(['CEO', 'ceo']);
+        $stmt = $db->prepare("INSERT INTO levels (name, slug, is_protected, perm_banners, perm_games, perm_blog, perm_testimonials, perm_faq, perm_team, perm_users, perm_roles, perm_engines, perm_platforms, perm_consoles, perm_retro_games, perm_templates, perm_optimizer, perm_settings) VALUES (?, ?, 0, 1,1,1,1,1,1,1,1,1,1,1,1,1,1,1)");
+        $stmt->execute(['Chief', 'chief']);
+        $stmt = $db->prepare("INSERT INTO levels (name, slug, is_protected, perm_banners, perm_games, perm_blog, perm_testimonials, perm_faq, perm_team, perm_users, perm_roles, perm_engines, perm_platforms, perm_consoles, perm_retro_games, perm_templates, perm_optimizer, perm_settings) VALUES (?, ?, 0, 1,1,1,1,1,1,0,0,0,0,0,0,0,0,0)");
+        $stmt->execute(['Moderator', 'moderator']);
+    }
+
+    $needsLevelId = true;
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE roles ADD COLUMN level_id INT DEFAULT NULL AFTER level");
+        } else {
+            $cols = $db->query("PRAGMA table_info(roles)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (in_array('level_id', $cols)) {
+                $needsLevelId = false;
+            } else {
+                $db->exec("ALTER TABLE roles ADD COLUMN level_id INTEGER DEFAULT NULL");
+            }
+        }
+    } catch (Exception $e) {
+        $needsLevelId = false;
+    }
+
+    if ($needsLevelId) {
+        try {
+            $db->exec("UPDATE roles SET level_id = (SELECT id FROM levels WHERE slug = 'ceo') WHERE level = 'ceo' AND (level_id IS NULL OR level_id = 0)");
+            $db->exec("UPDATE roles SET level_id = (SELECT id FROM levels WHERE slug = 'chief') WHERE level = 'chief' AND (level_id IS NULL OR level_id = 0)");
+            $db->exec("UPDATE roles SET level_id = (SELECT id FROM levels WHERE slug = 'moderator') WHERE level = 'moderator' AND (level_id IS NULL OR level_id = 0)");
+            $fallbackId = $db->query("SELECT id FROM levels WHERE slug = 'moderator'")->fetchColumn();
+            if ($fallbackId) {
+                $db->prepare("UPDATE roles SET level_id = ? WHERE level_id IS NULL")->execute([$fallbackId]);
+            }
+        } catch (Exception $e) {}
+    }
+}
+
+function migration_020($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $tblCheck = $db->query("SHOW COLUMNS FROM game_templates LIKE 'has_free_file'")->fetch();
+            if (!$tblCheck) {
+                $db->exec("ALTER TABLE game_templates ADD COLUMN has_free_file TINYINT(1) NOT NULL DEFAULT 0 AFTER requirements");
+            }
+            $tblCheck = $db->query("SHOW COLUMNS FROM game_templates LIKE 'gallery'")->fetch();
+            if (!$tblCheck) {
+                $db->exec("ALTER TABLE game_templates ADD COLUMN gallery TEXT AFTER thumbnail_url");
+                $db->exec("UPDATE game_templates SET gallery = '[]' WHERE gallery IS NULL");
+            }
+        } else {
+            $cols = $db->query("PRAGMA table_info(game_templates)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('has_free_file', $cols)) {
+                $db->exec("ALTER TABLE game_templates ADD COLUMN has_free_file INTEGER NOT NULL DEFAULT 0");
+            }
+            if (!in_array('gallery', $cols)) {
+                $db->exec("ALTER TABLE game_templates ADD COLUMN gallery TEXT DEFAULT '[]'");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_021($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $cols = $db->query("SHOW COLUMNS FROM store_platforms LIKE 'use_logo'")->fetch();
+            if (!$cols) {
+                $db->exec("ALTER TABLE store_platforms ADD COLUMN use_logo TINYINT(1) NOT NULL DEFAULT 0 AFTER icon");
+                $db->exec("ALTER TABLE store_platforms ADD COLUMN logo_path VARCHAR(500) NOT NULL DEFAULT '' AFTER use_logo");
+            }
+        } else {
+            $cols = $db->query("PRAGMA table_info(store_platforms)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('use_logo', $cols)) {
+                $db->exec("ALTER TABLE store_platforms ADD COLUMN use_logo INTEGER NOT NULL DEFAULT 0");
+            }
+            if (!in_array('logo_path', $cols)) {
+                $db->exec("ALTER TABLE store_platforms ADD COLUMN logo_path TEXT NOT NULL DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_022($db, $type) {
+    // Create template_links table
+    try {
+        if ($type === 'mysql') {
+            $db->exec("CREATE TABLE IF NOT EXISTS template_links (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                template_id INT NOT NULL,
+                platform_id INT NOT NULL,
+                url VARCHAR(500) NOT NULL,
+                sort_order INT DEFAULT 0,
+                FOREIGN KEY (template_id) REFERENCES game_templates(id) ON DELETE CASCADE,
+                FOREIGN KEY (platform_id) REFERENCES store_platforms(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } else {
+            $db->exec("CREATE TABLE IF NOT EXISTS template_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                template_id INTEGER NOT NULL,
+                platform_id INTEGER NOT NULL,
+                url TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                FOREIGN KEY (template_id) REFERENCES game_templates(id) ON DELETE CASCADE,
+                FOREIGN KEY (platform_id) REFERENCES store_platforms(id) ON DELETE CASCADE
+            )");
+        }
+    } catch (Exception $e) {}
+
+    // Migrate existing store_url to template_links
+    try {
+        $rows = $db->query("SELECT id, store_url FROM game_templates WHERE store_url IS NOT NULL AND store_url != ''")->fetchAll();
+        if ($rows) {
+            $genericPlatformId = $db->query("SELECT id FROM store_platforms WHERE slug = 'store'")->fetchColumn();
+            if (!$genericPlatformId) {
+                if ($type === 'mysql') {
+                    $db->exec("INSERT INTO store_platforms (name, slug, icon, sort_order, active) VALUES ('Loja', 'store', '🛒', 999, 1)");
+                } else {
+                    $db->exec("INSERT INTO store_platforms (name, slug, icon, sort_order, active) VALUES ('Loja', 'store', '🛒', 999, 1)");
+                }
+                $genericPlatformId = $db->lastInsertId();
+            }
+            $stmt = $db->prepare("INSERT INTO template_links (template_id, platform_id, url, sort_order) VALUES (?, ?, ?, 0)");
+            foreach ($rows as $row) {
+                $stmt->execute([$row['id'], $genericPlatformId, $row['store_url']]);
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_023($db, $type) {
+    // Drop banners.engine_tag — banner is carousel, not engine-specific
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE banners DROP COLUMN IF EXISTS engine_tag");
+        } else {
+            $db->exec("ALTER TABLE banners DROP COLUMN engine_tag");
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_024($db, $type) {
+    // Drop games.zip_filename — never used
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games DROP COLUMN IF EXISTS zip_filename");
+        } else {
+            $db->exec("ALTER TABLE games DROP COLUMN zip_filename");
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_025($db, $type) {
+    // Drop retro_games.patch_url — never used
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE retro_games DROP COLUMN IF EXISTS patch_url");
+        } else {
+            $db->exec("ALTER TABLE retro_games DROP COLUMN patch_url");
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_026($db, $type) {
+    // Drop game_templates.store_url — migrated to template_links
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE game_templates DROP COLUMN IF EXISTS store_url");
+        } else {
+            $db->exec("ALTER TABLE game_templates DROP COLUMN store_url");
+        }
+    } catch (Exception $e) {}
+
+    // Drop users.role — legacy, all logic uses role_id
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE users DROP COLUMN IF EXISTS `role`");
+        } else {
+            $db->exec("ALTER TABLE users DROP COLUMN `role`");
+        }
+    } catch (Exception $e) {}
+
+    // Drop roles.level — never used, display-only was from level_id
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE roles DROP COLUMN IF EXISTS `level`");
+        } else {
+            $db->exec("ALTER TABLE roles DROP COLUMN `level`");
+        }
+    } catch (Exception $e) {}
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();
     if ($roleCount == 0) {
-        $stmt = $db->prepare("INSERT INTO roles (name, level, description) VALUES (?, ?, ?)");
-        $stmt->execute(['CEO Administrador', 'ceo', 'Administrador master do sistema — controle total sobre todas as operações']);
-        $stmt->execute(['CEO Sócio', 'ceo', 'Sócio com poderes administrativos — pode criar cargos de nível chief e moderator']);
-        $stmt->execute(['CEO Investidor', 'ceo', 'Investidor com poderes administrativos — pode criar cargos de nível chief e moderator']);
-        $stmt->execute(['CTO', 'chief', 'Chief Technology Officer — gerencia conteúdo, jogos e cargos moderator']);
-        $stmt->execute(['CMO', 'chief', 'Chief Marketing Officer — gerencia conteúdo, blog e cargos moderator']);
-        $stmt->execute(['Moderator', 'moderator', 'Gerenciamento operacional da plataforma — conteúdo e suporte']);
+        $stmt = $db->prepare("INSERT INTO roles (name, description) VALUES (?, ?)");
+        $stmt->execute(['CEO Administrador', 'Administrador master do sistema — controle total sobre todas as operações']);
+        $stmt->execute(['CEO Sócio', 'Sócio com poderes administrativos — pode criar cargos de nível chief e moderator']);
+        $stmt->execute(['CEO Investidor', 'Investidor com poderes administrativos — pode criar cargos de nível chief e moderator']);
+        $stmt->execute(['CTO', 'Chief Technology Officer — gerencia conteúdo, jogos e cargos moderator']);
+        $stmt->execute(['CMO', 'Chief Marketing Officer — gerencia conteúdo, blog e cargos moderator']);
+        $stmt->execute(['Moderator', 'Gerenciamento operacional da plataforma — conteúdo e suporte']);
     }
 
     // Seed default admin user
@@ -421,7 +982,7 @@ function dbSeed($db, $type) {
     $row = $stmt->fetch();
     if ($row['cnt'] == 0) {
         $ceoRoleId = $db->query("SELECT id FROM roles WHERE name = 'CEO Administrador'")->fetchColumn();
-        $stmt = $db->prepare("INSERT INTO users (username, password_hash, role, role_id) VALUES (?, ?, 'ceo', ?)");
+        $stmt = $db->prepare("INSERT INTO users (username, password_hash, role_id) VALUES (?, ?, ?)");
         $stmt->execute([ADMIN_USERNAME, ADMIN_PASSWORD_HASH, $ceoRoleId]);
     } else {
         // Ensure admin user has role_id set
@@ -463,27 +1024,27 @@ function seedDefaultData($db) {
     if ($count > 0) return;
 
     $banners = [
-        ['title' => 'Seu Portfólio de Jogos', 'subtitle' => 'Publique em qualquer engine', 'description' => 'Gerencie e publique seus jogos digitais em uma plataforma unificada. Compatível com GDevelop, Godot, Unity, RPG Maker e muito mais.', 'image_url' => '', 'cta_text' => 'Ver Portfólio', 'cta_url' => '#portfolio', 'engine_tag' => '', 'sort_order' => 1, 'active' => 1],
-        ['title' => 'Multi-Engine', 'subtitle' => 'Qualquer engine, qualquer plataforma', 'description' => 'GDevelop, Godot, RPG Maker, Unity, Construct, Game Maker e outras. Sua escolha, seu jogo.', 'image_url' => '', 'cta_text' => 'Ver Engines', 'cta_url' => '#engines', 'engine_tag' => '', 'sort_order' => 2, 'active' => 1],
-        ['title' => 'Demonstração', 'subtitle' => 'Explore os recursos do CMS', 'description' => 'Este é um ambiente de demonstração. Configure seus banners, adicione jogos e personalize seu site.', 'image_url' => '', 'cta_text' => 'Começar', 'cta_url' => '#start', 'engine_tag' => '', 'sort_order' => 3, 'active' => 1],
+        ['title' => 'Seu Portfólio de Jogos', 'subtitle' => 'Publique em qualquer engine', 'description' => 'Gerencie e publique seus jogos digitais em uma plataforma unificada. Compatível com GDevelop, Godot, Unity, RPG Maker e muito mais.', 'image_url' => '', 'cta_text' => 'Ver Portfólio', 'cta_url' => '#portfolio', 'sort_order' => 1, 'active' => 1],
+        ['title' => 'Multi-Engine', 'subtitle' => 'Qualquer engine, qualquer plataforma', 'description' => 'GDevelop, Godot, RPG Maker, Unity, Construct, Game Maker e outras. Sua escolha, seu jogo.', 'image_url' => '', 'cta_text' => 'Ver Engines', 'cta_url' => '#engines', 'sort_order' => 2, 'active' => 1],
+        ['title' => 'Demonstração', 'subtitle' => 'Explore os recursos do CMS', 'description' => 'Este é um ambiente de demonstração. Configure seus banners, adicione jogos e personalize seu site.', 'image_url' => '', 'cta_text' => 'Começar', 'cta_url' => '#start', 'sort_order' => 3, 'active' => 1],
     ];
 
-    $stmt = $db->prepare("INSERT INTO banners (title, subtitle, description, image_url, cta_text, cta_url, engine_tag, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO banners (title, subtitle, description, image_url, cta_text, cta_url, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     foreach ($banners as $b) {
-        $stmt->execute([$b['title'], $b['subtitle'], $b['description'], $b['image_url'], $b['cta_text'], $b['cta_url'], $b['engine_tag'], $b['sort_order'], $b['active']]);
+        $stmt->execute([$b['title'], $b['subtitle'], $b['description'], $b['image_url'], $b['cta_text'], $b['cta_url'], $b['sort_order'], $b['active']]);
     }
 
     $games = [
-        ['title' => 'Meu Primeiro Jogo', 'slug' => 'meu-primeiro-jogo', 'engine' => 'GDevelop', 'description' => 'Um jogo de exemplo criado com GDevelop para demonstrar os recursos do CMS.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 1, 'active' => 1],
-        ['title' => 'Aventura em Pixel', 'slug' => 'aventura-em-pixel', 'engine' => 'Godot', 'description' => 'Jogo de plataforma 2D com pixel art e física precisa.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 2, 'active' => 1],
-        ['title' => 'RPG das Dungeons', 'slug' => 'rpg-das-dungeons', 'engine' => 'RPG Maker', 'description' => 'RPG clássico com exploração, batalhas e uma história envolvente.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 3, 'active' => 1],
-        ['title' => 'Corrida Arcade', 'slug' => 'corrida-arcade', 'engine' => 'Unity', 'description' => 'Jogo de corrida arcade com gráficos 3D e trilha sonora eletrônica.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 4, 'active' => 1],
-        ['title' => 'Visual Novel Demo', 'slug' => 'visual-novel-demo', 'engine' => "Ren'py", 'description' => 'Uma visual novel interativa demonstrando recursos de narrativa e escolhas.', 'thumbnail_url' => '', 'zip_filename' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'portrait', 'sort_order' => 5, 'active' => 1],
+        ['title' => 'Meu Primeiro Jogo', 'slug' => 'meu-primeiro-jogo', 'engine' => 'GDevelop', 'description' => 'Um jogo de exemplo criado com GDevelop para demonstrar os recursos do CMS.', 'thumbnail_url' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 1, 'active' => 1],
+        ['title' => 'Aventura em Pixel', 'slug' => 'aventura-em-pixel', 'engine' => 'Godot', 'description' => 'Jogo de plataforma 2D com pixel art e física precisa.', 'thumbnail_url' => '', 'game_path' => '', 'featured' => 1, 'orientation' => 'landscape', 'sort_order' => 2, 'active' => 1],
+        ['title' => 'RPG das Dungeons', 'slug' => 'rpg-das-dungeons', 'engine' => 'RPG Maker', 'description' => 'RPG clássico com exploração, batalhas e uma história envolvente.', 'thumbnail_url' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 3, 'active' => 1],
+        ['title' => 'Corrida Arcade', 'slug' => 'corrida-arcade', 'engine' => 'Unity', 'description' => 'Jogo de corrida arcade com gráficos 3D e trilha sonora eletrônica.', 'thumbnail_url' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'landscape', 'sort_order' => 4, 'active' => 1],
+        ['title' => 'Visual Novel Demo', 'slug' => 'visual-novel-demo', 'engine' => "Ren'py", 'description' => 'Uma visual novel interativa demonstrando recursos de narrativa e escolhas.', 'thumbnail_url' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'portrait', 'sort_order' => 5, 'active' => 1],
     ];
 
-    $stmt = $db->prepare("INSERT INTO games (title, slug, engine, description, thumbnail_url, zip_filename, game_path, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     foreach ($games as $g) {
-        $stmt->execute([$g['title'], $g['slug'], $g['engine'], $g['description'], $g['thumbnail_url'], $g['zip_filename'], $g['game_path'], $g['featured'], $g['orientation'], $g['sort_order'], $g['active']]);
+        $stmt->execute([$g['title'], $g['slug'], $g['engine'], $g['description'], $g['thumbnail_url'], $g['game_path'], $g['featured'], $g['orientation'], $g['sort_order'], $g['active']]);
     }
 
     $testimonials = [

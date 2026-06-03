@@ -1,16 +1,18 @@
 <?php
 ob_start();
 $pageTitle = 'Engines';
+$requiredPerm = 'perm_engines';
 require_once __DIR__ . '/../includes/header.php';
 
 $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $id = (int)($_POST['id'] ?? $id);
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: engines');
+        header('Location: ' . ADMIN_URL . '/engines');
         exit;
     }
 
@@ -39,20 +41,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         ob_end_clean();
-        header('Location: engines');
+        header('Location: ' . ADMIN_URL . '/engines');
         exit;
     }
 
     if ($_POST['action'] === 'delete') {
-        $used = dbQueryOne("SELECT COUNT(*) as cnt FROM games WHERE engine = (SELECT name FROM engines WHERE id = ?)", [$id]);
-        if ($used && $used['cnt'] > 0) {
-            flashMessage('error', 'Não é possível excluir: existem jogos usando esta engine.');
+        $usedGames = dbQueryOne("SELECT COUNT(*) as cnt FROM games WHERE engine = (SELECT name FROM engines WHERE id = ?)", [$id]);
+        $usedTemplates = dbQueryOne("SELECT COUNT(*) as cnt FROM game_templates WHERE engine = (SELECT name FROM engines WHERE id = ?)", [$id]);
+        if (($usedGames && $usedGames['cnt'] > 0) || ($usedTemplates && $usedTemplates['cnt'] > 0)) {
+            flashMessage('error', 'Não é possível excluir: existem jogos ou templates usando esta engine.');
         } else {
             dbDelete('engines', $id);
             flashMessage('success', 'Engine excluída.');
         }
         ob_end_clean();
-        header('Location: engines');
+        header('Location: ' . ADMIN_URL . '/engines');
         exit;
     }
 
@@ -62,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             dbExec("UPDATE engines SET active = ? WHERE id = ?", [1 - $engine['active'], $id]);
         }
         ob_end_clean();
-        header('Location: engines');
+        header('Location: ' . ADMIN_URL . '/engines');
         exit;
     }
 }
@@ -71,7 +74,7 @@ if ($action === 'new' || $action === 'edit') {
     $engine = $id > 0 ? dbQueryOne("SELECT * FROM engines WHERE id = ?", [$id]) : null;
     if ($action === 'edit' && !$engine) {
         flashMessage('error', 'Engine não encontrada.');
-        header('Location: engines');
+        header('Location: ' . ADMIN_URL . '/engines');
         exit;
     }
     ?>
@@ -100,8 +103,8 @@ if ($action === 'new' || $action === 'edit') {
             <div class="form-row">
                 <div class="form-group">
                     <label for="icon">Ícone (emoji)</label>
-                    <input type="text" id="icon" name="icon" value="<?= e($engine['icon'] ?? '🎮') ?>" maxlength="10">
-                    <div class="field-hint">Use um emoji como 🎮 🤖 ⚔️ 🔷 🎯</div>
+                    <input type="text" id="icon" name="icon" class="emoji-field" value="<?= e($engine['icon'] ?? '🎮') ?>" maxlength="10">
+                    <div class="field-hint">Clique no seletor para escolher um emoji</div>
                 </div>
                 <div class="form-group">
                     <label for="color">Cor (OKLCH)</label>

@@ -1,19 +1,28 @@
 <?php
 ob_start();
 $pageTitle = 'Jogos';
+$requiredPerm = 'perm_games';
 require_once __DIR__ . '/../includes/header.php';
 
+$canEditGames = can('perm_games');
 $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $id = (int)($_POST['id'] ?? $id);
+    if (!$canEditGames) {
+        flashMessage('error', 'Apenas cargos Chief ou superior podem alterar jogos.');
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/games');
+        exit;
+    }
     // Detect oversized upload (POST empty due to exceeding post_max_size)
     if (empty($_POST) && empty($_FILES)) {
         $serverLimit = @ini_get('post_max_size') ?: '30M';
         flashMessage('error', "Arquivo excede o limite do servidor ($serverLimit). Contate a hospedagem para aumentar post_max_size.");
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 
@@ -27,14 +36,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flashMessage('error', 'Erro no upload do arquivo.');
         }
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 
@@ -42,6 +51,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $title = trim($_POST['title']);
         $engine = trim($_POST['engine']);
         $description = trim($_POST['description']);
+        $game_type = in_array($_POST['game_type'] ?? '', ['autoral', 'cliente', 'externo']) ? $_POST['game_type'] : 'autoral';
+        $external_url = trim($_POST['external_url'] ?? '');
+        $repo_url = trim($_POST['repo_url'] ?? '');
+        $is_open_source = isset($_POST['is_open_source']) ? 1 : 0;
+        $is_web_playable = $game_type === 'externo' ? 1 : (isset($_POST['is_web_playable']) ? 1 : 0);
         $featured = isset($_POST['featured']) ? 1 : 0;
         $orientation = in_array($_POST['orientation'] ?? '', ['auto', 'landscape', 'portrait']) ? $_POST['orientation'] : 'auto';
         $sort_order = (int)($_POST['sort_order'] ?? 0);
@@ -52,12 +66,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Handle thumbnail upload
         if (isset($_FILES['thumbnail']) && $_FILES['thumbnail']['error'] === UPLOAD_ERR_OK) {
+            $oldThumb = $id > 0 ? dbQueryOne("SELECT thumbnail_url FROM games WHERE id = ?", [$id])['thumbnail_url'] ?? '' : '';
             $result = uploadFile($_FILES['thumbnail'], 'thumbnails', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
             if ($result['success']) {
                 $thumbnail_url = $result['url'];
+                if (!empty($oldThumb)) deleteFile($oldThumb);
             } else {
                 flashMessage('error', $result['message']);
-                header('Location: games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                header('Location: ' . ADMIN_URL . '/games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -74,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+                header('Location: ' . ADMIN_URL . '/games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -82,7 +98,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (empty($title)) {
             flashMessage('error', 'Título é obrigatório.');
             ob_end_clean();
-            header('Location: games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            header('Location: ' . ADMIN_URL . '/games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            exit;
+        }
+
+        if ($game_type === 'externo' && empty($external_url)) {
+            flashMessage('error', 'URL Externa é obrigatória para jogos do tipo Externo.');
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
             exit;
         }
 
@@ -99,33 +122,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $thumbnail_url = $existing['thumbnail_url'] ?? '';
                 }
 
-                dbExec("UPDATE games SET title=?, slug=?, engine=?, description=?, thumbnail_url=?, game_path=?, featured=?, orientation=?, sort_order=?, active=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $featured, $orientation, $sort_order, $active, $id]);
+                dbExec("UPDATE games SET title=?, slug=?, engine=?, description=?, thumbnail_url=?, game_path=?, game_type=?, is_web_playable=?, featured=?, orientation=?, sort_order=?, active=?, external_url=?, repo_url=?, is_open_source=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $sort_order, $active, $external_url, $repo_url, $is_open_source, $id]);
                 flashMessage('success', 'Jogo atualizado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
             } else {
-                dbExec("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $featured, $orientation, $sort_order, $active]);
+                $id = dbExec("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, game_type, is_web_playable, featured, orientation, sort_order, active, external_url, repo_url, is_open_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $sort_order, $active, $external_url, $repo_url, $is_open_source]);
                 flashMessage('success', 'Jogo criado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
+            }
+
+            // Save game links (distribution platforms)
+            if ($id > 0) {
+                $db = getDB();
+                $db->prepare("DELETE FROM game_links WHERE game_id = ?")->execute([$id]);
+                if (isset($_POST['link_platform']) && is_array($_POST['link_platform'])) {
+                    $stmt = $db->prepare("INSERT INTO game_links (game_id, platform_id, url, sort_order) VALUES (?, ?, ?, ?)");
+                    $order = 0;
+                    foreach ($_POST['link_platform'] as $i => $platformId) {
+                        $url = trim($_POST['link_url'][$i] ?? '');
+                        if ($platformId > 0 && !empty($url)) {
+                            $stmt->execute([$id, (int)$platformId, $url, $order++]);
+                        }
+                    }
+                }
             }
         } catch (Exception $ex) {
             flashMessage('error', 'Erro ao salvar: ' . $ex->getMessage());
         }
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 
     if ($_POST['action'] === 'delete') {
         $game = dbQueryOne("SELECT * FROM games WHERE id = ?", [$id]);
         if ($game) {
-            if ($game['game_path']) {
+            if (!empty($game['game_path'])) {
                 deleteGameDir($game['game_path']);
+            }
+            if (!empty($game['thumbnail_url'])) {
+                deleteFile($game['thumbnail_url']);
             }
             dbDelete('games', $id);
             flashMessage('success', 'Jogo excluído.');
         }
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 
@@ -139,16 +181,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
         ob_end_clean();
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
 }
 
 if ($action === 'new' || $action === 'edit') {
     $game = $id > 0 ? dbQueryOne("SELECT * FROM games WHERE id = ?", [$id]) : null;
+    $gameLinks = [];
+    if ($id > 0) {
+        $gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM game_links gl JOIN store_platforms p ON gl.platform_id = p.id WHERE gl.game_id = ? ORDER BY gl.sort_order", [$id]);
+    }
     if ($action === 'edit' && !$game) {
         flashMessage('error', 'Jogo não encontrado.');
-        header('Location: games');
+        header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
     ?>
@@ -213,15 +259,11 @@ if ($action === 'new' || $action === 'edit') {
                         <?php
                         $allEngines = getEngines();
                         $currentEngine = $game['engine'] ?? '';
-                        $hasCurrent = false;
                         foreach ($allEngines as $eng) {
-                            if ($eng['name'] === $currentEngine) $hasCurrent = true;
-                            if (!$eng['active'] && $eng['name'] !== $currentEngine) continue;
+                            $label = e($eng['icon'] ?? '') . ' ' . e($eng['name']);
+                            if (!$eng['active']) $label .= ' (inativa)';
                             echo '<option value="' . e($eng['name']) . '" ' . ($currentEngine === $eng['name'] ? 'selected' : '') . '>'
-                                . e($eng['icon'] ?? '') . ' ' . e($eng['name']) . '</option>';
-                        }
-                        if ($currentEngine && !$hasCurrent && $currentEngine !== 'Outra') {
-                            echo '<option value="' . e($currentEngine) . '" selected>' . e($currentEngine) . ' (inativa)</option>';
+                                . $label . '</option>';
                         }
                         ?>
                     </select>
@@ -250,7 +292,7 @@ if ($action === 'new' || $action === 'edit') {
                         <img src="<?= e($game['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail">
                     <?php endif; ?>
                 </div>
-                <div class="form-group">
+                <div class="form-group" id="gameArchiveGroup">
                     <label>Arquivo do Jogo</label>
                     <div class="file-upload" id="gameArchiveDrop">
                         <input type="file" name="game_archive" accept=".zip" id="gameArchiveInput">
@@ -290,18 +332,106 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-row">
                 <div class="form-group">
+                    <label for="game_type">Tipo</label>
+                    <select id="game_type" name="game_type">
+                        <option value="autoral" <?= ($game['game_type'] ?? 'autoral') === 'autoral' ? 'selected' : '' ?>>Autoral</option>
+                        <option value="cliente" <?= ($game['game_type'] ?? '') === 'cliente' ? 'selected' : '' ?>>Cliente</option>
+                        <option value="externo" <?= ($game['game_type'] ?? '') === 'externo' ? 'selected' : '' ?>>Externo</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <div class="toggle-group" style="margin-top:28px">
+                        <input type="checkbox" id="is_web_playable" name="is_web_playable" <?= ($game['is_web_playable'] ?? 1) ? 'checked' : '' ?>>
+                        <label for="is_web_playable">Jogável no navegador</label>
+                    </div>
+                    <div class="field-hint" style="margin-top:4px">Marque se o jogo roda na nossa plataforma (HTML5 upload ou link externo via iframe)</div>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group">
                     <div class="toggle-group" style="margin-top:28px">
                         <input type="checkbox" id="featured" name="featured" <?= ($game['featured'] ?? 0) ? 'checked' : '' ?>>
                         <label for="featured">Destaque no site</label>
                     </div>
                 </div>
+                <div class="form-group">
+                    <div class="toggle-group" style="margin-top:28px">
+                        <input type="checkbox" id="active" name="active" <?= ($game['active'] ?? 1) ? 'checked' : '' ?>>
+                        <label for="active">Ativo</label>
+                    </div>
+                </div>
             </div>
 
-            <div class="form-group">
-                <div class="toggle-group">
-                    <input type="checkbox" id="active" name="active" <?= ($game['active'] ?? 1) ? 'checked' : '' ?>>
-                    <label for="active">Ativo</label>
+            <h3 class="form-section-title" id="externalSection" style="<?= ($game['game_type'] ?? '') === 'externo' ? '' : 'display:none' ?>">Link Externo</h3>
+            <div id="externalContainer" style="<?= ($game['game_type'] ?? '') === 'externo' ? '' : 'display:none' ?>">
+                <div class="form-row">
+                    <div class="form-group" style="flex:2">
+                        <label for="external_url">URL do Site do Jogo *</label>
+                        <input type="url" id="external_url" name="external_url" value="<?= e($game['external_url'] ?? '') ?>" placeholder="https://exemplo.com.br">
+                        <div class="field-hint">URL completa do site onde o jogo roda. Será exibido via iframe. Jogos externos não têm upload de arquivo.</div>
+                    </div>
                 </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <div class="toggle-group" style="margin-top:28px">
+                            <input type="checkbox" id="is_open_source" name="is_open_source" <?= ($game['is_open_source'] ?? 0) ? 'checked' : '' ?>>
+                            <label for="is_open_source">Projeto Open Source</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row" id="repoUrlRow" style="<?= ($game['is_open_source'] ?? 0) ? '' : 'display:none' ?>">
+                    <div class="form-group" style="flex:2">
+                        <label for="repo_url">URL do Repositório</label>
+                        <input type="url" id="repo_url" name="repo_url" value="<?= e($game['repo_url'] ?? '') ?>" placeholder="https://github.com/usuario/repositorio">
+                        <div class="field-hint">Link para GitHub, GitLab ou outro repositório</div>
+                    </div>
+                </div>
+            </div>
+
+            <h3 class="form-section-title" id="gameLinksSection">Links de Distribuição</h3>
+            <div id="gameLinksContainer">
+                <div class="field-hint" style="margin-bottom:12px">Links para lojas onde o jogo pode ser adquirido ou baixado. Funciona independente de ser jogável no navegador.</div>
+                <div style="display:flex;gap:8px;margin-bottom:8px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase">
+                    <div style="flex:0 0 30%">Plataforma</div>
+                    <div style="flex:0 0 50%">URL do Link</div>
+                    <div style="flex:0 0 20%;text-align:center">Ação</div>
+                </div>
+                <div id="gameLinksList">
+                    <?php
+                    $platforms = dbQuery("SELECT id, name, icon, use_logo, logo_path FROM store_platforms WHERE active = 1 ORDER BY sort_order ASC, name ASC");
+                    if (!empty($gameLinks)):
+                        foreach ($gameLinks as $gl):
+                    ?>
+                    <div class="game-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
+                        <div class="form-group" style="flex:0 0 30%;margin-bottom:0">
+                            <div style="display:flex;align-items:center;gap:6px">
+                                <?php if (!empty($gl['use_logo']) && !empty($gl['logo_path'])): ?>
+                                    <img src="/<?= e($gl['logo_path']) ?>" alt="" class="platform-thumb" style="height:18px;width:auto;flex-shrink:0">
+                                <?php else: ?>
+                                    <span class="platform-thumb" style="font-size:18px;flex-shrink:0"><?= e($gl['platform_icon'] ?? '🛒') ?></span>
+                                <?php endif; ?>
+                                <select name="link_platform[]" style="width:100%">
+                                    <option value="">Selecione...</option>
+                                    <?php foreach ($platforms as $p): ?>
+                                    <option value="<?= $p['id'] ?>" <?= $gl['platform_id'] == $p['id'] ? 'selected' : '' ?>><?= e($p['name']) ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="form-group" style="flex:0 0 50%;margin-bottom:0">
+                            <input type="url" name="link_url[]" value="<?= e($gl['url']) ?>" placeholder="https://..." style="width:100%">
+                        </div>
+                        <div style="flex:0 0 20%;text-align:center;padding-bottom:2px">
+                            <button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">🗑️ Excluir</button>
+                        </div>
+                    </div>
+                    <?php
+                        endforeach;
+                    endif;
+                    ?>
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" id="addGameLink">+ Adicionar Link</button>
             </div>
 
             <div class="form-actions">
@@ -396,6 +526,105 @@ if ($action === 'new' || $action === 'edit') {
             }
         });
     });
+
+    // Game links add/remove and toggle
+    const container = document.getElementById('gameLinksContainer');
+    const sectionTitle = document.getElementById('gameLinksSection');
+    const list = document.getElementById('gameLinksList');
+    const addBtn = document.getElementById('addGameLink');
+    const isWebPlayable = document.getElementById('is_web_playable');
+    const gameType = document.getElementById('game_type');
+    const externalSection = document.getElementById('externalSection');
+    const externalContainer = document.getElementById('externalContainer');
+    const isOpenSource = document.getElementById('is_open_source');
+    const repoUrlRow = document.getElementById('repoUrlRow');
+    const gameArchiveGroup = document.getElementById('gameArchiveGroup');
+
+    function toggleExternalFields() {
+        const isExterno = gameType.value === 'externo';
+        if (externalSection) externalSection.style.display = isExterno ? '' : 'none';
+        if (externalContainer) externalContainer.style.display = isExterno ? '' : 'none';
+        if (gameArchiveGroup) gameArchiveGroup.style.display = isExterno ? 'none' : '';
+        if (isWebPlayable) {
+            isWebPlayable.checked = isExterno ? true : isWebPlayable.dataset.original !== undefined ? isWebPlayable.dataset.original === '1' : <?= ($game['is_web_playable'] ?? 1) ? 'true' : 'false' ?>;
+            isWebPlayable.disabled = isExterno;
+        }
+    }
+
+    function toggleRepoUrl() {
+        if (repoUrlRow) repoUrlRow.style.display = isOpenSource.checked ? '' : 'none';
+    }
+
+    if (isWebPlayable) {
+        isWebPlayable.dataset.original = isWebPlayable.checked ? '1' : '0';
+        isWebPlayable.addEventListener('change', () => {
+            isWebPlayable.dataset.original = isWebPlayable.checked ? '1' : '0';
+        });
+    }
+
+    if (gameType) {
+        gameType.addEventListener('change', toggleExternalFields);
+    }
+
+    if (isOpenSource) {
+        isOpenSource.addEventListener('change', toggleRepoUrl);
+    }
+
+    const platforms = <?= json_encode(array_map(function($p) {
+        return ['id' => $p['id'], 'name' => $p['name'], 'icon' => $p['icon'] ?? '', 'use_logo' => !empty($p['use_logo']) ? 1 : 0, 'logo_path' => $p['logo_path'] ?? ''];
+    }, $platforms ?? [])) ?>;
+
+    function createLinkRow(platformId, url) {
+        let selectHtml = '<select name="link_platform[]"><option value="">Selecione...</option>';
+        let thumbHtml = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">🛒</span>';
+        platforms.forEach(p => {
+            selectHtml += `<option value="${p.id}" ${p.id == platformId ? 'selected' : ''}>${p.name}</option>`;
+            if (p.id == platformId) {
+                thumbHtml = p.use_logo && p.logo_path
+                    ? `<img class="platform-thumb" src="/${p.logo_path}" alt="" style="height:18px;width:auto;flex-shrink:0">`
+                    : `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">${p.icon}</span>`;
+            }
+        });
+        selectHtml += '</select>';
+        return `<div class="game-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
+            <div class="form-group" style="flex:0 0 30%;margin-bottom:0">
+                <div style="display:flex;align-items:center;gap:6px">${thumbHtml}${selectHtml}</div>
+            </div>
+            <div class="form-group" style="flex:0 0 50%;margin-bottom:0"><input type="url" name="link_url[]" value="${url}" placeholder="https://..." style="width:100%"></div>
+            <div style="flex:0 0 20%;text-align:center;padding-bottom:2px"><button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">🗑️ Excluir</button></div>
+        </div>`;
+    }
+
+    if (addBtn) {
+        addBtn.addEventListener('click', () => {
+            const div = document.createElement('div');
+            div.innerHTML = createLinkRow(0, '');
+            list.appendChild(div.firstElementChild);
+        });
+    }
+
+    list.addEventListener('click', (e) => {
+        if (e.target.classList.contains('game-link-remove')) {
+            e.target.closest('.game-link-row').remove();
+        }
+    });
+
+    list.addEventListener('change', (e) => {
+        if (e.target.matches('select[name="link_platform[]"]')) {
+            const row = e.target.closest('.game-link-row');
+            const thumb = row.querySelector('.platform-thumb');
+            const selected = platforms.find(p => p.id == e.target.value);
+            if (selected) {
+                if (selected.use_logo && selected.logo_path) {
+                    thumb.outerHTML = `<img class="platform-thumb" src="/${selected.logo_path}" alt="" style="height:18px;width:auto;flex-shrink:0">`;
+                } else {
+                    thumb.outerHTML = `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">${selected.icon}</span>`;
+                }
+            } else {
+                thumb.outerHTML = `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">🛒</span>`;
+            }
+        }
+    });
     </script>
     <?php
 } else {
@@ -404,7 +633,9 @@ if ($action === 'new' || $action === 'edit') {
     <div class="card">
         <div class="card-header">
             <h2 class="card-title">Todos os Jogos</h2>
+            <?php if ($canEditGames): ?>
             <a href="games?action=new" class="btn btn-gold btn-sm">+ Novo Jogo</a>
+            <?php endif; ?>
         </div>
         <?php if (empty($games)): ?>
             <div class="card-body">
@@ -421,8 +652,9 @@ if ($action === 'new' || $action === 'edit') {
                     <thead>
                         <tr>
                             <th>Título</th>
+                            <th>Tipo</th>
                             <th>Engine</th>
-                            <th class="hide-tablet">ZIP</th>
+                            <th class="hide-tablet">Detalhes</th>
                             <th>Status</th>
                             <th class="hide-mobile">Otimização</th>
                             <th class="hide-mobile">Criado</th>
@@ -433,11 +665,26 @@ if ($action === 'new' || $action === 'edit') {
                         <?php foreach ($games as $g): ?>
                         <tr>
                             <td><strong style="color:var(--fg)"><?= e($g['title']) ?></strong></td>
-                            <td><span class="game-engine-badge" style="background:<?= getEngineColor($g['engine']) ?>"><?= getEngineIcon($g['engine']) ?> <?= e($g['engine']) ?></span></td>
-                            <td class="hide-tablet"><?= $g['game_path'] ? '📦 ' . e($g['game_path']) : '—' ?></td>
+                            <td>
+                                <?php if (($g['game_type'] ?? 'autoral') === 'cliente'): ?>
+                                    <span class="badge badge-client">Cliente</span>
+                                <?php elseif (($g['game_type'] ?? '') === 'externo'): ?>
+                                    <span class="badge badge-external">Externo</span>
+                                <?php else: ?>
+                                    <span class="badge badge-autoral">Autoral</span>
+                                <?php endif; ?>
+                            </td>
+                            <td><span class="badge" style="background:<?= getEngineColor($g['engine']) ?>;color:#fff;font-weight:600;text-transform:none;letter-spacing:normal;font-size:10px"><?= getEngineIcon($g['engine']) ?> <?= e($g['engine']) ?></span></td>
+                            <td class="hide-tablet">
+                                <?php if (($g['game_type'] ?? '') === 'externo'): ?>
+                                    🌐 <?= e($g['external_url'] ? mb_strimwidth($g['external_url'], 0, 40, '...') : '—') ?>
+                                <?php else: ?>
+                                    📦 <?= $g['game_path'] ? e($g['game_path']) : '—' ?>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if (!$g['engine_active']): ?>
-                                    <span class="badge badge-inactive">Engine Inativa</span>
+                                    <span class="badge badge-inactive" title="Engine inativa — jogo não aparece para os usuários" style="cursor:help">⚙️ Engine Inativa</span>
                                 <?php elseif ($g['active']): ?>
                                     <span class="badge badge-active">Ativo</span>
                                 <?php else: ?>
@@ -459,13 +706,18 @@ if ($action === 'new' || $action === 'edit') {
                                 <?php endif; ?>
                             </td>
                             <td class="hide-mobile"><?= timeAgo($g['created_at']) ?></td>
+                            <?php if ($canEditGames): ?>
                             <td class="actions">
+                                <?php if ($g['engine_active']): ?>
                                 <form method="POST" style="display:inline">
                                     <input type="hidden" name="action" value="toggle">
                                     <input type="hidden" name="id" value="<?= $g['id'] ?>">
                                     <?= csrfField() ?>
-                                    <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $g['engine_active'] ? ($g['active'] ? 'Desativar' : 'Ativar') : 'Engine inativa — use Engines para ativar' ?>" <?= $g['engine_active'] ? '' : 'disabled style="opacity:0.4;cursor:not-allowed"' ?>><?= $g['active'] && $g['engine_active'] ? '🔴' : '🟢' ?></button>
+                                    <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $g['active'] ? 'Desativar' : 'Ativar' ?>"><?= $g['active'] ? '🔴' : '🟢' ?></button>
                                 </form>
+                                <?php else: ?>
+                                <span class="btn btn-outline btn-sm btn-icon" style="opacity:0.4;cursor:not-allowed" title="Jogo com engine inativa — ative a engine primeiro">🔒</span>
+                                <?php endif; ?>
                                 <a href="games?action=edit&id=<?= $g['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
                                 <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este jogo? O arquivo ZIP também será removido.')">
                                     <input type="hidden" name="action" value="delete">
@@ -474,6 +726,9 @@ if ($action === 'new' || $action === 'edit') {
                                     <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button>
                                 </form>
                             </td>
+                            <?php else: ?>
+                            <td class="actions"><span style="color:var(--muted);font-size:12px">Somente visualização</span></td>
+                            <?php endif; ?>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>

@@ -142,7 +142,26 @@ function getMigrationList() {
         5 => 'add_user_setup_fields',
         6 => 'create_engines_table',
         7 => 'seed_engines_data',
-    ];
+        8 => 'clean_engine_outra',
+        9 => 'add_game_fields_platforms',
+        10 => 'create_game_templates',
+        11 => 'create_retro_games',
+        12 => 'create_retro_consoles',
+        13 => 'add_external_game_fields',
+        14 => 'seed_retro_consoles',
+        15 => 'add_console_thumbnail',
+        16 => 'add_modification_description',
+        17 => 'make_password_hash_nullable',
+        18 => 'add_email_verification',
+        19 => 'create_levels_table',
+        20 => 'add_template_free_file_gallery',
+        21 => 'add_platform_logo',
+         22 => 'add_template_links',
+         23 => 'drop_banners_engine_tag',
+         24 => 'drop_games_zip_filename',
+         25 => 'drop_retro_games_patch_url',
+         26 => 'drop_templates_store_url_users_role_roles_level',
+     ];
 }
 
 function dbInit($dsn = null, $user = null, $pass = null, $type = null) {
@@ -227,7 +246,9 @@ function dbExec($sql, $params = []) {
 function dbDelete($table, $id) {
     $db = getDB();
     if (!$db) return false;
-    $stmt = $db->prepare("DELETE FROM $table WHERE id = ?");
+    $allowed = ['banners','games','blog_posts','testimonials','faq_items','team_members','users','engines','store_platforms','game_links','template_links','retro_games','retro_consoles','levels','roles','site_settings'];
+    if (!in_array($table, $allowed)) return false;
+    $stmt = $db->prepare("DELETE FROM `$table` WHERE id = ?");
     return $stmt->execute([$id]);
 }
 

@@ -78,9 +78,17 @@ document.addEventListener('DOMContentLoaded', () => {
     let ringRange = 2; // ±2 = 5 items (desktop/tablet)
 
     function getRingRange() {
-        if (window.innerWidth <= 390) return 0; // single card
-        if (window.innerWidth <= 600) return 1; // 3 cards
-        return 2; // 5 cards
+        const total = gameCards.length;
+        let maxRange;
+        if (window.innerWidth <= 390) maxRange = 0;      // 1 card
+        else if (window.innerWidth <= 600) maxRange = 1;  // 3 cards
+        else maxRange = 2;                                 // 5 cards
+
+        // Manter sempre número ímpar de cards visíveis
+        if (maxRange > 0 && total <= maxRange * 2 + 1) {
+            maxRange = Math.floor((total - 1) / 2);
+        }
+        return Math.max(0, maxRange);
     }
 
     function updateRing() {

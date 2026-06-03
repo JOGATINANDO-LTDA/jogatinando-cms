@@ -83,6 +83,61 @@ if ($uri === '/admin' || strpos($uri, '/admin/') === 0) {
     $requireAdmin('index.php');
 }
 
+// ---- New Frontend Routes (before generic game player) ----
+
+if ($uri === '/autoral') {
+    $_GET['type'] = 'autoral';
+    require __DIR__ . '/catalogo.php';
+    exit;
+}
+
+if ($uri === '/cliente') {
+    $_GET['type'] = 'cliente';
+    require __DIR__ . '/catalogo.php';
+    exit;
+}
+
+if ($uri === '/externo') {
+    $_GET['type'] = 'externo';
+    require __DIR__ . '/catalogo.php';
+    exit;
+}
+
+if ($uri === '/catalogo') {
+    require __DIR__ . '/catalogo.php';
+    exit;
+}
+
+if ($uri === '/templates') {
+    require __DIR__ . '/templates.php';
+    exit;
+}
+
+if (preg_match('#^/template/([a-zA-Z0-9-]+)/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
+    $_GET['engine'] = $matches[1];
+    $_GET['slug'] = $matches[2];
+    require __DIR__ . '/template.php';
+    exit;
+}
+
+if ($uri === '/retro') {
+    require __DIR__ . '/retro.php';
+    exit;
+}
+
+if (preg_match('#^/retro/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
+    $_GET['console'] = $matches[1];
+    require __DIR__ . '/retro-console.php';
+    exit;
+}
+
+if (preg_match('#^/retro/([a-zA-Z0-9-]+)/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
+    $_GET['console'] = $matches[1];
+    $_GET['slug'] = $matches[2];
+    require __DIR__ . '/retro-play.php';
+    exit;
+}
+
 // ---- Game Player Routes ----
 if (preg_match('#^/([a-zA-Z0-9-]+)/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
     $_GET['engine'] = $matches[1];
@@ -91,5 +146,6 @@ if (preg_match('#^/([a-zA-Z0-9-]+)/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
     exit;
 }
 
-// ---- Default: Homepage ----
-require __DIR__ . '/index.php';
+// ---- 404 ----
+http_response_code(404);
+require __DIR__ . '/404.php';

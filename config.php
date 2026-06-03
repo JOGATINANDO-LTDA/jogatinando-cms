@@ -1,9 +1,18 @@
 <?php
 
-session_start();
-error_reporting(E_ALL);
+error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT & ~E_NOTICE);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
+
+session_set_cookie_params([
+    'lifetime' => 0,
+    'path' => '/',
+    'domain' => '',
+    'secure' => isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
+    'httponly' => true,
+    'samesite' => 'Lax',
+]);
+session_start();
 
 // Paths
 if (!defined('ROOT_PATH')) define('ROOT_PATH', dirname(__FILE__));
@@ -62,6 +71,7 @@ if (defined('CMS_INSTALL_VERSION') && CMS_INSTALL_VERSION !== CMS_VERSION) {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>CMS de Jogos — Versão Desatualizada</title>
+<link rel="icon" href="/assets/svg/logo.svg" type="image/svg+xml">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:oklch(10% 0.03 260);color:oklch(96% 0.003 250);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
@@ -115,13 +125,17 @@ if (defined('SITE_URL')) {
     define('SITE_URL', rtrim($_ENV['SITE_URL'], '/'));
 } elseif (php_sapi_name() !== 'cli') {
     $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] == 443) ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $host = strtolower(trim($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    $host = preg_replace('/[^a-z0-9.:\[\]-]/', '', $host);
     define('SITE_URL', $proto . '://' . $host);
 } else {
     define('SITE_URL', 'http://localhost');
 }
 if (!defined('ADMIN_URL')) define('ADMIN_URL', SITE_URL . '/admin');
 if (!defined('UPLOAD_URL')) define('UPLOAD_URL', SITE_URL . '/uploads');
+
+// Storage driver
+if (!defined('STORAGE_DRIVER')) define('STORAGE_DRIVER', 'local');
 
 // Upload limits
 if (!defined('MAX_UPLOAD_SIZE')) define('MAX_UPLOAD_SIZE', 100 * 1024 * 1024);
@@ -148,6 +162,20 @@ if (!defined('SMTP_FROM_NAME')) define('SMTP_FROM_NAME', 'Orçamento');
 require_once ROOT_PATH . '/includes/db.php';
 require_once ROOT_PATH . '/includes/auth.php';
 require_once ROOT_PATH . '/includes/functions.php';
+require_once ROOT_PATH . '/includes/storage.php';
 
 // Redirect to install if not set up yet
 requireInstalled();
+
+// Maintenance mode check (skip in CLI)
+if (php_sapi_name() !== 'cli') {
+    require_once ROOT_PATH . '/includes/maintenance.php';
+    if (isMaintenanceActive()) {
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        if (!str_starts_with($uri, '/admin/') && !str_starts_with($uri, '/install')) {
+            if (empty($_SESSION['admin_logged_in'])) {
+                renderMaintenancePage();
+            }
+        }
+    }
+}

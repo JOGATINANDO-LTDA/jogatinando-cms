@@ -1,17 +1,28 @@
 <?php
 ob_start();
 $pageTitle = 'Configurações';
+$requiredPerm = 'perm_settings';
 require_once __DIR__ . '/../includes/header.php';
 
 $userId = $_SESSION['admin_user_id'] ?? 0;
 
 // Avatar upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save_avatar') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
     if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+        $stmt = $db->prepare("SELECT avatar_url FROM users WHERE id = ?");
+        $stmt->execute([$userId]);
+        $oldAvatar = $stmt->fetchColumn();
         $result = uploadFile($_FILES['avatar'], 'avatars', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
         if ($result['success']) {
+            if (!empty($oldAvatar)) {
+                if (str_starts_with($oldAvatar, '/')) {
+                    deleteFile(ROOT_PATH . $oldAvatar);
+                } else {
+                    deleteFile(str_replace(SITE_URL . '/', ROOT_PATH . '/', $oldAvatar));
+                }
+            }
             $db = getDB();
             $stmt = $db->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
             $stmt->execute([$result['url'], $userId]);
@@ -22,13 +33,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         }
     }
     ob_end_clean();
-    header('Location: settings');
+    header('Location: ' . ADMIN_URL . '/settings');
     exit;
 }
 
 // Avatar remove
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'remove_avatar') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
     $db = getDB();
     $stmt = $db->prepare("SELECT avatar_url FROM users WHERE id = ?");
@@ -46,13 +57,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $_SESSION['admin_avatar_url'] = '';
     flashMessage('success', 'Foto de perfil removida.');
     ob_end_clean();
-    header('Location: settings');
+    header('Location: ' . ADMIN_URL . '/settings');
     exit;
 }
 
 // Password change
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'change_password') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
     $currentPass = $_POST['current_password'] ?? '';
     $newPass = $_POST['new_password'] ?? '';
@@ -75,12 +86,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         flashMessage('success', 'Senha alterada com sucesso!');
     }
     ob_end_clean();
-    header('Location: settings');
+    header('Location: ' . ADMIN_URL . '/settings');
     exit;
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'save') {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
     $settings = [
         'site_name' => trim($_POST['site_name']),
@@ -93,6 +104,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         'twitch_url' => trim($_POST['twitch_url']),
         'blog_url' => trim($_POST['blog_url']),
         'footer_description' => trim($_POST['footer_description']),
+        'maintenance_mode' => $_POST['maintenance_mode'] ?? '0',
     ];
 
     foreach ($settings as $key => $value) {
@@ -100,12 +112,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
     flashMessage('success', 'Configurações salvas!');
     ob_end_clean();
-    header('Location: settings');
+    header('Location: ' . ADMIN_URL . '/settings');
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $_POST['action'] === 'save_noreply') {
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
+    setSetting('noreply_email', trim($_POST['noreply_email'] ?? ''));
+    setSetting('noreply_name', trim($_POST['noreply_name'] ?? ''));
+    flashMessage('success', 'Configurações de notificação salvas!');
+    ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['save_smtp', 'test_smtp'])) {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: settings'); exit; }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit; }
 
     $smtpHost  = trim($_POST['smtp_host'] ?? '');
     $smtpPort  = trim($_POST['smtp_port'] ?? '');
@@ -116,23 +136,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
 
     if (empty($smtpHost) || empty($smtpPort)) {
         flashMessage('error', 'Servidor e porta são obrigatórios.');
-        ob_end_clean(); header('Location: settings'); exit;
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
     }
 
     $contactRecipient = trim($_POST['contact_recipient'] ?? '');
 
     // --- test_smtp: try connection before saving ---
     if ($_POST['action'] === 'test_smtp') {
-        if (empty($smtpUser) || empty($smtpPass)) {
-            flashMessage('error', 'Usuário e senha são obrigatórios para testar a conexão.');
-            ob_end_clean(); header('Location: settings'); exit;
+        // Fall back to existing values if fields were left empty (SMTP locked)
+        if (empty($smtpUser) && defined('SMTP_USER') && SMTP_USER !== '') {
+            $smtpUser = SMTP_USER;
+        }
+        if (empty($smtpPass) && defined('SMTP_PASS') && SMTP_PASS !== '') {
+            $smtpPass = SMTP_PASS;
+        }
+        if (empty($smtpHost) && defined('SMTP_HOST') && SMTP_HOST !== '') {
+            $smtpHost = SMTP_HOST;
+            $smtpPort = defined('SMTP_PORT') ? SMTP_PORT : '587';
         }
 
         $error = null;
         $fp = @fsockopen($smtpHost, (int)$smtpPort, $errno, $errstr, 15);
         if (!$fp) {
             flashMessage('error', "Falha ao conectar em $smtpHost:$smtpPort — $errstr");
-            ob_end_clean(); header('Location: settings'); exit;
+            ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
         }
 
         $read = function($fp) {
@@ -164,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
         if (!$authSupported) {
             fclose($fp);
             flashMessage('error', 'Servidor SMTP não suporta autenticação (AUTH não listado).');
-            ob_end_clean(); header('Location: settings'); exit;
+            ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
         }
 
         // AUTH LOGIN
@@ -183,7 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
                     // Test passed — save config
                     _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom, $smtpFromName, $contactRecipient);
                     flashMessage('success', 'Teste SMTP OK — conexão e autenticação funcionam. Configurações salvas!');
-                    ob_end_clean(); header('Location: settings'); exit;
+                    ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
                 } else {
                     $error = "Falha na autenticação: $passResp";
                 }
@@ -196,14 +223,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && in_array($_POST['action'] ?? '', ['
 
         fclose($fp);
         flashMessage('error', $error);
-        ob_end_clean(); header('Location: settings'); exit;
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/settings'); exit;
     }
 
     // --- save_smtp: just write config ---
     _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom, $smtpFromName, $contactRecipient);
     flashMessage('success', 'Configurações SMTP salvas!');
     ob_end_clean();
-    header('Location: settings');
+    header('Location: ' . ADMIN_URL . '/settings');
     exit;
 }
 
@@ -238,7 +265,7 @@ function _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom,
 }
 
 $settings = [];
-$keys = ['site_name', 'site_tagline', 'hero_title', 'hero_subtitle', 'contact_email', 'contact_whatsapp', 'youtube_url', 'twitch_url', 'blog_url', 'footer_description', 'contact_recipient'];
+$keys = ['site_name', 'site_tagline', 'hero_title', 'hero_subtitle', 'contact_email', 'contact_whatsapp', 'youtube_url', 'twitch_url', 'blog_url', 'footer_description', 'contact_recipient', 'maintenance_mode'];
 foreach ($keys as $key) {
     $settings[$key] = getSetting($key, '');
 }
@@ -254,7 +281,7 @@ $smtpConfigured = defined('SMTP_PASS') && SMTP_PASS !== '';
 // Current user data for profile card
 $userData = null;
 $db = getDB();
-$stmt = $db->prepare("SELECT u.username, u.avatar_url, r.name as role_name, r.level as role_level FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = ?");
+$stmt = $db->prepare("SELECT u.username, u.avatar_url, r.name as role_name, l.name as level_name FROM users u LEFT JOIN roles r ON u.role_id = r.id LEFT JOIN levels l ON r.level_id = l.id WHERE u.id = ?");
 $stmt->execute([$userId]);
 $userData = $stmt->fetch(PDO::FETCH_ASSOC);
 $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
@@ -279,7 +306,7 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
             <div style="flex:1;min-width:200px;">
                 <p style="margin-bottom:4px;"><strong style="color:var(--fg)"><?= e($userData['username'] ?? '') ?></strong>
                     <?php if (isset($userData['role_name'])): ?>
-                    <span class="<?= $userData['role_level'] === 'ceo' ? 'badge badge-featured' : ($userData['role_level'] === 'chief' ? 'badge badge-active' : 'badge badge-inactive') ?>" style="margin-left:8px;font-size:11px;"><?= e($userData['role_name']) ?></span>
+                    <span class="badge badge-featured" style="margin-left:8px;font-size:11px;"><?= e($userData['level_name'] ?? $userData['role_name'] ?? '') ?></span>
                     <?php endif; ?>
                 </p>
                 <p style="font-size:13px;color:var(--fg-muted);margin-bottom:12px;">Seu perfil de acesso ao painel administrativo.</p>
@@ -346,6 +373,16 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
             <div class="form-group"><label for="site_tagline">Tagline</label><input type="text" id="site_tagline" name="site_tagline" value="<?= e($settings['site_tagline']) ?>"></div>
         </div>
 
+        <h3 class="form-section-title">Manutenção</h3>
+        <div class="form-group">
+            <label class="toggle-label" for="maintenance_mode">
+                <input type="hidden" name="maintenance_mode" value="0">
+                <input type="checkbox" id="maintenance_mode" name="maintenance_mode" value="1" <?= ($settings['maintenance_mode'] ?? '0') === '1' ? 'checked' : '' ?> style="accent-color:oklch(75% 0.15 85);width:18px;height:18px;cursor:pointer;">
+                <span style="margin-left:8px;font-weight:600;">Ativar modo de manutenção</span>
+            </label>
+            <p style="font-size:12px;color:oklch(60% 0.012 250);margin-top:4px;">Quando ativo, visitantes veem uma página de "Em Manutenção". Administradores logados continuam acessando normalmente.</p>
+        </div>
+
         <h3 class="form-section-title">Hero / Banner Principal</h3>
         <div class="form-group"><label for="hero_title">Título do Hero (HTML permitido)</label><textarea id="hero_title" name="hero_title" rows="2"><?= e($settings['hero_title']) ?></textarea></div>
         <div class="form-group"><label for="hero_subtitle">Subtítulo do Hero</label><textarea id="hero_subtitle" name="hero_subtitle" rows="3"><?= e($settings['hero_subtitle']) ?></textarea></div>
@@ -404,7 +441,7 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
         <?php endif; ?>
         <form method="POST" id="smtp-form">
             <?= csrfField() ?>
-            <div id="smtp-fields">
+            <div id="smtp-fields" style="<?= $smtpConfigured ? 'opacity:0.5;pointer-events:none;' : '' ?>">
             <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
                 <div class="form-group" style="flex: 2; min-width: 200px;">
                     <label for="smtp_host">Servidor *</label>
@@ -447,20 +484,59 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
             </div>
             <?php if ($smtpConfigured): ?>
             <div class="form-actions" id="smtp-locked-actions">
-                <button type="button" class="btn btn-gold" onclick="unlockSmtp()">Editar</button>
+                <button type="button" class="btn btn-gold" onclick="unlockSmtp()">✏️ Editar Configurações</button>
+            </div>
+            <div class="form-actions" id="smtp-edit-actions" style="display:none">
+                <button type="submit" class="btn btn-gold" name="action" value="test_smtp">💾 Salvar</button>
+                <button type="button" class="btn btn-outline" onclick="relockSmtp()">Cancelar</button>
             </div>
             <?php endif; ?>
+        </form>
+
+        <hr style="border: none; border-top: 1px solid oklch(22% 0.025 260); margin: 20px 0;">
+        <form method="POST" id="noreply-form">
+            <?= csrfField() ?>
+            <h4 style="font-size:14px;font-weight:700;color:var(--fg);margin:0 0 4px;">Notificações Automáticas</h4>
+            <p style="font-size:12px;color:oklch(60% 0.012 250);margin:0 0 12px;">Usado para verificação de email e outros avisos do sistema.</p>
+            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
+                <div class="form-group" style="flex: 1; min-width: 200px;">
+                    <label for="noreply_email">E-mail noreply</label>
+                    <input type="email" id="noreply_email" name="noreply_email" value="<?= e(getSetting('noreply_email', '')) ?>" placeholder="noreply@seudominio.com">
+                </div>
+                <div class="form-group" style="flex: 1; min-width: 200px;">
+                    <label for="noreply_name">Nome do remetente</label>
+                    <input type="text" id="noreply_name" name="noreply_name" value="<?= e(getSetting('noreply_name', '')) ?>" placeholder="No Reply">
+                </div>
+            </div>
+            <div class="form-actions" style="margin-top: 12px;">
+                <button type="submit" class="btn btn-gold btn-sm" name="action" value="save_noreply">Salvar</button>
+            </div>
         </form>
     </div>
 </div>
 
 <script>
 function unlockSmtp() {
-    document.getElementById('smtp-fields').querySelectorAll('input').forEach(function(el) {
+    var fields = document.getElementById('smtp-fields');
+    fields.style.opacity = '1';
+    fields.style.pointerEvents = '';
+    fields.querySelectorAll('input').forEach(function(el) {
         el.disabled = false;
     });
-    document.getElementById('smtp-actions').style.display = '';
     document.getElementById('smtp-locked-actions').style.display = 'none';
+    document.getElementById('smtp-edit-actions').style.display = '';
+}
+
+function relockSmtp() {
+    var fields = document.getElementById('smtp-fields');
+    fields.style.opacity = '0.5';
+    fields.style.pointerEvents = 'none';
+    fields.querySelectorAll('input').forEach(function(el) {
+        el.disabled = true;
+    });
+    document.getElementById('smtp-edit-actions').style.display = 'none';
+    document.getElementById('smtp-locked-actions').style.display = '';
+    document.getElementById('smtp_pass').value = '';
 }
 </script>
 
@@ -482,7 +558,7 @@ function unlockSmtp() {
                 try {
                     $host = $_POST['db_host'] ?? '127.0.0.1';
                     $port = $_POST['db_port'] ?? '3306';
-                    $name = $_POST['db_name'] ?? 'cms_db';
+                    $name = preg_replace('/[^a-zA-Z0-9_\-]/', '', $_POST['db_name'] ?? 'cms_db');
                     $user = $_POST['db_user'] ?? 'root';
                     $pass = $_POST['db_pass'] ?? '';
 

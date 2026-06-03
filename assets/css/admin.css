@@ -5,6 +5,7 @@
   --bg-deep: oklch(8% 0.02 260);
   --bg: oklch(10% 0.025 260);
   --bg-card: oklch(14% 0.03 265);
+  --bg-elevated: oklch(16% 0.03 265);
   --bg-card-hover: oklch(18% 0.035 265);
   --bg-input: oklch(10% 0.025 260);
   --bg-input-focus: oklch(12% 0.03 265);
@@ -37,6 +38,7 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
+  --radius-pill: 999px;
   --sidebar-width: 260px;
   --sidebar-collapsed: 0px;
   --header-height: 64px;
@@ -257,7 +259,7 @@ input, textarea, select, button { font-family: inherit; }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--bg / 0.95);
+  background: oklch(10% 0.025 260 / 0.95);
   backdrop-filter: blur(12px);
   position: sticky;
   top: 0;
@@ -750,6 +752,24 @@ tbody tr:last-child td { border-bottom: none; }
   border: 1px solid oklch(55% 0.12 85 / 0.2);
 }
 
+.badge-autoral {
+  background: oklch(45% 0.15 260 / 0.2);
+  color: oklch(70% 0.15 260);
+  border: 1px solid oklch(45% 0.15 260 / 0.2);
+}
+
+.badge-client {
+  background: oklch(45% 0.15 320 / 0.2);
+  color: oklch(70% 0.15 320);
+  border: 1px solid oklch(45% 0.15 320 / 0.2);
+}
+
+.badge-external {
+  background: oklch(45% 0.15 250 / 0.2);
+  color: oklch(70% 0.15 250);
+  border: 1px solid oklch(45% 0.15 250 / 0.2);
+}
+
 .badge-optimized {
   background: oklch(60% 0.15 150 / 0.15);
   color: oklch(70% 0.15 150);
@@ -760,6 +780,22 @@ tbody tr:last-child td { border-bottom: none; }
   background: oklch(60% 0.1 80 / 0.15);
   color: oklch(70% 0.1 80);
   border: 1px solid oklch(60% 0.1 80 / 0.2);
+}
+
+.badge-store {
+  background: oklch(55% 0.15 70);
+  color: #fff;
+  border: none;
+  font-weight: 600;
+  text-transform: none;
+  letter-spacing: normal;
+  line-height: 1.2;
+}
+
+.store-badges-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 /* ── Actions Column ── */
@@ -1404,4 +1440,100 @@ tbody tr:last-child td { border-bottom: none; }
     .report-sizes {
         margin-left: 0;
     }
+}
+
+/* Emoji Picker */
+.emoji-picker-wrap {
+    position: relative;
+    display: inline-block;
+}
+
+.emoji-picker-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    border: 2px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg-elevated);
+    cursor: pointer;
+    font-size: 24px;
+    transition: border-color 0.15s, background 0.15s;
+}
+
+.emoji-picker-btn:hover {
+    border-color: var(--gold);
+    background: var(--gold-subtle);
+}
+
+.emoji-picker-popup {
+    display: none;
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    z-index: 1000;
+    width: 320px;
+    max-height: 350px;
+    background: var(--bg-elevated);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 8px 32px oklch(0% 0 0 / 0.4);
+    overflow: hidden;
+}
+
+.emoji-picker-popup.open {
+    display: block;
+}
+
+.emoji-picker-search {
+    padding: 8px;
+    border-bottom: 1px solid var(--border);
+}
+
+.emoji-picker-search input {
+    width: 100%;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    background: var(--bg);
+    color: var(--fg);
+    font-size: 13px;
+    outline: none;
+}
+
+.emoji-picker-search input:focus {
+    border-color: var(--gold);
+}
+
+.emoji-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+    padding: 8px;
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.emoji-picker-grid button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    aspect-ratio: 1;
+    border: none;
+    border-radius: var(--radius-md);
+    background: transparent;
+    cursor: pointer;
+    font-size: 20px;
+    transition: background 0.1s;
+}
+
+.emoji-picker-grid button:hover {
+    background: var(--gold-subtle);
+}
+
+.emoji-picker-grid button.selected {
+    background: oklch(45% 0.15 250 / 0.3);
+    outline: 2px solid var(--gold);
 }

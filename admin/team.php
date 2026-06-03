@@ -1,23 +1,29 @@
 <?php
 ob_start();
 $pageTitle = 'Equipe';
+$requiredPerm = 'perm_team';
 require_once __DIR__ . '/../includes/header.php';
 $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: team'); exit; }
+    $id = (int)($_POST['id'] ?? $id);
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit; }
     if ($_POST['action'] === 'save') {
         $name = trim($_POST['name']); $role = trim($_POST['role']); $bio = trim($_POST['bio']);
         $social_youtube = trim($_POST['social_youtube']); $social_twitch = trim($_POST['social_twitch']); $social_linkedin = trim($_POST['social_linkedin']);
         $sort_order = (int)($_POST['sort_order'] ?? 0); $active = isset($_POST['active']) ? 1 : 0;
         $avatar_url = '';
         if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+            $oldAvatar = $id > 0 ? dbQueryOne("SELECT avatar_url FROM team_members WHERE id = ?", [$id])['avatar_url'] ?? '' : '';
             $result = uploadFile($_FILES['avatar'], 'avatars', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
-            if ($result['success']) $avatar_url = $result['url'];
-            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: team?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+            if ($result['success']) {
+                $avatar_url = $result['url'];
+                if (!empty($oldAvatar)) deleteFile($oldAvatar);
+            }
+            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         }
-        if (empty($name) || empty($role)) { flashMessage('error', 'Nome e cargo são obrigatórios.'); ob_end_clean(); header('Location: team?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+        if (empty($name) || empty($role)) { flashMessage('error', 'Nome e cargo são obrigatórios.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         if ($id > 0) {
             if (!$avatar_url) { $existing = dbQueryOne("SELECT avatar_url FROM team_members WHERE id = ?", [$id]); $avatar_url = $existing['avatar_url']; }
             dbExec("UPDATE team_members SET name=?, role=?, bio=?, avatar_url=?, social_youtube=?, social_twitch=?, social_linkedin=?, sort_order=?, active=? WHERE id=?", [$name, $role, $bio, $avatar_url, $social_youtube, $social_twitch, $social_linkedin, $sort_order, $active, $id]);
@@ -27,15 +33,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'Membro criado!');
         }
         ob_end_clean();
-        header('Location: team'); exit;
+        header('Location: ' . ADMIN_URL . '/team'); exit;
     }
-    if ($_POST['action'] === 'delete') { dbDelete('team_members', $id); flashMessage('success', 'Membro excluído.'); ob_end_clean(); header('Location: team'); exit; }
-    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM team_members WHERE id = ?", [$id]); if ($r) dbExec("UPDATE team_members SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: team'); exit; }
+    if ($_POST['action'] === 'delete') { $member = dbQueryOne("SELECT avatar_url FROM team_members WHERE id = ?", [$id]); if ($member && !empty($member['avatar_url'])) deleteFile($member['avatar_url']); dbDelete('team_members', $id); flashMessage('success', 'Membro excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit; }
+    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM team_members WHERE id = ?", [$id]); if ($r) dbExec("UPDATE team_members SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit; }
 }
 
 if ($action === 'new' || $action === 'edit') {
     $member = $id > 0 ? dbQueryOne("SELECT * FROM team_members WHERE id = ?", [$id]) : null;
-    if ($action === 'edit' && !$member) { flashMessage('error', 'Não encontrado.'); ob_end_clean(); header('Location: team'); exit; }
+    if ($action === 'edit' && !$member) { flashMessage('error', 'Não encontrado.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit; }
     ?>
     <div class="card">
         <div class="card-header"><h2 class="card-title"><?= $action === 'new' ? 'Novo Membro' : 'Editar Membro' ?></h2><a href="team" class="btn btn-outline btn-sm">← Voltar</a></div>
@@ -47,7 +53,15 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-row">
                 <div class="form-group"><label for="name">Nome *</label><input type="text" id="name" name="name" value="<?= e($member['name'] ?? '') ?>" required></div>
-                <div class="form-group"><label for="role">Cargo *</label><input type="text" id="role" name="role" value="<?= e($member['role'] ?? '') ?>" required></div>
+                <div class="form-group"><label for="role">Cargo *</label>
+                    <select id="role" name="role" required>
+                        <option value="">Selecione...</option>
+                        <?php foreach (dbQuery("SELECT name FROM roles WHERE id != 1 ORDER BY level DESC, name ASC") as $r): ?>
+                        <option value="<?= e($r['name']) ?>" <?= ($member['role'] ?? '') === $r['name'] ? 'selected' : '' ?>><?= e($r['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <a href="roles?action=new" style="display:block;margin-top:4px;font-size:13px;color:var(--gold);">+ Criar novo cargo</a>
+                </div>
             </div>
             <div class="form-group"><label for="bio">Bio</label><textarea id="bio" name="bio" rows="4"><?= e($member['bio'] ?? '') ?></textarea></div>
 

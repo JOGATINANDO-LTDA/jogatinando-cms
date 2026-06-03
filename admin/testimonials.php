@@ -1,22 +1,28 @@
 <?php
 ob_start();
 $pageTitle = 'Depoimentos';
+$requiredPerm = 'perm_testimonials';
 require_once __DIR__ . '/../includes/header.php';
 $action = $_GET['action'] ?? 'list';
 $id = (int)($_GET['id'] ?? 0);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: testimonials'); exit; }
+    $id = (int)($_POST['id'] ?? $id);
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials'); exit; }
     if ($_POST['action'] === 'save') {
         $name = trim($_POST['name']); $role = trim($_POST['role']); $quote = trim($_POST['quote']);
         $sort_order = (int)($_POST['sort_order'] ?? 0); $active = isset($_POST['active']) ? 1 : 0;
         $avatar_url = '';
         if (isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+            $oldAvatar = $id > 0 ? dbQueryOne("SELECT avatar_url FROM testimonials WHERE id = ?", [$id])['avatar_url'] ?? '' : '';
             $result = uploadFile($_FILES['avatar'], 'avatars', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
-            if ($result['success']) $avatar_url = $result['url'];
-            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: testimonials?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+            if ($result['success']) {
+                $avatar_url = $result['url'];
+                if (!empty($oldAvatar)) deleteFile($oldAvatar);
+            }
+            else { flashMessage('error', $result['message']); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         }
-        if (empty($name) || empty($quote)) { flashMessage('error', 'Nome e depoimento são obrigatórios.'); ob_end_clean(); header('Location: testimonials?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
+        if (empty($name) || empty($quote)) { flashMessage('error', 'Nome e depoimento são obrigatórios.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
         if ($id > 0) {
             if (!$avatar_url) { $existing = dbQueryOne("SELECT avatar_url FROM testimonials WHERE id = ?", [$id]); $avatar_url = $existing['avatar_url']; }
             dbExec("UPDATE testimonials SET name=?, role=?, quote=?, avatar_url=?, sort_order=?, active=? WHERE id=?", [$name, $role, $quote, $avatar_url, $sort_order, $active, $id]);
@@ -26,15 +32,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             flashMessage('success', 'Depoimento criado!');
         }
         ob_end_clean();
-        header('Location: testimonials'); exit;
+        header('Location: ' . ADMIN_URL . '/testimonials'); exit;
     }
-    if ($_POST['action'] === 'delete') { dbDelete('testimonials', $id); flashMessage('success', 'Depoimento excluído.'); ob_end_clean(); header('Location: testimonials'); exit; }
-    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM testimonials WHERE id = ?", [$id]); if ($r) dbExec("UPDATE testimonials SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: testimonials'); exit; }
+    if ($_POST['action'] === 'delete') { $item = dbQueryOne("SELECT avatar_url FROM testimonials WHERE id = ?", [$id]); if ($item && !empty($item['avatar_url'])) deleteFile($item['avatar_url']); dbDelete('testimonials', $id); flashMessage('success', 'Depoimento excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials'); exit; }
+    if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM testimonials WHERE id = ?", [$id]); if ($r) dbExec("UPDATE testimonials SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials'); exit; }
 }
 
 if ($action === 'new' || $action === 'edit') {
     $item = $id > 0 ? dbQueryOne("SELECT * FROM testimonials WHERE id = ?", [$id]) : null;
-    if ($action === 'edit' && !$item) { flashMessage('error', 'Não encontrado.'); ob_end_clean(); header('Location: testimonials'); exit; }
+    if ($action === 'edit' && !$item) { flashMessage('error', 'Não encontrado.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials'); exit; }
     ?>
     <div class="card">
         <div class="card-header"><h2 class="card-title"><?= $action === 'new' ? 'Novo Depoimento' : 'Editar Depoimento' ?></h2><a href="testimonials" class="btn btn-outline btn-sm">← Voltar</a></div>

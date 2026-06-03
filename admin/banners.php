@@ -1,6 +1,7 @@
 <?php
 ob_start();
 $pageTitle = 'Banners';
+$requiredPerm = 'perm_banners';
 require_once __DIR__ . '/../includes/header.php';
 
 $action = $_GET['action'] ?? 'list';
@@ -8,10 +9,11 @@ $id = (int)($_GET['id'] ?? 0);
 
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    $id = (int)($_POST['id'] ?? $id);
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
         flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
-        header('Location: banners');
+        header('Location: ' . ADMIN_URL . '/banners');
         exit;
     }
 
@@ -21,20 +23,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $description = trim($_POST['description']);
         $cta_text = trim($_POST['cta_text']);
         $cta_url = trim($_POST['cta_url']);
-        $engine_tag = trim($_POST['engine_tag']);
         $sort_order = (int)($_POST['sort_order'] ?? 0);
         $active = isset($_POST['active']) ? 1 : 0;
         $image_url = '';
 
         // Handle image upload
         if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+            $oldImage = $id > 0 ? dbQueryOne("SELECT image_url FROM banners WHERE id = ?", [$id])['image_url'] ?? '' : '';
             $result = uploadFile($_FILES['image'], 'banners', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
             if ($result['success']) {
                 $image_url = $result['url'];
+                if (!empty($oldImage)) {
+                    $oldPath = UPLOAD_PATH . str_replace('/uploads', '', $oldImage);
+                    if (file_exists($oldPath)) @unlink($oldPath);
+                }
             } else {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: banners?action=new');
+                header('Location: ' . ADMIN_URL . '/banners?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
                 exit;
             }
         }
@@ -42,39 +48,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         if (empty($title)) {
             flashMessage('error', 'Título é obrigatório.');
             ob_end_clean();
-            header('Location: banners?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
+            header('Location: ' . ADMIN_URL . '/banners?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
             exit;
         }
 
         if ($id > 0) {
             // Update
             if ($image_url) {
-                dbExec("UPDATE banners SET title=?, subtitle=?, description=?, image_url=?, cta_text=?, cta_url=?, engine_tag=?, sort_order=?, active=? WHERE id=?",
-                    [$title, $subtitle, $description, $image_url, $cta_text, $cta_url, $engine_tag, $sort_order, $active, $id]);
+                dbExec("UPDATE banners SET title=?, subtitle=?, description=?, image_url=?, cta_text=?, cta_url=?, sort_order=?, active=? WHERE id=?",
+                    [$title, $subtitle, $description, $image_url, $cta_text, $cta_url, $sort_order, $active, $id]);
             } else {
-                dbExec("UPDATE banners SET title=?, subtitle=?, description=?, cta_text=?, cta_url=?, engine_tag=?, sort_order=?, active=? WHERE id=?",
-                    [$title, $subtitle, $description, $cta_text, $cta_url, $engine_tag, $sort_order, $active, $id]);
+                dbExec("UPDATE banners SET title=?, subtitle=?, description=?, cta_text=?, cta_url=?, sort_order=?, active=? WHERE id=?",
+                    [$title, $subtitle, $description, $cta_text, $cta_url, $sort_order, $active, $id]);
             }
             flashMessage('success', 'Banner atualizado com sucesso!');
         } else {
             // Insert
-            dbExec("INSERT INTO banners (title, subtitle, description, image_url, cta_text, cta_url, engine_tag, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [$title, $subtitle, $description, $image_url, $cta_text, $cta_url, $engine_tag, $sort_order, $active]);
+            dbExec("INSERT INTO banners (title, subtitle, description, image_url, cta_text, cta_url, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                [$title, $subtitle, $description, $image_url, $cta_text, $cta_url, $sort_order, $active]);
             flashMessage('success', 'Banner criado com sucesso!');
         }
         ob_end_clean();
-        header('Location: banners');
+        header('Location: ' . ADMIN_URL . '/banners');
         exit;
     }
 
     if ($_POST['action'] === 'delete') {
         $banner = dbQueryOne("SELECT * FROM banners WHERE id = ?", [$id]);
         if ($banner) {
+            if (!empty($banner['image_url'])) {
+                $imgPath = UPLOAD_PATH . str_replace('/uploads', '', $banner['image_url']);
+                if (file_exists($imgPath)) @unlink($imgPath);
+            }
             dbDelete('banners', $id);
             flashMessage('success', 'Banner excluído.');
         }
         ob_end_clean();
-        header('Location: banners');
+        header('Location: ' . ADMIN_URL . '/banners');
         exit;
     }
 
@@ -84,7 +94,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             dbExec("UPDATE banners SET active = ? WHERE id = ?", [1 - $banner['active'], $id]);
         }
         ob_end_clean();
-        header('Location: banners');
+        header('Location: ' . ADMIN_URL . '/banners');
         exit;
     }
 }
@@ -94,7 +104,7 @@ if ($action === 'new' || $action === 'edit') {
     if ($action === 'edit' && !$banner) {
         flashMessage('error', 'Banner não encontrado.');
         ob_end_clean();
-        header('Location: banners');
+        header('Location: ' . ADMIN_URL . '/banners');
         exit;
     }
     ?>
@@ -120,10 +130,6 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-group">
                     <label for="subtitle">Subtítulo</label>
                     <input type="text" id="subtitle" name="subtitle" value="<?= e($banner['subtitle'] ?? '') ?>">
-                </div>
-                <div class="form-group">
-                    <label for="engine_tag">Tag Engine (opcional)</label>
-                    <input type="text" id="engine_tag" name="engine_tag" value="<?= e($banner['engine_tag'] ?? '') ?>" placeholder="e.g. GDevelop">
                 </div>
             </div>
 

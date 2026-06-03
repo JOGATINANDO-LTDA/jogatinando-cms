@@ -87,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $testResult['user_count'] = $userCount;
                 $testResult['username'] = $username;
                 $testResult['site_name'] = $siteName;
+                unset($testResult['pass']);
                 $_SESSION['mysql_test'] = $testResult;
 
                 $msg = 'Conexão OK. Banco ' . $tName . ' existe';
@@ -99,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         } catch (Exception $ex) {
             $_SESSION['mysql_test'] = null;
-            $message = 'error:' . $ex->getMessage();
+            $message = 'error:Erro ao conectar — verifique credenciais e permissões.';
         }
     } elseif ($_POST['action'] === 'mysql') {
         try {
@@ -225,6 +226,7 @@ function disableInstallFile() {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CMS de Jogos — Instalação</title>
+    <link rel="icon" href="/assets/svg/logo.svg" type="image/svg+xml">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: oklch(10% 0.03 260); color: oklch(96% 0.003 250); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
@@ -320,7 +322,7 @@ function disableInstallFile() {
                     </div>
                     <div class="form-group">
                         <label for="db_pass">Senha</label>
-                        <input type="password" id="db_pass" name="db_pass" value="<?= e($result['pass'] ?? '') ?>">
+                        <input type="password" id="db_pass" name="db_pass" value="" placeholder="(deixe em branco para manter a atual)">
                     </div>
                 </div>
 

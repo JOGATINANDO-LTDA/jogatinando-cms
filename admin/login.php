@@ -8,25 +8,47 @@ if (isLoggedIn()) {
 
 $error = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = trim($_POST['username'] ?? '');
-    $password = $_POST['password'] ?? '';
-
-    $db = getDB();
-    if ($db) {
-        $stmt = $db->prepare("SELECT status FROM users WHERE username = ?");
-        $stmt->execute([$username]);
-        $userStatus = $stmt->fetchColumn();
-
-        if ($userStatus === 'pending') {
-            $error = 'Conta pendente de ativação. Acesse o link enviado por email para definir sua senha.';
-        } elseif (login($username, $password)) {
-            header('Location: ' . ADMIN_URL . '/dashboard');
-            exit;
-        } else {
-            $error = 'Usuário ou senha incorretos.';
-        }
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
+        $error = 'Token de segurança inválido.';
     } else {
-        $error = 'Erro de conexão com o banco de dados.';
+        $attempts = $_SESSION['login_attempts'] ?? 0;
+        $lockoutTime = $_SESSION['login_lockout'] ?? 0;
+        if ($lockoutTime > time()) {
+            $error = 'Muitas tentativas. Tente novamente em ' . ceil(($lockoutTime - time()) / 60) . ' min.';
+        } elseif ($attempts >= 5) {
+            $_SESSION['login_lockout'] = time() + 300;
+            $_SESSION['login_attempts'] = 0;
+            $error = 'Muitas tentativas. Tente novamente em 5 minutos.';
+        } else {
+        $username = trim($_POST['username'] ?? '');
+        $password = $_POST['password'] ?? '';
+
+        $db = getDB();
+        if ($db) {
+            $stmt = $db->prepare("SELECT status, email, email_verified_at, email_verification_token FROM users WHERE username = ?");
+            $stmt->execute([$username]);
+            $userRow = $stmt->fetch(PDO::FETCH_ASSOC);
+            $userStatus = $userRow ? $userRow['status'] : null;
+
+            if ($userStatus === 'pending') {
+                $error = 'Conta pendente de ativação. Verifique seu email para confirmar o cadastro.';
+            } elseif (login($username, $password)) {
+                unset($_SESSION['login_attempts'], $_SESSION['login_lockout']);
+                $redirect = $_GET['redirect'] ?? '';
+                if ($redirect && str_starts_with($redirect, ADMIN_URL)) {
+                    header('Location: ' . $redirect);
+                } else {
+                    header('Location: ' . ADMIN_URL . '/dashboard');
+                }
+                exit;
+            } else {
+                $error = 'Usuário ou senha incorretos.';
+                $_SESSION['login_attempts'] = ($_SESSION['login_attempts'] ?? 0) + 1;
+            }
+        } else {
+            $error = 'Erro de conexão com o banco de dados.';
+        }
+        }
     }
 }
 ?>
@@ -36,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Login — CMS de Jogos</title>
+    <link rel="icon" href="../assets/svg/logo.svg" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
@@ -285,6 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <?php endif; ?>
 
             <form method="POST" autocomplete="on">
+                <?= csrfField() ?>
                 <div class="form-group">
                     <label for="username">Usuário</label>
                     <input type="text" id="username" name="username" required autofocus autocomplete="username" placeholder="seu-usuario">

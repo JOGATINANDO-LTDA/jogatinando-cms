@@ -102,4 +102,113 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     });
   });
+
+  // Emoji Picker
+  var EMOJIS = {
+    'Games': ['🎮','🕹️','🎲','🎯','🏆','⚔️','🛡️','🔫','💣','🗡️','🏹','🔮','👾','🤖','🧩','🎰'],
+    'Tech': ['💻','🖥️','⌨️','🖱️','📡','🔌','💾','📀','📱','📟','📠','🔋','🛰️','🚀','🛸','💿'],
+    'Web': ['🌐','🔗','📦','🔥','✨','💎','🎨','🎬','🎵','🎶','🔊','📸','🎥','💡','⚙️','🔧'],
+    'Store': ['🛒','💰','💳','🏷️','🎁','🏪','🏬','📮','📬','📫','📰','📚','📖','🔖','📑','🎫'],
+    'People': ['👤','👥','🧑‍💻','👨‍💻','👩‍💻','🧑‍🎨','👨‍🎨','👩‍🎨','🎩','👑','🎖️','🏅','🥇','🥈','🥉','🎯'],
+    'Symbols': ['✅','❌','⚠️','❗','❓','💯','🔴','🟢','🔵','🟡','🟣','⚫','⚪','➕','➖','💲']
+  };
+
+  function createEmojiPicker(el) {
+    var input = typeof el === 'string' ? document.getElementById(el) : el;
+    if (!input) return;
+
+    var currentValue = input.value || '🎮';
+
+    // Hide original input
+    input.type = 'hidden';
+
+    // Create wrapper
+    var wrap = document.createElement('div');
+    wrap.className = 'emoji-picker-wrap';
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+
+    // Create visible button
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'emoji-picker-btn';
+    btn.textContent = currentValue;
+    btn.title = 'Clique para selecionar emoji';
+    wrap.appendChild(btn);
+
+    // Create popup
+    var popup = document.createElement('div');
+    popup.className = 'emoji-picker-popup';
+    wrap.appendChild(popup);
+
+    // Search
+    var searchWrap = document.createElement('div');
+    searchWrap.className = 'emoji-picker-search';
+    var searchInput = document.createElement('input');
+    searchInput.type = 'text';
+    searchInput.placeholder = 'Buscar emoji...';
+    searchWrap.appendChild(searchInput);
+    popup.appendChild(searchWrap);
+
+    // Grid
+    var grid = document.createElement('div');
+    grid.className = 'emoji-picker-grid';
+    popup.appendChild(grid);
+
+    function renderEmojis(filter) {
+      grid.innerHTML = '';
+      var lower = (filter || '').toLowerCase();
+      Object.keys(EMOJIS).forEach(function(cat) {
+        EMOJIS[cat].forEach(function(em) {
+          if (lower && cat.toLowerCase().indexOf(lower) === -1 && em.indexOf(lower) === -1) return;
+          var b = document.createElement('button');
+          b.type = 'button';
+          b.textContent = em;
+          b.title = em;
+          if (input.value === em) b.className = 'selected';
+          b.addEventListener('click', function(e) {
+            e.preventDefault();
+            input.value = em;
+            btn.textContent = em;
+            grid.querySelectorAll('button').forEach(function(x) { x.className = ''; });
+            b.className = 'selected';
+            popup.classList.remove('open');
+          });
+          grid.appendChild(b);
+        });
+      });
+    }
+
+    renderEmojis('');
+    searchInput.addEventListener('input', function() {
+      renderEmojis(this.value);
+    });
+
+    btn.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      var isOpen = popup.classList.contains('open');
+      document.querySelectorAll('.emoji-picker-popup.open').forEach(function(p) { p.classList.remove('open'); });
+      if (!isOpen) {
+        popup.classList.add('open');
+        searchInput.value = '';
+        renderEmojis('');
+        searchInput.focus();
+      }
+    });
+  }
+
+  // Initialize emoji pickers for all icon fields
+  document.querySelectorAll('.emoji-field').forEach(function(input) {
+    createEmojiPicker(input);
+  });
+
+  // Close emoji pickers on outside click
+  document.addEventListener('click', function(e) {
+    if (!e.target.closest('.emoji-picker-wrap')) {
+      document.querySelectorAll('.emoji-picker-popup.open').forEach(function(p) {
+        p.classList.remove('open');
+      });
+    }
+  });
 });

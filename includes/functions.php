@@ -3,6 +3,8 @@
  * Utility functions
  */
 
+require_once __DIR__ . '/storage.php';
+
 function e($string) {
     return htmlspecialchars($string ?? '', ENT_QUOTES, 'UTF-8');
 }
@@ -44,41 +46,31 @@ function sendSmtpMail($to, $subject, $body, $from = null, $fromName = null) {
     };
 
     $banner = $read($fp);
-    error_log("SMTP: Banner: $banner");
     $write($fp, "EHLO " . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
     $ehloResp = $read($fp);
-    error_log("SMTP: EHLO: $ehloResp");
     $write($fp, "STARTTLS");
     $starttlsResp = $read($fp);
-    error_log("SMTP: STARTTLS: $starttlsResp");
     stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
     $write($fp, "EHLO " . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
     $ehlo2Resp = $read($fp);
-    error_log("SMTP: EHLO (after TLS): $ehlo2Resp");
     $write($fp, "AUTH LOGIN");
     $authLoginResp = $read($fp);
-    error_log("SMTP: AUTH LOGIN: $authLoginResp");
     $write($fp, base64_encode($user));
     $userResp = $read($fp);
-    error_log("SMTP: User response: $userResp");
     $write($fp, base64_encode($pass));
     $passResp = $read($fp);
-    error_log("SMTP: Pass response: $passResp");
     if (strpos($passResp, '235') === false) {
-        error_log("SMTP: Authentication failed: $passResp");
+        error_log("SMTP: falha de autenticação");
         fclose($fp);
         return false;
     }
 
     $write($fp, "MAIL FROM: <$fromAddr>");
     $mailFromResp = $read($fp);
-    error_log("SMTP: MAIL FROM: $mailFromResp");
     $write($fp, "RCPT TO: <$to>");
     $rcptToResp = $read($fp);
-    error_log("SMTP: RCPT TO: $rcptToResp");
     $write($fp, "DATA");
     $dataResp = $read($fp);
-    error_log("SMTP: DATA: $dataResp");
 
     $headers = "From: $fromLbl <$fromAddr>\r\n";
     $headers .= "Reply-To: $to\r\n";
@@ -88,17 +80,39 @@ function sendSmtpMail($to, $subject, $body, $from = null, $fromName = null) {
     $messageData = "Subject: $subject\r\n$headers\r\n$body\r\n.\r\n";
     fwrite($fp, $messageData);
     $messageResp = $read($fp);
-    error_log("SMTP: Message response: $messageResp");
     $write($fp, "QUIT");
     $quitResp = $read($fp);
-    error_log("SMTP: QUIT: $quitResp");
     fclose($fp);
 
     $success = strpos($messageResp, '250') !== false;
     if (!$success) {
-        error_log("SMTP: Message sending failed. Final response: $messageResp");
+        error_log("SMTP: falha ao enviar mensagem");
     }
     return $success;
+}
+
+function sendVerificationEmail($userId) {
+    $db = getDB();
+    $stmt = $db->prepare("SELECT id, username, email FROM users WHERE id = ?");
+    $stmt->execute([$userId]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$user || empty($user['email'])) return false;
+
+    $token = bin2hex(random_bytes(32));
+    $stmt = $db->prepare("UPDATE users SET email_verification_token = ? WHERE id = ?");
+    $stmt->execute([$token, $userId]);
+
+    $verifyLink = ADMIN_URL . '/verify-email?token=' . urlencode($token);
+    $subject = 'Verificação de Email';
+    $noreplyEmail = getSetting('noreply_email', 'noreply@seudominio.com');
+    $noreplyName = getSetting('noreply_name', 'No Reply');
+    $body = "Olá {$user['username']},\n\n"
+          . "Confirme seu email clicando no link abaixo:\n\n"
+          . "$verifyLink\n\n"
+          . "Se você não criou uma conta, ignore este email.\n"
+          . SITE_NAME;
+
+    return sendSmtpMail($user['email'], $subject, $body, $noreplyEmail, $noreplyName);
 }
 
 function generateSlug($text) {
@@ -139,13 +153,71 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
         return ['success' => false, 'message' => 'Extensão não permitida: .' . $ext];
     }
 
-    $uploadDir = UPLOAD_PATH . '/' . $directory;
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+    $allowedMimes = [
+        'image/jpeg','image/png','image/gif','image/webp',
+        'application/zip','application/x-zip-compressed',
+    ];
+    if (!in_array($mime, $allowedMimes)) {
+        return ['success' => false, 'message' => 'Tipo de arquivo não permitido.'];
+    }
+
+    $filename = uniqid('upl_', true) . '.' . $ext;
+    $relPath = $directory . '/' . $filename;
+
+    if (!Storage::upload($file['tmp_name'], $relPath)) {
+        return ['success' => false, 'message' => 'Falha ao salvar o arquivo.'];
+    }
+
+    return [
+        'success' => true,
+        'filename' => $filename,
+        'url' => '/uploads/' . $directory . '/' . $filename,
+        'path' => UPLOAD_PATH . '/' . $relPath
+    ];
+}
+
+function uploadRetroRom($file, $consoleSlug, $gameSlug, $type = 'original', $allowedExtensions = null) {
+    if (!isset($file['error']) || is_array($file['error'])) {
+        return ['success' => false, 'message' => 'Upload inválido.'];
+    }
+
+    switch ($file['error']) {
+        case UPLOAD_ERR_OK:
+            break;
+        case UPLOAD_ERR_INI_SIZE:
+        case UPLOAD_ERR_FORM_SIZE:
+            return ['success' => false, 'message' => 'Arquivo muito grande. Máximo: ' . (MAX_UPLOAD_SIZE / 1024 / 1024) . 'MB'];
+        default:
+            return ['success' => false, 'message' => 'Erro no upload (código: ' . $file['error'] . ').'];
+    }
+
+    if ($file['size'] > MAX_UPLOAD_SIZE) {
+        return ['success' => false, 'message' => 'Arquivo excede o tamanho máximo.'];
+    }
+
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    $allowedExtensions = $allowedExtensions ?? ['sfc', 'smc', 'fig', 'bs', 'gb', 'gbc', 'gba', 'nes', 'fds', 'z64', 'n64', 'v64', 'md', 'gen', 'bin', 'cue', 'chd', 'iso', 'zip'];
+    if (!in_array($ext, $allowedExtensions)) {
+        return ['success' => false, 'message' => 'Extensão não permitida: .' . $ext];
+    }
+
+    $consoleSlug = generateSlug($consoleSlug);
+    $gameSlug = generateSlug($gameSlug);
+    $typeDir = $type === 'modified' ? 'rommod' : 'rom';
+    $uploadDir = UPLOAD_PATH . '/retro/' . $consoleSlug . '/' . $typeDir;
     if (!is_dir($uploadDir)) {
         mkdir($uploadDir, 0755, true);
     }
 
-    $filename = uniqid('upl_', true) . '.' . $ext;
+    $filename = $gameSlug . '.' . $ext;
     $destination = $uploadDir . '/' . $filename;
+
+    if (file_exists($destination)) {
+        @unlink($destination);
+    }
 
     if (!move_uploaded_file($file['tmp_name'], $destination)) {
         return ['success' => false, 'message' => 'Falha ao salvar o arquivo.'];
@@ -154,8 +226,10 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
     return [
         'success' => true,
         'filename' => $filename,
-        'url' => '/uploads/' . $directory . '/' . $filename,
-        'path' => $destination
+        'url' => '/uploads/retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename,
+        'path' => $destination,
+        'rel_path' => 'retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename,
+        'type_dir' => $typeDir,
     ];
 }
 
@@ -167,8 +241,8 @@ function deleteFile($path) {
 }
 
 function truncateText($text, $length = 150) {
-    if (strlen($text) <= $length) return $text;
-    return substr($text, 0, $length) . '...';
+    if (mb_strlen($text) <= $length) return $text;
+    return mb_substr($text, 0, $length) . '...';
 }
 
 function timeAgo($datetime) {
@@ -277,19 +351,16 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
 
     $engineSlug = generateSlug($engine);
     $gameSlug = generateSlug($gameTitle);
-    $gameDir = UPLOAD_PATH . '/games/' . $engineSlug . '/' . $gameSlug;
+    $gameRelDir = 'games/' . $engineSlug . '/' . $gameSlug;
+    $gameDir = UPLOAD_PATH . '/' . $gameRelDir;
 
     // If game already exists, delete old version first
     if (is_dir($gameDir)) {
-        deleteGameDir($engineSlug . '/' . $gameSlug);
+        Storage::delete($gameRelDir);
     }
 
-    if (!is_dir($gameDir)) {
-        mkdir($gameDir, 0755, true);
-    }
-
-    $tmpFile = $gameDir . '/_upload.' . $ext;
-    if (!move_uploaded_file($file['tmp_name'], $tmpFile)) {
+    $tmpRelPath = $gameRelDir . '/_upload.' . $ext;
+    if (!Storage::upload($file['tmp_name'], $tmpRelPath)) {
         return ['success' => false, 'message' => 'Falha ao salvar o arquivo.'];
     }
 
@@ -297,33 +368,19 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
     $extractError = '';
 
     if ($ext === 'zip') {
-        $zip = new ZipArchive();
-        $result = $zip->open($tmpFile);
-        if ($result === true) {
-            $zip->extractTo($gameDir);
-            $zip->close();
+        if (Storage::extractZip($tmpRelPath, $gameRelDir)) {
             $extracted = true;
         } else {
-            $reasons = [
-                ZipArchive::ER_EXISTS => 'Arquivo já existe',
-                ZipArchive::ER_INCONS => 'Arquivo ZIP inconsistente',
-                ZipArchive::ER_MEMORY => 'Erro de memória',
-                ZipArchive::ER_NOENT => 'Arquivo não encontrado',
-                ZipArchive::ER_NOZIP => 'Não é um arquivo ZIP válido',
-                ZipArchive::ER_OPEN => 'Não foi possível abrir o arquivo',
-                ZipArchive::ER_READ => 'Erro de leitura',
-                ZipArchive::ER_SEEK => 'Erro de seek',
-            ];
-            $extractError = 'ZIP inválido: ' . ($reasons[$result] ?? 'código ' . $result);
+            $extractError = 'Não é um arquivo ZIP válido';
         }
     }
 
+    Storage::delete($tmpRelPath);
+
     if (!$extracted) {
-        @unlink($tmpFile);
+        Storage::delete($gameRelDir);
         return ['success' => false, 'message' => 'Falha ao extrair: ' . $extractError];
     }
-
-    @unlink($tmpFile);
 
     // Detect and flatten nested folder structure
     $items = scandir($gameDir);
@@ -353,6 +410,7 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
             // Remove empty subdirectories
             cleanupEmptyDirs($gameDir);
         } else {
+            Storage::delete($gameRelDir);
             return ['success' => false, 'message' => 'Arquivo index.html não encontrado no pacote. O jogo precisa ter um index.html na raiz.'];
         }
     }

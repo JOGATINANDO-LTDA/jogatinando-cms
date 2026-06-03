@@ -11,6 +11,7 @@
     --fg-secondary: oklch(82% 0.006 250);
     --muted: oklch(60% 0.012 250);
     --gold: oklch(75% 0.15 85);
+    --gold-subtle: oklch(75% 0.15 85 / 0.08);
     --gold-light: oklch(85% 0.13 85);
     --gold-dark: oklch(62% 0.13 85);
     --gold-glow: oklch(75% 0.15 85 / 0.4);
@@ -509,7 +510,7 @@ input, textarea, select { font-family: inherit; }
 .hero-carousel {
     position: relative;
     width: 100%;
-    height: calc(100vh - 104px);
+    height: calc(100svh - 104px);
     overflow: hidden;
     border-radius: var(--radius-xl);
     border: 1px solid var(--border-gold);
@@ -647,7 +648,7 @@ input, textarea, select { font-family: inherit; }
 .games-ring {
     position: relative;
     width: 100%;
-    max-width: 1100px;
+    max-width: 1300px;
     height: 420px;
     overflow: hidden;
     flex-shrink: 0;
@@ -681,7 +682,7 @@ input, textarea, select { font-family: inherit; }
 /* Adjacent ±1 */
 .game-card.ring-pos-1 {
     opacity: 0.7;
-    left: 75%;
+    left: 70%;
     transform: translate(-50%, -50%) scale(0.85);
     z-index: 4;
     pointer-events: auto;
@@ -689,7 +690,7 @@ input, textarea, select { font-family: inherit; }
 
 .game-card.ring-pos--1 {
     opacity: 0.7;
-    left: 25%;
+    left: 30%;
     transform: translate(-50%, -50%) scale(0.85);
     z-index: 4;
     pointer-events: auto;
@@ -698,7 +699,7 @@ input, textarea, select { font-family: inherit; }
 /* Outer ±2 */
 .game-card.ring-pos-2 {
     opacity: 0.35;
-    left: 95%;
+    left: 88%;
     transform: translate(-50%, -50%) scale(0.7);
     z-index: 3;
     pointer-events: auto;
@@ -706,7 +707,7 @@ input, textarea, select { font-family: inherit; }
 
 .game-card.ring-pos--2 {
     opacity: 0.35;
-    left: 5%;
+    left: 12%;
     transform: translate(-50%, -50%) scale(0.7);
     z-index: 3;
     pointer-events: auto;
@@ -723,6 +724,384 @@ input, textarea, select { font-family: inherit; }
 .game-card:hover {
     border-color: var(--gold);
     box-shadow: 0 12px 40px oklch(0% 0 0 / 0.4), 0 0 30px var(--gold-glow);
+}
+
+/* === Catalog === */
+.catalog-page {
+    padding-top: 96px;
+}
+
+.catalog-title {
+    margin-bottom: 32px;
+}
+
+.catalog-filters-panel {
+    padding: 20px;
+    margin-bottom: 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    box-shadow: 0 12px 40px oklch(0% 0 0 / 0.18);
+}
+
+.catalog-filters-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+}
+
+.catalog-filter label {
+    display: block;
+    margin-bottom: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--muted);
+}
+
+.catalog-filter select,
+.catalog-filter input {
+    width: 100%;
+    min-height: 48px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--fg);
+    padding: 0 14px;
+}
+
+.catalog-filter select:focus,
+.catalog-filter input:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px var(--gold-glow);
+}
+
+.catalog-search {
+    display: flex;
+    gap: 10px;
+}
+
+.catalog-search button {
+    flex: 0 0 auto;
+}
+
+.catalog-filter-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 16px;
+    justify-content: flex-end;
+}
+
+.catalog-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 22px;
+}
+
+.catalog-card {
+    display: block;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.catalog-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--gold);
+    box-shadow: 0 18px 40px oklch(0% 0 0 / 0.25);
+}
+
+.catalog-thumb {
+    position: relative;
+    aspect-ratio: 16 / 9;
+    background: linear-gradient(135deg, var(--bg-alt), var(--bg-card-hover));
+    overflow: hidden;
+}
+
+.catalog-thumb img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.catalog-thumb-placeholder {
+    width: 100%;
+    height: 100%;
+    display: grid;
+    place-items: center;
+    font-size: 56px;
+    color: var(--gold);
+}
+
+.catalog-badges {
+    position: absolute;
+    inset: auto 12px 12px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.catalog-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 10px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    backdrop-filter: blur(12px);
+}
+
+.catalog-badge-autoral {
+    background: oklch(45% 0.15 260 / 0.85);
+    color: oklch(95% 0.02 260);
+}
+
+.catalog-badge-client {
+    background: oklch(45% 0.15 320 / 0.85);
+    color: oklch(95% 0.02 320);
+}
+
+.catalog-badge-external {
+    background: oklch(45% 0.15 250 / 0.85);
+    color: oklch(95% 0.02 250);
+}
+
+.catalog-badge-web {
+    background: oklch(45% 0.16 145 / 0.85);
+    color: oklch(95% 0.02 145);
+}
+
+.catalog-badge-store {
+    background: oklch(45% 0.16 90 / 0.85);
+    color: oklch(95% 0.02 90);
+}
+
+.catalog-badge-engine {
+    color: white;
+}
+
+.catalog-badge-modified {
+    background: oklch(55% 0.20 25 / 0.85);
+    color: oklch(95% 0.02 25);
+    max-width: 160px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.catalog-content {
+    padding: 18px;
+}
+
+.catalog-content h3 {
+    font-size: 18px;
+    margin-bottom: 8px;
+}
+
+.catalog-content p {
+    color: var(--fg-secondary);
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.catalog-card-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    color: var(--gold-light);
+    font-weight: 600;
+}
+
+.catalog-arrow {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.catalog-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 48px 24px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+}
+
+.catalog-empty .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+
+@media (max-width: 900px) {
+    .catalog-filters-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (max-width: 600px) {
+    .catalog-search {
+        flex-direction: column;
+    }
+
+    .catalog-filter-actions {
+        justify-content: stretch;
+        flex-direction: column;
+    }
+
+    .catalog-filter-actions .btn {
+        width: 100%;
+    }
+}
+
+/* === Retro Filter Bar === */
+.retro-filter-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 18px 20px;
+    margin-bottom: 28px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    align-items: flex-end;
+}
+
+.retro-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.retro-filter-group label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--muted);
+}
+
+.retro-filter-group select {
+    min-height: 36px;
+    padding: 0 32px 0 12px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border);
+    background: var(--bg-input);
+    color: var(--fg);
+    font-size: 13px;
+    cursor: pointer;
+    appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23999' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+}
+
+.retro-filter-group select:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px var(--gold-glow);
+}
+
+.retro-filter-letters {
+    flex: 1;
+    min-width: 200px;
+}
+
+.retro-filter-letter-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.retro-filter-letter {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: var(--radius-sm);
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--fg-secondary);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+
+.retro-filter-letter:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--gold-glow);
+}
+
+.retro-filter-letter.active {
+    background: var(--gold);
+    color: var(--bg-deep);
+    border-color: var(--gold);
+}
+
+.retro-filter-letter.disabled {
+    opacity: 0.25;
+    pointer-events: none;
+}
+
+.retro-filter-clear {
+    width: auto;
+    padding: 0 8px;
+    font-size: 11px;
+    margin-left: 4px;
+}
+
+.retro-filter-type-list {
+    display: flex;
+    gap: 4px;
+}
+
+.retro-filter-type {
+    display: inline-flex;
+    align-items: center;
+    padding: 6px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--fg-secondary);
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    transition: all 0.15s ease;
+    text-decoration: none;
+}
+
+.retro-filter-type:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.retro-filter-type.active {
+    background: var(--gold);
+    color: var(--bg-deep);
+    border-color: var(--gold);
+}
+
+@media (max-width: 768px) {
+    .retro-filter-bar {
+        flex-direction: column;
+        gap: 14px;
+    }
+    .retro-filter-group {
+        width: 100%;
+    }
+    .retro-filter-group select {
+        width: 100%;
+    }
 }
 
 .games-nav-btn {
@@ -1486,6 +1865,21 @@ input, textarea, select { font-family: inherit; }
     padding: 0 24px;
 }
 
+.theater-fallback {
+    text-align: center;
+    padding: 20px;
+    margin-top: 16px;
+    background: oklch(15% 0.02 250 / 0.3);
+    border: 1px solid oklch(45% 0.15 250 / 0.3);
+    border-radius: var(--radius-md);
+}
+
+.theater-fallback p {
+    margin: 0 0 12px;
+    font-size: 14px;
+    color: var(--muted);
+}
+
 .theater-player {
     position: relative;
     width: 100%;
@@ -1735,6 +2129,89 @@ input, textarea, select { font-family: inherit; }
     letter-spacing: 0.02em;
 }
 
+.store-links-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.store-link-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 14px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--fg);
+    text-decoration: none;
+    transition: border-color 0.2s, color 0.2s;
+}
+
+.store-link-item:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
+.store-link-icon {
+    font-size: 18px;
+    flex-shrink: 0;
+}
+
+.store-link-logo {
+    height: 18px;
+    width: auto;
+    object-fit: contain;
+    flex-shrink: 0;
+}
+
+.sidebar-store-link .store-link-logo {
+    height: 16px;
+}
+
+.store-link-name {
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.store-link-game {
+    color: var(--muted);
+    font-size: 0.85em;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.store-link-game::before {
+    content: "— ";
+}
+
+.store-link-item:hover .store-link-game {
+    color: var(--gold-muted, var(--muted));
+}
+
+.sidebar-links-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sidebar-store-link {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    color: var(--fg);
+}
+
+.sidebar-store-link:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+}
+
 /* Sidebar */
 .game-info-sidebar {
     display: flex;
@@ -1969,6 +2446,9 @@ input, textarea, select { font-family: inherit; }
     .games-ring-wrapper { gap: 0; padding: 12px 0; }
     .games-ring { max-width: 100%; height: 380px; }
     .game-card { width: 200px; }
+    .game-card.ring-pos-1 { left: 80%; }
+    .game-card.ring-pos--1 { left: 20%; }
+    .game-card.ring-pos-2, .game-card.ring-pos--2 { opacity: 0; pointer-events: none; }
     .game-info { padding: 14px; }
     .game-info h3 { font-size: 14px; }
     .game-info .game-engine { font-size: 11px; }

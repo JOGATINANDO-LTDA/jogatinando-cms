@@ -13,12 +13,71 @@ RewriteEngine On
     FcgidMaxRequestLen 115343360
 </IfModule>
 
+# === COMPRESSÃO GZIP ===
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml text/xml application/xml
+</IfModule>
+
+# === CACHE DE ARQUIVOS ESTÁTICOS ===
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/png "access plus 1 year"
+    ExpiresByType image/jpeg "access plus 1 year"
+    ExpiresByType image/gif "access plus 1 year"
+    ExpiresByType image/webp "access plus 1 year"
+    ExpiresByType audio/ogg "access plus 1 year"
+    ExpiresByType audio/wav "access plus 1 year"
+    ExpiresByType audio/mpeg "access plus 1 year"
+    ExpiresByType audio/midi "access plus 1 year"
+    ExpiresByType audio/x-midi "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/json "access plus 1 year"
+    ExpiresByType font/ttf "access plus 1 year"
+    ExpiresByType font/otf "access plus 1 year"
+    ExpiresByType font/woff "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+</IfModule>
+
+# === HEADERS DE SEGURANÇA ===
+<IfModule mod_headers.c>
+    Header set Connection keep-alive
+    Header set Cross-Origin-Opener-Policy "same-origin-allow-popups"
+    Header set Cross-Origin-Embedder-Policy "credentialless"
+    Header set X-Content-Type-Options "nosniff"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+    Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+    # Access-Control-Allow-Origin definido dinamicamente via PHP para uploads
+</IfModule>
+
+# === MIME TYPES PARA ROMS RETRO ===
+<IfModule mod_mime.c>
+    AddType application/x-snes-rom .sfc .smc
+    AddType application/vnd.nes-rom .nes
+    AddType application/x-gameboy-rom .gb
+    AddType application/x-gba-rom .gba
+    AddType application/x-genesis-rom .gen .md
+    AddType application/x-master-system-rom .sms
+    AddType application/x-n64-rom .n64 .z64
+    AddType application/x-pc-engine-rom .pce
+    AddType application/x-sega-cd-rom .iso
+    AddType application/x-playstation-rom .bin .cue .iso
+</IfModule>
+
+# Redirect /favicon.ico to SVG (avoids 404 on browser auto-request)
+RewriteRule ^favicon\.ico$ /assets/svg/logo.svg [L]
+
 # Force trailing slash for admin directory (avoids mod_dir double-redirect on mobile)
 RewriteRule ^admin$ admin/ [R=301,L]
 
-# Serve existing files directly (CSS, JS, uploads, install.php, etc.)
-RewriteCond %{REQUEST_FILENAME} -f
+# Serve existing files and directories directly (CSS, JS, uploads, install.php, etc.)
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
+
+# Admin pretty URL → .php direto (evita bug do router com query string em manutenção)
+RewriteCond %{DOCUMENT_ROOT}/admin/$1.php -f
+RewriteRule ^admin/(.+)$ admin/$1.php [L]
 
 # Everything else → router.php (admin routing, game player, homepage)
 RewriteRule ^(.*)$ router.php [L,QSA]

@@ -1,0 +1,13 @@
+# Bloqueia execução de PHP em uploads
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule \.(?:php|phtml|php3|php4|php5|php7|php8)$ - [F]
+</IfModule>
+
+# Proteção adicional: nega acesso a arquivos ocultos
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Desabilita listagem de diretório
+Options -Indexes
