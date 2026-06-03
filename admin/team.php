@@ -56,7 +56,7 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-group"><label for="role">Cargo *</label>
                     <select id="role" name="role" required>
                         <option value="">Selecione...</option>
-                        <?php foreach (dbQuery("SELECT name FROM roles WHERE id != 1 ORDER BY level DESC, name ASC") as $r): ?>
+                        <?php foreach (dbQuery("SELECT name FROM roles WHERE id != 1 ORDER BY name ASC") as $r): ?>
                         <option value="<?= e($r['name']) ?>" <?= ($member['role'] ?? '') === $r['name'] ? 'selected' : '' ?>><?= e($r['name']) ?></option>
                         <?php endforeach; ?>
                     </select>

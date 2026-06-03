@@ -61,6 +61,7 @@ function login($username, $password) {
                 $_SESSION['admin_permissions'][$key] = (bool)$val;
             }
         }
+        session_regenerate_id(true);
         return true;
     }
     return false;

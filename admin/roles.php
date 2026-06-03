@@ -39,16 +39,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         } else {
             if ($_POST['action'] === 'create') {
                 try {
-                    $stmt = $db->prepare("INSERT INTO roles (name, level_id, level, description) VALUES (?, ?, (SELECT slug FROM levels WHERE id = ?), ?)");
-                    $stmt->execute([$name, $levelId, $levelId, $description]);
+                    $stmt = $db->prepare("INSERT INTO roles (name, level_id, description) VALUES (?, ?, ?)");
+                    $stmt->execute([$name, $levelId, $description]);
                     flashMessage('success', "Cargo '$name' criado com sucesso!");
                 } catch (Exception $e) {
                     flashMessage('error', 'Erro ao criar cargo: ' . $e->getMessage());
                 }
             } else {
                 try {
-                    $stmt = $db->prepare("UPDATE roles SET name = ?, level_id = ?, level = (SELECT slug FROM levels WHERE id = ?), description = ? WHERE id = ?");
-                    $stmt->execute([$name, $levelId, $levelId, $description, $editId]);
+                    $stmt = $db->prepare("UPDATE roles SET name = ?, level_id = ?, description = ? WHERE id = ?");
+                    $stmt->execute([$name, $levelId, $description, $editId]);
                     flashMessage('success', "Cargo '$name' atualizado!");
                 } catch (Exception $e) {
                     flashMessage('error', 'Erro ao atualizar cargo: ' . $e->getMessage());
