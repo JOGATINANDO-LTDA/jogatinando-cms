@@ -48,7 +48,7 @@ RewriteEngine On
     Header set Referrer-Policy "strict-origin-when-cross-origin"
     Header set Strict-Transport-Security "max-age=31536000; includeSubDomains"
     Header set Permissions-Policy "camera=(), microphone=(), geolocation=()"
-    Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.emulatorjs.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://cdn.emulatorjs.org; worker-src 'self' blob:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
+    Header set Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.emulatorjs.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.emulatorjs.org; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://cdn.emulatorjs.org; worker-src 'self' blob:; frame-ancestors 'self'; base-uri 'self'; form-action 'self'"
     # Access-Control-Allow-Origin definido dinamicamente via PHP para uploads
 </IfModule>
 
