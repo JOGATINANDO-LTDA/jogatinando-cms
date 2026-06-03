@@ -75,7 +75,7 @@ $users = $db->query("
 ")->fetchAll();
 
 $assignableRoles = getAssignableRoles($db);
-$pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending' OR email_verified_at IS NULL")->fetchColumn();
+$pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending'")->fetchColumn();
 ?>
 
 <div class="card">
@@ -86,7 +86,7 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending' 
     <div class="card-body">
         <?php if ($pendingCount > 0): ?>
         <div style="margin-bottom: 16px; padding: 12px 16px; background: oklch(68% 0.16 220 / 0.1); border: 1px solid oklch(68% 0.16 220 / 0.3); border-radius: 8px; color: oklch(68% 0.16 220); font-size: 14px;">
-            ⏳ <strong><?= $pendingCount ?></strong> usuário(s) aguardando confirmação de email.
+            ⏳ <strong><?= $pendingCount ?></strong> usuário(s) aguardando ativação.
         </div>
         <?php endif; ?>
 
@@ -145,7 +145,7 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending' 
                                 <span class="badge badge-inactive">Pendente</span>
                             <?php elseif (!$u['email_verified_at']): ?>
                                 <span class="badge badge-active">Ativo</span>
-                                <span class="badge badge-pending">Email não verif.</span>
+                                <span class="badge badge-pending">Pendente</span>
                             <?php else: ?>
                                 <span class="badge badge-active">Ativo</span>
                             <?php endif; ?>

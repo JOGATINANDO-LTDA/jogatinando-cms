@@ -141,6 +141,12 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
                     <span class="nav-label">Configurações</span>
                 </a>
                 <?php endif; ?>
+                <?php if (($_SESSION['admin_user_id'] ?? 0) === 1): ?>
+                <a href="<?= ADMIN_URL ?>/repair" class="nav-item <?= $currentPage === 'repair' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></span>
+                    <span class="nav-label">Diagnóstico</span>
+                </a>
+                <?php endif; ?>
             </nav>
             <div class="sidebar-footer">
                 <a href="<?= SITE_URL ?>" target="_blank" class="nav-item">

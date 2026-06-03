@@ -4,6 +4,8 @@ data/*.db-journal
 data/*.db-wal
 data/contact_log.txt
 data/config.local.php
+data/test_migration.php
+test_chmod
 
 # === Uploads (managed by Docker volumes) ===
 uploads/*
@@ -43,9 +45,11 @@ docker-compose.override.yml
 tmp/
 temp/
 *.tmp
-cookies*.txt
+*cookies*.txt
 headers*.txt
 login_result*.html
+login_out*.html
+temp_check*
 
 # === Composer (if ever added) ===
 vendor/
