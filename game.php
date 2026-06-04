@@ -32,6 +32,9 @@ $gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_i
 
 if ($isExterno) {
     $gameUrl = $game['external_url'];
+    $parts = parse_url($gameUrl);
+    $origin = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? '');
+    header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.emulatorjs.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com http://fonts.googleapis.com https://cdn.emulatorjs.org; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' blob: data: https:; worker-src 'self' blob:; frame-src 'self' $origin; frame-ancestors 'self'; base-uri 'self'; form-action 'self'");
 } elseif ($isWebPlayable && $game['game_path']) {
     $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
     $gameUrl = UPLOAD_URL . '/games/' . $game['game_path'] . '/';
