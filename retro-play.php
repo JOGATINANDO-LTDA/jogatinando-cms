@@ -28,6 +28,8 @@ $romUrl = SITE_URL . '/uploads/' . ltrim($game['rom_path'] ?? '', '/');
 $hasRom = !empty($game['rom_path']);
 $gameThumb = !empty($game['thumbnail_url']) ? $game['thumbnail_url'] : '';
 $consoleThumb = !empty($console['thumbnail_url']) ? $console['thumbnail_url'] : '';
+
+header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.emulatorjs.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com http://fonts.googleapis.com https://cdn.emulatorjs.org; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' blob: data: https:; worker-src 'self' blob:; frame-src 'self' blob: https://cdn.emulatorjs.org; frame-ancestors 'self'; base-uri 'self'; form-action 'self'");
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
