@@ -331,7 +331,56 @@ $orientation = $game['orientation'] ?? 'auto';
             }
 
             if (fsBtn) {
-                fsBtn.addEventListener('click', () => {
+                let isDragging = false;
+                let dragStartX, dragStartY, dragOrigX, dragOrigY;
+
+                fsBtn.addEventListener('mousedown', (e) => {
+                    if (e.button !== 0) return;
+                    const rect = fsBtn.getBoundingClientRect();
+                    const parentRect = player.getBoundingClientRect();
+                    dragStartX = e.clientX;
+                    dragStartY = e.clientY;
+                    dragOrigX = rect.left - parentRect.left;
+                    dragOrigY = rect.top - parentRect.top;
+                    isDragging = false;
+                    fsBtn.classList.add('dragging');
+
+                    const onMouseMove = (ev) => {
+                        const dx = ev.clientX - dragStartX;
+                        const dy = ev.clientY - dragStartY;
+                        if (!isDragging && (Math.abs(dx) > 4 || Math.abs(dy) > 4)) {
+                            isDragging = true;
+                        }
+                        if (!isDragging) return;
+                        ev.preventDefault();
+
+                        const pRect = player.getBoundingClientRect();
+                        const bRect = fsBtn.getBoundingClientRect();
+                        let newLeft = dragOrigX + dx;
+                        let newTop = dragOrigY + dy;
+                        newLeft = Math.max(0, Math.min(pRect.width - bRect.width, newLeft));
+                        newTop = Math.max(0, Math.min(pRect.height - bRect.height, newTop));
+                        fsBtn.style.left = newLeft + 'px';
+                        fsBtn.style.right = 'auto';
+                        fsBtn.style.top = newTop + 'px';
+                    };
+
+                    const onMouseUp = () => {
+                        document.removeEventListener('mousemove', onMouseMove);
+                        document.removeEventListener('mouseup', onMouseUp);
+                        fsBtn.classList.remove('dragging');
+                    };
+
+                    document.addEventListener('mousemove', onMouseMove);
+                    document.addEventListener('mouseup', onMouseUp);
+                });
+
+                fsBtn.addEventListener('click', (e) => {
+                    if (isDragging) {
+                        e.stopPropagation();
+                        isDragging = false;
+                        return;
+                    }
                     if (document.fullscreenElement) exitFullscreen();
                     else enterFullscreen();
                 });

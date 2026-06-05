@@ -1940,9 +1940,15 @@ input, textarea, select { font-family: inherit; }
     border: 1px solid var(--border-gold);
     border-radius: var(--radius-md);
     color: var(--gold);
-    cursor: pointer;
+    cursor: grab;
+    user-select: none;
     transition: all 0.2s;
     opacity: 0;
+}
+
+.theater-fs-btn.dragging {
+    cursor: grabbing;
+    transition: none;
 }
 
 .theater-player:hover .theater-fs-btn,
