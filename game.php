@@ -103,7 +103,7 @@ $orientation = $game['orientation'] ?? 'auto';
     <!-- Theater Mode Player -->
     <section class="theater-section">
         <div class="theater-container">
-            <div class="theater-player<?= $isExterno ? ' theater-player-externo' : '' ?>" id="theaterPlayer">
+            <div class="theater-player" id="theaterPlayer">
                 <div class="theater-loader" id="theaterLoader">
                     <div class="loader-spinner"></div>
                     <span class="loader-text">Carregando jogo...</span>
