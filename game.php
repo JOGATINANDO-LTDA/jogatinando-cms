@@ -102,7 +102,7 @@ $orientation = $game['orientation'] ?? 'auto';
                         <span class="theater-overlay-text">Clique para jogar</span>
                     </div>
                 </div>
-                <iframe class="theater-iframe" id="theaterIframe" src="about:blank" data-src="<?= e($gameUrl) ?>" allowfullscreen allow="autoplay; fullscreen; gamepad"></iframe>
+                <iframe class="theater-iframe" id="theaterIframe" src="about:blank" data-src="<?= e($gameUrl) ?>" allow="autoplay; fullscreen; gamepad"></iframe>
                 <button class="theater-fs-btn" id="theaterFsBtn" title="Tela cheia">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="15 3 21 3 21 9"></polyline>
