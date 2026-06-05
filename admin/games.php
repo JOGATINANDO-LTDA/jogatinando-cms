@@ -57,8 +57,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $is_open_source = isset($_POST['is_open_source']) ? 1 : 0;
         $is_web_playable = $game_type === 'externo' ? 1 : (isset($_POST['is_web_playable']) ? 1 : 0);
         $featured = isset($_POST['featured']) ? 1 : 0;
-        $orientation = in_array($_POST['orientation'] ?? '', ['auto', 'landscape', 'portrait']) ? $_POST['orientation'] : 'auto';
-        $aspect_ratio = in_array($_POST['aspect_ratio'] ?? '', ['auto', '16:9', '4:3', '1:1', '9:16', '3:4']) ? $_POST['aspect_ratio'] : '16:9';
+        $iframe_width = trim($_POST['iframe_width'] ?? '');
+        $iframe_height = trim($_POST['iframe_height'] ?? '');
+        if (!preg_match('/^\d+(px|%|vh|vw)?$/', $iframe_width)) $iframe_width = '100%';
+        if (!preg_match('/^\d+(px|%|vh|vw)?$/', $iframe_height)) $iframe_height = '100%';
+        $orientation = 'auto';
         $sort_order = (int)($_POST['sort_order'] ?? 0);
         $active = isset($_POST['active']) ? 1 : 0;
         $thumbnail_url = '';
@@ -123,12 +126,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $thumbnail_url = $existing['thumbnail_url'] ?? '';
                 }
 
-                dbExec("UPDATE games SET title=?, slug=?, engine=?, description=?, thumbnail_url=?, game_path=?, game_type=?, is_web_playable=?, featured=?, orientation=?, aspect_ratio=?, sort_order=?, active=?, external_url=?, repo_url=?, is_open_source=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $aspect_ratio, $sort_order, $active, $external_url, $repo_url, $is_open_source, $id]);
+                dbExec("UPDATE games SET title=?, slug=?, engine=?, description=?, thumbnail_url=?, game_path=?, game_type=?, is_web_playable=?, featured=?, orientation=?, iframe_width=?, iframe_height=?, sort_order=?, active=?, external_url=?, repo_url=?, is_open_source=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $iframe_width, $iframe_height, $sort_order, $active, $external_url, $repo_url, $is_open_source, $id]);
                 flashMessage('success', 'Jogo atualizado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
             } else {
-                $id = dbExec("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, game_type, is_web_playable, featured, orientation, aspect_ratio, sort_order, active, external_url, repo_url, is_open_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $aspect_ratio, $sort_order, $active, $external_url, $repo_url, $is_open_source]);
+                $id = dbExec("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, game_type, is_web_playable, featured, orientation, iframe_width, iframe_height, sort_order, active, external_url, repo_url, is_open_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $iframe_width, $iframe_height, $sort_order, $active, $external_url, $repo_url, $is_open_source]);
                 flashMessage('success', 'Jogo criado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
             }
 
@@ -276,6 +279,57 @@ if ($action === 'new' || $action === 'edit') {
                 <textarea id="description" name="description" rows="4"><?= e($game['description'] ?? '') ?></textarea>
             </div>
 
+            <h3 class="form-section-title">Tipo</h3>
+
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="game_type">Tipo</label>
+                    <select id="game_type" name="game_type">
+                        <option value="autoral" <?= ($game['game_type'] ?? 'autoral') === 'autoral' ? 'selected' : '' ?>>Autoral</option>
+                        <option value="cliente" <?= ($game['game_type'] ?? '') === 'cliente' ? 'selected' : '' ?>>Cliente</option>
+                        <option value="externo" <?= ($game['game_type'] ?? '') === 'externo' ? 'selected' : '' ?>>Externo</option>
+                    </select>
+                </div>
+            </div>
+
+            <h3 class="form-section-title" id="externalSection" style="<?= ($game['game_type'] ?? '') === 'externo' ? '' : 'display:none' ?>">Link Externo</h3>
+            <div id="externalContainer" style="<?= ($game['game_type'] ?? '') === 'externo' ? '' : 'display:none' ?>">
+                <div class="form-row">
+                    <div class="form-group" style="flex:2">
+                        <label for="external_url">URL do Site do Jogo *</label>
+                        <input type="url" id="external_url" name="external_url" value="<?= e($game['external_url'] ?? '') ?>" placeholder="https://exemplo.com.br">
+                        <div class="field-hint">URL completa do site onde o jogo roda. Será exibido via iframe. Jogos externos não têm upload de arquivo.</div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <div class="toggle-group" style="margin-top:28px">
+                            <input type="checkbox" id="is_open_source" name="is_open_source" <?= ($game['is_open_source'] ?? 0) ? 'checked' : '' ?>>
+                            <label for="is_open_source">Projeto Open Source</label>
+                        </div>
+                    </div>
+                </div>
+                <div class="form-row" id="repoUrlRow" style="<?= ($game['is_open_source'] ?? 0) ? '' : 'display:none' ?>">
+                    <div class="form-group" style="flex:2">
+                        <label for="repo_url">URL do Repositório</label>
+                        <input type="url" id="repo_url" name="repo_url" value="<?= e($game['repo_url'] ?? '') ?>" placeholder="https://github.com/usuario/repositorio">
+                        <div class="field-hint">Link para GitHub, GitLab ou outro repositório</div>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group" style="flex:1">
+                        <label for="iframe_width">Largura do iframe</label>
+                        <input type="text" id="iframe_width" name="iframe_width" value="<?= e($game['iframe_width'] ?? '100%') ?>" placeholder="ex: 800px, 100%">
+                        <div class="field-hint">Largura do iframe. Use px, % ou vw.</div>
+                    </div>
+                    <div class="form-group" style="flex:1">
+                        <label for="iframe_height">Altura do iframe</label>
+                        <input type="text" id="iframe_height" name="iframe_height" value="<?= e($game['iframe_height'] ?? '100%') ?>" placeholder="ex: 600px, 80vh">
+                        <div class="field-hint">Altura do iframe. Use px, vh ou %.</div>
+                    </div>
+                </div>
+            </div>
+
             <h3 class="form-section-title">Mídia</h3>
 
             <div class="form-row">
@@ -293,7 +347,7 @@ if ($action === 'new' || $action === 'edit') {
                         <img src="<?= e($game['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail">
                     <?php endif; ?>
                 </div>
-                <div class="form-group" id="gameArchiveGroup">
+                <div class="form-group" id="gameArchiveGroup" style="<?= ($game['game_type'] ?? '') === 'externo' ? 'display:none' : '' ?>">
                     <label>Arquivo do Jogo</label>
                     <div class="file-upload" id="gameArchiveDrop">
                         <input type="file" name="game_archive" accept=".zip" id="gameArchiveInput">
@@ -321,37 +375,10 @@ if ($action === 'new' || $action === 'edit') {
                     <label for="sort_order">Ordem</label>
                     <input type="number" id="sort_order" name="sort_order" value="<?= (int)($game['sort_order'] ?? 0) ?>">
                 </div>
-                <div class="form-group">
-                    <label for="orientation">Orientação Mobile</label>
-                    <select id="orientation" name="orientation">
-                        <option value="auto" <?= ($game['orientation'] ?? 'auto') === 'auto' ? 'selected' : '' ?>>Automático</option>
-                        <option value="landscape" <?= ($game['orientation'] ?? '') === 'landscape' ? 'selected' : '' ?>>Paisagem (Landscape)</option>
-                        <option value="portrait" <?= ($game['orientation'] ?? '') === 'portrait' ? 'selected' : '' ?>>Retrato (Portrait)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="aspect_ratio">Proporção do Container</label>
-                    <select id="aspect_ratio" name="aspect_ratio">
-                        <option value="auto" <?= ($game['aspect_ratio'] ?? '16:9') === 'auto' ? 'selected' : '' ?>>Automático (16:9)</option>
-                        <option value="16:9" <?= ($game['aspect_ratio'] ?? '16:9') === '16:9' ? 'selected' : '' ?>>16:9 (Paisagem widescreen)</option>
-                        <option value="4:3" <?= ($game['aspect_ratio'] ?? '') === '4:3' ? 'selected' : '' ?>>4:3 (Padrão retrô)</option>
-                        <option value="1:1" <?= ($game['aspect_ratio'] ?? '') === '1:1' ? 'selected' : '' ?>>1:1 (Quadrado)</option>
-                        <option value="9:16" <?= ($game['aspect_ratio'] ?? '') === '9:16' ? 'selected' : '' ?>>9:16 (Retrato mobile)</option>
-                        <option value="3:4" <?= ($game['aspect_ratio'] ?? '') === '3:4' ? 'selected' : '' ?>>3:4 (Retrato tablet)</option>
-                    </select>
-                    <div class="field-hint">Ajusta o container à proporção ideal do jogo. Para jogos externos, veja a sugestão de embed do site.</div>
-                </div>
+
             </div>
 
             <div class="form-row">
-                <div class="form-group">
-                    <label for="game_type">Tipo</label>
-                    <select id="game_type" name="game_type">
-                        <option value="autoral" <?= ($game['game_type'] ?? 'autoral') === 'autoral' ? 'selected' : '' ?>>Autoral</option>
-                        <option value="cliente" <?= ($game['game_type'] ?? '') === 'cliente' ? 'selected' : '' ?>>Cliente</option>
-                        <option value="externo" <?= ($game['game_type'] ?? '') === 'externo' ? 'selected' : '' ?>>Externo</option>
-                    </select>
-                </div>
                 <div class="form-group">
                     <div class="toggle-group" style="margin-top:28px">
                         <input type="checkbox" id="is_web_playable" name="is_web_playable" <?= ($game['is_web_playable'] ?? 1) ? 'checked' : '' ?>>
@@ -372,32 +399,6 @@ if ($action === 'new' || $action === 'edit') {
                     <div class="toggle-group" style="margin-top:28px">
                         <input type="checkbox" id="active" name="active" <?= ($game['active'] ?? 1) ? 'checked' : '' ?>>
                         <label for="active">Ativo</label>
-                    </div>
-                </div>
-            </div>
-
-            <h3 class="form-section-title" id="externalSection" style="<?= ($game['game_type'] ?? '') === 'externo' ? '' : 'display:none' ?>">Link Externo</h3>
-            <div id="externalContainer" style="<?= ($game['game_type'] ?? '') === 'externo' ? '' : 'display:none' ?>">
-                <div class="form-row">
-                    <div class="form-group" style="flex:2">
-                        <label for="external_url">URL do Site do Jogo *</label>
-                        <input type="url" id="external_url" name="external_url" value="<?= e($game['external_url'] ?? '') ?>" placeholder="https://exemplo.com.br">
-                        <div class="field-hint">URL completa do site onde o jogo roda. Será exibido via iframe. Jogos externos não têm upload de arquivo.</div>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <div class="toggle-group" style="margin-top:28px">
-                            <input type="checkbox" id="is_open_source" name="is_open_source" <?= ($game['is_open_source'] ?? 0) ? 'checked' : '' ?>>
-                            <label for="is_open_source">Projeto Open Source</label>
-                        </div>
-                    </div>
-                </div>
-                <div class="form-row" id="repoUrlRow" style="<?= ($game['is_open_source'] ?? 0) ? '' : 'display:none' ?>">
-                    <div class="form-group" style="flex:2">
-                        <label for="repo_url">URL do Repositório</label>
-                        <input type="url" id="repo_url" name="repo_url" value="<?= e($game['repo_url'] ?? '') ?>" placeholder="https://github.com/usuario/repositorio">
-                        <div class="field-hint">Link para GitHub, GitLab ou outro repositório</div>
                     </div>
                 </div>
             </div>

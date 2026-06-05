@@ -996,6 +996,19 @@ function migration_028($db, $type) {
     } catch (Exception $e) {}
 }
 
+function migration_029($db, $type) {
+    // Add iframe_width and iframe_height to games — manual sizing for externo iframes
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN iframe_width VARCHAR(10) DEFAULT '100%'");
+            $db->exec("ALTER TABLE games ADD COLUMN iframe_height VARCHAR(10) DEFAULT '100%'");
+        } else {
+            $db->exec("ALTER TABLE games ADD COLUMN iframe_width TEXT DEFAULT '100%'");
+            $db->exec("ALTER TABLE games ADD COLUMN iframe_height TEXT DEFAULT '100%'");
+        }
+    } catch (Exception $e) {}
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();
