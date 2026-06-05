@@ -101,6 +101,30 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 - **data/**: Protected by `.htaccess` (deny all). SQLite DB is not downloadable.
 - **uploads/**: Protected by `.htaccess` (blocks PHP execution).
 
+## External Games & Cursor
+
+Jogos externos (tipo `externo`) carregam em iframe cross-origin. Alguns jogos usam `cursor: none` no CSS e renderizam cursor customizado via canvas/JS (ex: Kaetram MMORPG). Em iframe cross-origin, o Service Worker/Partytown do jogo falha e o cursor customizado não renderiza — resultado: cursor invisível.
+
+**Decisão:** Usar iframe direto (cross-origin). O navegador mostra o cursor padrão (seta). Usuários nunca ficam sem cursor.
+
+**Proxy rejeitado:** Proxy prefixado (`/proxy/game/<slug>/`) testado via Apache `mod_proxy` + `ProxyPass`. Não funciona para jogos com backend próprio porque:
+- Assets root-relative (ex: `/_astro/...`) não passam pelo proxy
+- WebSocket constrói URL baseada em `window.location` → aponta para o CMS, não para o backend real
+- Partytown/Service Worker continua quebrado em iframe (mesmo same-origin)
+
+Exceção: jogos autorais HTML5 (uploadados) carregam same-origin → cursor funciona normalmente.
+
+**Toggle:** `$useProxy` em `game.php:34` — `false` por padrão. Estrutura de fallback JS mantida (timeout 8s + iframe.onerror → URL direta) para uso futuro.
+
+**mod_proxy** habilitado no Docker (`a2enmod proxy proxy_http proxy_wstunnel`) — inofensivo, reservado.
+
+## Game Player (game.php)
+
+- **Fullscreen button**: draggable via CSS `cursor: grab` + JS `mousedown`/`mousemove`/`mouseup` handlers. Clamped to container bounds. Drag threshold 4px to distinguish click vs drag.
+- **CSP**: set via PHP `header()` em runtime. `$frameOrigin` inclui porta para jogos externos. `Header setifempty` no `.htaccess` dá precedência ao PHP.
+- **COEP/COOP removidos**: bloqueavam carregamento de documentos cross-origin no iframe. O jogo externo não envia `Cross-Origin-Resource-Policy` — Chrome recusava o document.
+- **`allowfullscreen` removido** do `<iframe>` — `allow="fullscreen"` já cobre.
+
 ## Style
 
 - Admin UI: dark theme with gold accents, OKLCH color tokens in `assets/css/admin.css`
