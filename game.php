@@ -30,14 +30,25 @@ $isExterno = ($game['game_type'] ?? '') === 'externo' && !empty($game['external_
 $isUploadado = !$isExterno && !empty($game['game_path']);
 $gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM game_links gl INNER JOIN store_platforms p ON p.id = gl.platform_id WHERE gl.game_id = ? AND p.active = 1 ORDER BY gl.sort_order ASC, p.sort_order ASC, p.name ASC", [$game['id']]);
 
+// Toggle: tenta proxy (mesma origem) com fallback para URL direta
+$useProxy = false;
+
 if ($isExterno) {
-    $gameUrl = $game['external_url'];
-    $parts = parse_url($gameUrl);
-    $port = isset($parts['port']) ? ':' . $parts['port'] : '';
-    $frameOrigin = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? '') . $port;
+    $externalUrl = $game['external_url'];
+    $fallbackUrl = $externalUrl;
+    if ($useProxy) {
+        $gameUrl = '/proxy/game/' . $slug . '/';
+        $frameOrigin = "'self'";
+    } else {
+        $gameUrl = $externalUrl;
+        $parts = parse_url($gameUrl);
+        $port = isset($parts['port']) ? ':' . $parts['port'] : '';
+        $frameOrigin = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? '') . $port;
+    }
 } elseif ($isWebPlayable && $game['game_path']) {
     $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
     $gameUrl = UPLOAD_URL . '/games/' . $game['game_path'] . '/';
+    $fallbackUrl = $gameUrl;
     $frameOrigin = "'self'";
     if (!file_exists($gameDir . '/index.html')) {
         http_response_code(404);
@@ -46,6 +57,7 @@ if ($isExterno) {
     }
 } else {
     $gameUrl = '';
+    $fallbackUrl = '';
     $frameOrigin = "'self'";
 }
 
@@ -289,10 +301,28 @@ $orientation = $game['orientation'] ?? 'auto';
             const player = document.getElementById('theaterPlayer');
             const fsBtn = document.getElementById('theaterFsBtn');
             const gameUrl = iframe.dataset.src;
+            const fallbackUrl = '<?= e($fallbackUrl) ?>';
+            const useProxy = <?= ($useProxy && $isExterno) ? 'true' : 'false' ?>;
             const orientation = '<?= $orientation ?>';
+
+            let fallbackTimer = null;
 
             iframe.addEventListener('load', () => {
                 loader.style.display = 'none';
+                if (fallbackTimer) {
+                    clearTimeout(fallbackTimer);
+                    fallbackTimer = null;
+                }
+                iframe.style.borderColor = '';
+            });
+
+            iframe.addEventListener('error', () => {
+                if (useProxy && fallbackUrl) {
+                    loader.textContent = 'Proxy indisponível, redirecionando...';
+                    setTimeout(() => {
+                        iframe.src = fallbackUrl;
+                    }, 1500);
+                }
             });
 
             overlay.addEventListener('click', () => {
@@ -300,6 +330,17 @@ $orientation = $game['orientation'] ?? 'auto';
                 overlay.style.pointerEvents = 'none';
                 loader.style.display = 'flex';
                 iframe.src = gameUrl;
+                if (useProxy && fallbackUrl) {
+                    fallbackTimer = setTimeout(() => {
+                        if (loader.style.display !== 'none') {
+                            iframe.style.borderColor = '#e44';
+                            loader.textContent = 'Proxy sem resposta, tentando origem direta...';
+                            setTimeout(() => {
+                                iframe.src = fallbackUrl;
+                            }, 1000);
+                        }
+                    }, 8000);
+                }
             });
 
             function lockOrientation(type) {
