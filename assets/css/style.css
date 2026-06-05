@@ -1900,6 +1900,11 @@ input, textarea, select { font-family: inherit; }
     object-fit: contain;
 }
 
+.theater-player[data-orientation="portrait"] {
+    aspect-ratio: 3 / 4;
+    max-height: 85vh;
+}
+
 .theater-loader {
     position: absolute;
     inset: 0;
