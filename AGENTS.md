@@ -29,7 +29,9 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 
 1. **Docker (MySQL)**: `docker compose ... up --build` → visit `http://localhost:8080/install.php` → click "MySQL / MariaDB" → fill host `db`, user `cms_user`, pass `cms_pass2024` → done
 2. **SQLite**: Visit `http://localhost:8080/install.php` → click "SQLite (Simples)"
-3. Login at `/admin/login.php` — user: `admin`, password: `admin1234`
+3. Login at `/admin/login.php`:
+   - **MySQL (Docker)**: user `sorameshi`, password `lotus10`
+   - **SQLite**: user `admin`, password `admin1234`
 4. Delete or `chmod 000 install.php` after install (exposes reset endpoint)
 
 > `config.local.php` é a única forma do sistema saber se está instalado. SQLite e MySQL ambos criam `config.local.php` após o install. Se o arquivo for perdido, install.php aparece — mesmo que o `.db` ainda exista. O usuário clica SQLite (ou MySQL com mesmas credenciais) e os dados são preservados.
@@ -73,7 +75,7 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 
 ## Uploads
 
-- Max 100MB. Images: jpg/jpeg/png/gif/webp. Games: zip only.
+- Max 100MB. Images: jpg/jpeg/png/gif/webg. Games: zip only.
 - Structure: `uploads/{banners,games,thumbnails,avatars,blog}/`
 - Game ZIPs are auto-extracted on first play via `game.php` (looks for `index.html` in root or subfolder)
 
@@ -100,6 +102,67 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 - **Session secure flag**: `config.php` checks both `$_SERVER['HTTPS']` and `HTTP_X_FORWARDED_PROTO` (for reverse proxies).
 - **data/**: Protected by `.htaccess` (deny all). SQLite DB is not downloadable.
 - **uploads/**: Protected by `.htaccess` (blocks PHP execution).
+
+## External Games & Cursor
+
+Jogos externos (tipo `externo`) carregam em iframe cross-origin. Alguns jogos usam `cursor: none` no CSS e renderizam cursor customizado via canvas/JS (ex: Kaetram MMORPG). Em iframe cross-origin, o Service Worker/Partytown do jogo falha e o cursor customizado não renderiza — resultado: cursor invisível.
+
+**Decisão:** Usar iframe direto (cross-origin). O navegador mostra o cursor padrão (seta). Usuários nunca ficam sem cursor.
+
+**Proxy rejeitado:** Proxy prefixado (`/proxy/game/<slug>/`) testado via Apache `mod_proxy` + `ProxyPass`. Não funciona para jogos com backend próprio porque:
+- Assets root-relative (ex: `/_astro/...`) não passam pelo proxy
+- WebSocket constrói URL baseada em `window.location` → aponta para o CMS, não para o backend real
+- Partytown/Service Worker continua quebrado em iframe (mesmo same-origin)
+
+Exceção: jogos autorais HTML5 (uploadados) carregam same-origin → cursor funciona normalmente.
+
+**Toggle:** `$useProxy` em `game.php:34` — `false` por padrão. Estrutura de fallback JS mantida (timeout 8s + iframe.onerror → URL direta) para uso futuro.
+
+**mod_proxy** habilitado no Docker (`a2enmod proxy proxy_http proxy_wstunnel`) — inofensivo, reservado.
+
+## Game Player (game.php)
+
+- **Fullscreen button**: draggable via CSS `cursor: grab` + JS `mousedown`/`mousemove`/`mouseup` handlers. Clamped to container bounds. Drag threshold 4px to distinguish click vs drag.
+- **CSP**: set via PHP `header()` em runtime. `$frameOrigin` inclui porta para jogos externos. `Header setifempty` no `.htaccess` dá precedência ao PHP.
+- **COEP/COOP removidos**: bloqueavam carregamento de documentos cross-origin no iframe. O jogo externo não envia `Cross-Origin-Resource-Policy` — Chrome recusava o document.
+- **`allowfullscreen` removido** do `<iframe>` — `allow="fullscreen"` já cobre.
+
+## Iframe Sizing Strategy
+
+Two strategies depending on game type:
+
+- **Autoral / Cliente (same-origin)**: JS auto-fit no `load` do iframe — acessa `contentDocument`, força `overflow:hidden`, `width:100%`, `height:100%`, `margin:0`, `padding:0` no body/html do conteúdo. Container usa `aspect-ratio: 16/9` padrão do CSS.
+- **Externo (cross-origin)**: não é possível acessar `contentDocument`. Usa campos manuais `iframe_width` / `iframe_height` no form (Link Externo). Aplicados como `width` e `height` inline no container `.theater-player-externo`.
+
+**Migration 029** (`add_iframe_width_height_to_games`): adiciona colunas `iframe_width` e `iframe_height` (VARCHAR(10), default `'100%'`).
+
+**`admin/games.php`** — Link Externo section:
+- `iframe_width` input (placeholder `800px, 100%`)
+- `iframe_height` input (placeholder `600px, 80vh`)
+- Validados por regex `/^\d+(px|%|vh|vw)?$/`; fallback `'100%'`.
+
+**`game.php`**:
+- Lê `$iframeWidth` / `$iframeHeight` do DB
+- Externo: aplica como `style="width:X;height:Y"` no `.theater-player-externo`
+- `$orientation` derivado de `intval($iframeWidth)` vs `intval($iframeHeight)` para externo; `'auto'` para same-origin (sem lock forçado)
+- `aspect_ratio` coluna mantida mas não usada
+
+**CSS** (`style.css`):
+- `.theater-player`: base `aspect-ratio: 16/9`, `overflow: hidden`
+- `.theater-player-externo`: `aspect-ratio: unset`, `width/height: auto` (inline style do PHP controla), `max-width: 100%`
+- `.theater-player-externo .theater-iframe`: `object-fit: contain`, `width: 100%`, `height: 100%`
+- `[data-aspect]` selectors removidos (não usados)
+
+## Admin Game Form Order
+
+The game edit form (`admin/games.php`) sections are ordered:
+1. **Informações Básicas** — title, engine
+2. **Descrição** — textarea
+3. **Tipo** — game_type select (autoral/cliente/externo)
+4. **Link Externo** — external_url, iframe_width, iframe_height, is_open_source, repo_url (hidden unless externo)
+5. **Mídia** — thumbnail upload, game_archive upload (hidden for externo)
+6. **Configurações** — sort_order, is_web_playable, featured, active
+7. **Links de Distribuição** — distribution links
 
 ## Style
 

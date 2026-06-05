@@ -161,7 +161,9 @@ function getMigrationList() {
          24 => 'drop_games_zip_filename',
          25 => 'drop_retro_games_patch_url',
          26 => 'drop_templates_store_url_users_role_roles_level',
-         27 => 'add_team_member_user_id',
+          27 => 'add_team_member_user_id',
+           28 => 'add_aspect_ratio_to_games',
+           29 => 'add_iframe_width_height_to_games',
      ];
 }
 
