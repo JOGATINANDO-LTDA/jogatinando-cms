@@ -985,6 +985,17 @@ function migration_027($db, $type) {
     }
 }
 
+function migration_028($db, $type) {
+    // Add aspect_ratio to games — container proportion for theater player
+    try {
+        if ($type === 'mysql') {
+            $db->exec("ALTER TABLE games ADD COLUMN aspect_ratio VARCHAR(10) DEFAULT '16:9'");
+        } else {
+            $db->exec("ALTER TABLE games ADD COLUMN aspect_ratio TEXT DEFAULT '16:9'");
+        }
+    } catch (Exception $e) {}
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();
@@ -1063,9 +1074,9 @@ function seedDefaultData($db) {
         ['title' => 'Visual Novel Demo', 'slug' => 'visual-novel-demo', 'engine' => "Ren'py", 'description' => 'Uma visual novel interativa demonstrando recursos de narrativa e escolhas.', 'thumbnail_url' => '', 'game_path' => '', 'featured' => 0, 'orientation' => 'portrait', 'sort_order' => 5, 'active' => 1],
     ];
 
-    $stmt = $db->prepare("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, featured, orientation, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+    $stmt = $db->prepare("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, featured, orientation, aspect_ratio, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
     foreach ($games as $g) {
-        $stmt->execute([$g['title'], $g['slug'], $g['engine'], $g['description'], $g['thumbnail_url'], $g['game_path'], $g['featured'], $g['orientation'], $g['sort_order'], $g['active']]);
+        $stmt->execute([$g['title'], $g['slug'], $g['engine'], $g['description'], $g['thumbnail_url'], $g['game_path'], $g['featured'], $g['orientation'], '16:9', $g['sort_order'], $g['active']]);
     }
 
     $testimonials = [

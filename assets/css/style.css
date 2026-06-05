@@ -1898,12 +1898,23 @@ input, textarea, select { font-family: inherit; }
 }
 .theater-player-externo .theater-iframe {
     object-fit: contain;
-    transform: scale(1.3);
-    transform-origin: center center;
 }
 
-.theater-player[data-orientation="portrait"] {
+.theater-player[data-aspect="4:3"] {
+    aspect-ratio: 4 / 3;
+}
+.theater-player[data-aspect="1:1"] {
+    aspect-ratio: 1 / 1;
+}
+.theater-player[data-aspect="9:16"] {
     aspect-ratio: 9 / 16;
+    height: min(70vh, 600px);
+    width: auto;
+    max-width: 100%;
+    margin: 0 auto;
+}
+.theater-player[data-aspect="3:4"] {
+    aspect-ratio: 3 / 4;
     height: min(70vh, 600px);
     width: auto;
     max-width: 100%;

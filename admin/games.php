@@ -58,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $is_web_playable = $game_type === 'externo' ? 1 : (isset($_POST['is_web_playable']) ? 1 : 0);
         $featured = isset($_POST['featured']) ? 1 : 0;
         $orientation = in_array($_POST['orientation'] ?? '', ['auto', 'landscape', 'portrait']) ? $_POST['orientation'] : 'auto';
+        $aspect_ratio = in_array($_POST['aspect_ratio'] ?? '', ['auto', '16:9', '4:3', '1:1', '9:16', '3:4']) ? $_POST['aspect_ratio'] : '16:9';
         $sort_order = (int)($_POST['sort_order'] ?? 0);
         $active = isset($_POST['active']) ? 1 : 0;
         $thumbnail_url = '';
@@ -122,12 +123,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $thumbnail_url = $existing['thumbnail_url'] ?? '';
                 }
 
-                dbExec("UPDATE games SET title=?, slug=?, engine=?, description=?, thumbnail_url=?, game_path=?, game_type=?, is_web_playable=?, featured=?, orientation=?, sort_order=?, active=?, external_url=?, repo_url=?, is_open_source=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
-                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $sort_order, $active, $external_url, $repo_url, $is_open_source, $id]);
+                dbExec("UPDATE games SET title=?, slug=?, engine=?, description=?, thumbnail_url=?, game_path=?, game_type=?, is_web_playable=?, featured=?, orientation=?, aspect_ratio=?, sort_order=?, active=?, external_url=?, repo_url=?, is_open_source=?, updated_at=CURRENT_TIMESTAMP WHERE id=?",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $aspect_ratio, $sort_order, $active, $external_url, $repo_url, $is_open_source, $id]);
                 flashMessage('success', 'Jogo atualizado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
             } else {
-                $id = dbExec("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, game_type, is_web_playable, featured, orientation, sort_order, active, external_url, repo_url, is_open_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $sort_order, $active, $external_url, $repo_url, $is_open_source]);
+                $id = dbExec("INSERT INTO games (title, slug, engine, description, thumbnail_url, game_path, game_type, is_web_playable, featured, orientation, aspect_ratio, sort_order, active, external_url, repo_url, is_open_source) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [$title, $slug, $engine, $description, $thumbnail_url, $game_path, $game_type, $is_web_playable, $featured, $orientation, $aspect_ratio, $sort_order, $active, $external_url, $repo_url, $is_open_source]);
                 flashMessage('success', 'Jogo criado com sucesso!' . ($game_path ? ' (' . $game_path . ')' : ''));
             }
 
@@ -327,6 +328,18 @@ if ($action === 'new' || $action === 'edit') {
                         <option value="landscape" <?= ($game['orientation'] ?? '') === 'landscape' ? 'selected' : '' ?>>Paisagem (Landscape)</option>
                         <option value="portrait" <?= ($game['orientation'] ?? '') === 'portrait' ? 'selected' : '' ?>>Retrato (Portrait)</option>
                     </select>
+                </div>
+                <div class="form-group">
+                    <label for="aspect_ratio">Proporção do Container</label>
+                    <select id="aspect_ratio" name="aspect_ratio">
+                        <option value="auto" <?= ($game['aspect_ratio'] ?? '16:9') === 'auto' ? 'selected' : '' ?>>Automático (16:9)</option>
+                        <option value="16:9" <?= ($game['aspect_ratio'] ?? '16:9') === '16:9' ? 'selected' : '' ?>>16:9 (Paisagem widescreen)</option>
+                        <option value="4:3" <?= ($game['aspect_ratio'] ?? '') === '4:3' ? 'selected' : '' ?>>4:3 (Padrão retrô)</option>
+                        <option value="1:1" <?= ($game['aspect_ratio'] ?? '') === '1:1' ? 'selected' : '' ?>>1:1 (Quadrado)</option>
+                        <option value="9:16" <?= ($game['aspect_ratio'] ?? '') === '9:16' ? 'selected' : '' ?>>9:16 (Retrato mobile)</option>
+                        <option value="3:4" <?= ($game['aspect_ratio'] ?? '') === '3:4' ? 'selected' : '' ?>>3:4 (Retrato tablet)</option>
+                    </select>
+                    <div class="field-hint">Ajusta o container à proporção ideal do jogo. Para jogos externos, veja a sugestão de embed do site.</div>
                 </div>
             </div>
 

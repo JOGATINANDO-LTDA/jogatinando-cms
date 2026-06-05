@@ -64,6 +64,8 @@ if ($isExterno) {
 header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' 'wasm-unsafe-eval' blob: https://cdn.emulatorjs.org; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com http://fonts.googleapis.com https://cdn.emulatorjs.org; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' blob: data: https:; worker-src 'self' blob:; frame-src 'self' $frameOrigin; frame-ancestors 'self'; base-uri 'self'; form-action 'self'");
 
 $orientation = $game['orientation'] ?? 'auto';
+$aspectRatio = $game['aspect_ratio'] ?? '16:9';
+if ($aspectRatio === 'auto') $aspectRatio = '16:9';
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -103,7 +105,7 @@ $orientation = $game['orientation'] ?? 'auto';
     <!-- Theater Mode Player -->
     <section class="theater-section">
         <div class="theater-container">
-            <div class="theater-player<?= $isExterno ? ' theater-player-externo' : '' ?>" id="theaterPlayer" data-orientation="<?= e($orientation) ?>">
+            <div class="theater-player<?= $isExterno ? ' theater-player-externo' : '' ?>" id="theaterPlayer" data-orientation="<?= e($orientation) ?>" data-aspect="<?= e($aspectRatio) ?>">
                 <div class="theater-loader" id="theaterLoader">
                     <div class="loader-spinner"></div>
                     <span class="loader-text">Carregando jogo...</span>
