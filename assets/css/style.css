@@ -1896,6 +1896,9 @@ input, textarea, select { font-family: inherit; }
     align-items: center;
     justify-content: center;
 }
+.theater-player-externo .theater-iframe {
+    object-fit: contain;
+}
 
 .theater-loader {
     position: absolute;
