@@ -16,7 +16,7 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($pageTitle ?? 'Dashboard') ?> — <?= e($siteName) ?></title>
-    <link rel="icon" href="<?= SITE_URL ?>/assets/svg/logo.svg" type="image/svg+xml">
+    <link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -30,7 +30,7 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
         <aside class="admin-sidebar" id="adminSidebar">
             <div class="sidebar-logo">
                 <div class="logo-shield">
-                    <img src="<?= SITE_URL ?>/assets/svg/logo.svg" alt="<?= e($siteName) ?>">
+                    <img src="<?= siteLogoUrl() ?>" alt="<?= e($siteName) ?>">
                 </div>
                 <div>
                     <span class="logo-text"><?= e($siteName) ?></span>

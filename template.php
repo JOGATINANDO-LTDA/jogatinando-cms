@@ -30,7 +30,7 @@ $siteName = getSetting('site_name', SITE_NAME);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($template['title']) ?> — Templates — <?= e($siteName) ?></title>
     <meta name="description" content="<?= e(truncateText($template['description'], 160)) ?>">
-    <link rel="icon" href="/assets/svg/logo.svg" type="image/svg+xml">
+    <link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -44,7 +44,7 @@ $siteName = getSetting('site_name', SITE_NAME);
         <div class="container navbar-inner">
             <a href="/" class="navbar-brand">
                 <div class="logo-shield">
-                    <img src="/assets/svg/logo.svg" alt="Logo">
+                    <img src="<?= siteLogoUrl() ?>" alt="Logo">
                 </div>
                 <?= e($siteName) ?>
             </a>

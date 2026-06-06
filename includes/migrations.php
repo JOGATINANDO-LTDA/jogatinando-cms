@@ -1125,3 +1125,30 @@ function seedDefaultData($db) {
         $stmt->execute([$t['name'], $t['role'], $t['bio'], $t['avatar_url'], $t['social_youtube'], $t['social_twitch'], $t['social_linkedin'], $t['sort_order'], $t['active'], $t['user_id']]);
     }
 }
+
+function migration_030($db, $type) {
+    // Sync queue for automatic S3 sync
+    try {
+        if ($type === 'mysql') {
+            $db->exec("CREATE TABLE IF NOT EXISTS sync_queue (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                local_path VARCHAR(500) NOT NULL,
+                s3_name VARCHAR(500) NOT NULL,
+                ref_table VARCHAR(100) DEFAULT '',
+                ref_column VARCHAR(100) DEFAULT '',
+                ref_id INT DEFAULT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } else {
+            $db->exec("CREATE TABLE IF NOT EXISTS sync_queue (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                local_path TEXT NOT NULL,
+                s3_name TEXT NOT NULL,
+                ref_table TEXT DEFAULT '',
+                ref_column TEXT DEFAULT '',
+                ref_id INTEGER DEFAULT NULL,
+                created_at TEXT DEFAULT (datetime('now'))
+            )");
+        }
+    } catch (Exception $e) {}
+}

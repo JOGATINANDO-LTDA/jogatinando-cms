@@ -538,15 +538,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 function getIntegrityChecks($db, $dbType) {
     $checks = [];
 
-    // game_links → game_templates (template_id)
-    try {
-        $stmt = $db->query("SELECT COUNT(*) FROM game_links gl LEFT JOIN game_templates gt ON gl.template_id = gt.id WHERE gt.id IS NULL");
-        $orphaned = (int)$stmt->fetchColumn();
-        $checks[] = ['label' => 'game_links → game_templates', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
-    } catch (Exception $e) {
-        $checks[] = ['label' => 'game_links → game_templates', 'orphaned' => 0, 'ok' => true, 'skip' => true];
-    }
-
     // template_links → game_templates (template_id)
     try {
         $stmt = $db->query("SELECT COUNT(*) FROM template_links tl LEFT JOIN game_templates gt ON tl.template_id = gt.id WHERE gt.id IS NULL");
@@ -849,7 +840,7 @@ if (isset($_GET['repair_result'])) {
                         </td>
                         <td>
                             <?php if (!empty($check['skip'])): ?>
-                                <span class="badge badge-inactive">N/A</span>
+                                <span class="badge badge-na">N/A</span>
                             <?php elseif ($check['ok']): ?>
                                 <span class="badge badge-active">Ok</span>
                             <?php else: ?>

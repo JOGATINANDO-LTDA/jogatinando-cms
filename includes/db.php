@@ -163,8 +163,9 @@ function getMigrationList() {
          26 => 'drop_templates_store_url_users_role_roles_level',
           27 => 'add_team_member_user_id',
            28 => 'add_aspect_ratio_to_games',
-           29 => 'add_iframe_width_height_to_games',
-     ];
+            29 => 'add_iframe_width_height_to_games',
+            30 => 'create_sync_queue',
+    ];
 }
 
 function dbInit($dsn = null, $user = null, $pass = null, $type = null) {

@@ -746,6 +746,12 @@ tbody tr:last-child td { border-bottom: none; }
   border: 1px solid oklch(55% 0.20 25 / 0.2);
 }
 
+.badge-na {
+  background: oklch(35% 0.04 70 / 0.25);
+  color: oklch(70% 0.10 70);
+  border: 1px solid oklch(55% 0.08 70 / 0.2);
+}
+
 .badge-featured {
   background: var(--gold-subtle);
   color: var(--gold);
