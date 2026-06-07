@@ -7,6 +7,20 @@ if (defined('INSTALL_LOCK') && INSTALL_LOCK === true) {
     die('Sistema j&aacute; configurado. Remova INSTALL_LOCK de config.php para reativar o instalador.');
 }
 
+// Block if maintenance mode is active (renderMaintenancePage already loaded via config.php)
+$dataPath = defined('DATA_PATH') ? DATA_PATH : __DIR__ . '/data';
+if (file_exists($dataPath . '/.maintenance')) {
+    renderMaintenancePage();
+    exit;
+}
+
+// Block if already installed (marker file survives CI/CD)
+$installedMarker = (defined('DATA_PATH') ? DATA_PATH : __DIR__ . '/data') . '/.installed';
+if (file_exists($installedMarker)) {
+    header('Location: /');
+    exit;
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -213,6 +227,7 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
     $content .= "}\n";
     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
     file_put_contents(DATA_PATH . '/config.local.php', $content);
+    @touch(DATA_PATH . '/.installed');
 }
 
 function shouldRemoveInstall() {

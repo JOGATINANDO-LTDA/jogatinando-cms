@@ -1,6 +1,12 @@
 <?php
 
 function isMaintenanceActive() {
+    // File-based check (data/ is writable in Docker and Hostinger, gitignored, survives CI/CD)
+    $maintenanceFile = defined('DATA_PATH') ? DATA_PATH . '/.maintenance' : __DIR__ . '/../data/.maintenance';
+    if (file_exists($maintenanceFile)) {
+        return true;
+    }
+    // DB-based check (persists across file overwrites)
     try {
         $db = getDB();
         if (!$db) return false;

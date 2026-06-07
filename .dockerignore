@@ -21,6 +21,8 @@ docker/mysql-init.sql
 # Data (will be mounted as volume)
 data/*.db
 data/config.local.php
+data/.installed
+data/.maintenance
 
 # Uploads (will be mounted as volume)
 uploads/*

@@ -4,6 +4,8 @@ data/*.db-journal
 data/*.db-wal
 data/contact_log.txt
 data/config.local.php
+data/.installed
+data/.maintenance
 data/test_migration.php
 test_chmod
 

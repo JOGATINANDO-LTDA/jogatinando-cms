@@ -110,6 +110,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     foreach ($settings as $key => $value) {
         setSetting($key, $value);
     }
+
+    // Sync .maintenance marker file with DB flag
+    $maintenanceFile = DATA_PATH . '/.maintenance';
+    if ($settings['maintenance_mode'] === '1') {
+        @touch($maintenanceFile);
+    } else {
+        @unlink($maintenanceFile);
+    }
+
     flashMessage('success', 'Configurações salvas!');
     ob_end_clean();
     header('Location: ' . ADMIN_URL . '/settings');
@@ -433,6 +442,9 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
                 <input type="hidden" name="maintenance_mode" value="0">
                 <input type="checkbox" id="maintenance_mode" name="maintenance_mode" value="1" <?= ($settings['maintenance_mode'] ?? '0') === '1' ? 'checked' : '' ?> style="accent-color:oklch(75% 0.15 85);width:18px;height:18px;cursor:pointer;">
                 <span style="margin-left:8px;font-weight:600;">Ativar modo de manutenção</span>
+                <?php if (file_exists(DATA_PATH . '/.maintenance')): ?>
+                    <span style="margin-left:8px;font-size:11px;color:oklch(65% 0.18 145);">✓ arquivo .maintenance presente</span>
+                <?php endif; ?>
             </label>
             <p style="font-size:12px;color:oklch(60% 0.012 250);margin-top:4px;">Quando ativo, visitantes veem uma página de "Em Manutenção". Administradores logados continuam acessando normalmente.</p>
         </div>
