@@ -112,11 +112,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 
     // Sync .maintenance marker file with DB flag
-    $maintenanceFile = DATA_PATH . '/.maintenance';
-    if ($settings['maintenance_mode'] === '1') {
-        @touch($maintenanceFile);
-    } else {
-        @unlink($maintenanceFile);
+    $maintenanceFiles = [DATA_PATH . '/.maintenance'];
+    $parentFile = dirname(ROOT_PATH) . '/.maintenance';
+    if (is_writable(dirname(ROOT_PATH)) || !file_exists($parentFile)) {
+        $maintenanceFiles[] = $parentFile;
+    }
+    foreach ($maintenanceFiles as $f) {
+        if ($settings['maintenance_mode'] === '1') @touch($f);
+        else @unlink($f);
     }
 
     flashMessage('success', 'Configurações salvas!');
@@ -442,7 +445,7 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
                 <input type="hidden" name="maintenance_mode" value="0">
                 <input type="checkbox" id="maintenance_mode" name="maintenance_mode" value="1" <?= ($settings['maintenance_mode'] ?? '0') === '1' ? 'checked' : '' ?> style="accent-color:oklch(75% 0.15 85);width:18px;height:18px;cursor:pointer;">
                 <span style="margin-left:8px;font-weight:600;">Ativar modo de manutenção</span>
-                <?php if (file_exists(DATA_PATH . '/.maintenance')): ?>
+                <?php if (file_exists(DATA_PATH . '/.maintenance') || file_exists(dirname(ROOT_PATH) . '/.maintenance')): ?>
                     <span style="margin-left:8px;font-size:11px;color:oklch(65% 0.18 145);">✓ arquivo .maintenance presente</span>
                 <?php endif; ?>
             </label>

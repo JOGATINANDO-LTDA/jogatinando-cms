@@ -1,7 +1,12 @@
 <?php
 
 function isMaintenanceActive() {
-    // File-based check (data/ is writable in Docker and Hostinger, gitignored, survives CI/CD)
+    // Parent dir check (survives CI/CD that wipes public_html/)
+    $parentFile = defined('ROOT_PATH') ? dirname(ROOT_PATH) . '/.maintenance' : __DIR__ . '/../../.maintenance';
+    if (file_exists($parentFile)) {
+        return true;
+    }
+    // data/ check (primary for Docker, fast path)
     $maintenanceFile = defined('DATA_PATH') ? DATA_PATH . '/.maintenance' : __DIR__ . '/../data/.maintenance';
     if (file_exists($maintenanceFile)) {
         return true;

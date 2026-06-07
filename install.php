@@ -9,13 +9,19 @@ if (defined('INSTALL_LOCK') && INSTALL_LOCK === true) {
 
 // Block if maintenance mode is active (renderMaintenancePage already loaded via config.php)
 $dataPath = defined('DATA_PATH') ? DATA_PATH : __DIR__ . '/data';
-if (file_exists($dataPath . '/.maintenance')) {
+if (file_exists($dataPath . '/.maintenance') || file_exists(dirname(__DIR__) . '/.maintenance')) {
     renderMaintenancePage();
     exit;
 }
 
-// Block if already installed (marker file survives CI/CD)
-$installedMarker = (defined('DATA_PATH') ? DATA_PATH : __DIR__ . '/data') . '/.installed';
+// Block if already installed (check parent dir first — survives CI/CD that wipes data/)
+$parentMarker = dirname(__DIR__) . '/.installed';
+if (file_exists($parentMarker)) {
+    header('Location: /');
+    exit;
+}
+
+$installedMarker = $dataPath . '/.installed';
 if (file_exists($installedMarker)) {
     header('Location: /');
     exit;
@@ -228,6 +234,7 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
     file_put_contents(DATA_PATH . '/config.local.php', $content);
     @touch(DATA_PATH . '/.installed');
+    @touch(dirname(ROOT_PATH) . '/.installed');
 }
 
 function shouldRemoveInstall() {
