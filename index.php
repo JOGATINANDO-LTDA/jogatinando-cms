@@ -94,7 +94,7 @@ $footerDescription = getSetting('footer_description', '');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($siteName) ?> — <?= e($siteTagline) ?></title>
     <meta name="description" content="<?= e($footerDescription) ?>">
-    <link rel="icon" href="/assets/svg/logo.svg" type="image/svg+xml">
+    <link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -109,7 +109,7 @@ $footerDescription = getSetting('footer_description', '');
         <div class="container navbar-inner">
             <a href="/" class="navbar-brand">
                 <div class="logo-shield">
-                    <img src="/assets/svg/logo.svg" alt="Logo">
+                    <img src="<?= siteLogoUrl() ?>" alt="Logo">
                 </div>
                 <?= e($siteName) ?>
             </a>
@@ -179,7 +179,7 @@ $footerDescription = getSetting('footer_description', '');
             </div>
             <?php else: ?>
             <div class="hero-crest">
-                <img src="/assets/svg/logo.svg" alt="Logo">
+                <img src="<?= siteLogoUrl() ?>" alt="Logo">
             </div>
             <h1><?= strip_tags($heroTitle, '<span><br><em><strong>') ?></h1>
             <p class="hero-subtitle"><?= strip_tags($heroSubtitle, '<span><br><em><strong>') ?></p>
@@ -573,58 +573,10 @@ $footerDescription = getSetting('footer_description', '');
                 <div class="footer-brand">
                     <div class="logo">
                         <div class="logo-shield">
-                            <img src="/assets/svg/logo.svg" alt="Logo">
-                        </div>
-                        <?= e($siteName) ?>
-                    </div>
-                    <p><?= e($footerDescription) ?></p>
-                    <div class="footer-social">
-                        <?php if ($youtubeUrl): ?>
-                        <a href="<?= e($youtubeUrl) ?>" target="_blank" rel="noopener" aria-label="YouTube">
-                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2c-.3-1-1-1.8-2-2.1C19.6 3.5 12 3.5 12 3.5s-7.6 0-9.5.6c-1 .3-1.7 1.1-2 2.1C0 8.1 0 12 0 12s0 3.9.5 5.8c.3 1 1 1.8 2 2.1 1.9.6 9.5.6 9.5.6s7.6 0 9.5-.6c1-.3 1.7-1.1 2-2.1.5-1.9.5-5.8.5-5.8s0-3.9-.5-5.8zM9.5 15.6V8.4L15.8 12l-6.3 3.6z"/></svg>
-                        </a>
-                        <?php endif; ?>
-                        <?php if ($twitchUrl): ?>
-                        <a href="<?= e($twitchUrl) ?>" target="_blank" rel="noopener" aria-label="Twitch">
-                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M11.6 6.4V2.8H8.8v3.6H6v7.2h2.8v2.8h2.8V13.6h2.8V6.4h-2.8zm5.6 0V2.8h-2.8v3.6h2.8zM2.8 0L0 2.8v18.4h5.6V24h2.8l2.8-2.8h4.8L24 13.2V0H2.8zm18.4 12.4l-3.6 3.6h-4.8l-2.8 2.8v-2.8H6.4V2.8h14.8v9.6z"/></svg>
-                        </a>
-                        <?php endif; ?>
-                        <?php if ($blogUrl): ?>
-                        <a href="<?= e($blogUrl) ?>" target="_blank" rel="noopener" aria-label="Blog">
-                            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-                        </a>
-                        <?php endif; ?>
-                    </div>
-                </div>
-                <div class="footer-col">
-                    <h4>Navegação</h4>
-                    <a href="#home">Início</a>
-                    <a href="#games">Jogos</a>
-                    <?php if (!empty($blogPosts)): ?><a href="#blog">Blog</a><?php endif; ?>
-                    <?php if (!empty($testimonials)): ?><a href="#testimonials">Depoimentos</a><?php endif; ?>
-                    <?php if (!empty($faqItems)): ?><a href="#faq">FAQ</a><?php endif; ?>
-                </div>
-                <div class="footer-col">
-                    <h4>Engines</h4>
-                    <a href="#games">GDevelop</a>
-                    <a href="#games">Godot</a>
-                    <a href="#games">RPG Maker</a>
-                    <a href="#games">Unity</a>
-                    <a href="#games">Unreal</a>
-                </div>
-                <div class="footer-col">
-                    <h4>Contato</h4>
-                    <?php if ($contactEmail): ?><a href="mailto:<?= e($contactEmail) ?>">E-mail</a><?php endif; ?>
-                    <?php if ($youtubeUrl): ?><a href="<?= e($youtubeUrl) ?>" target="_blank" rel="noopener">YouTube</a><?php endif; ?>
-                    <?php if ($twitchUrl): ?><a href="<?= e($twitchUrl) ?>" target="_blank" rel="noopener">Twitch</a><?php endif; ?>
-                    <?php if ($blogUrl): ?><a href="<?= e($blogUrl) ?>" target="_blank" rel="noopener">Blog</a><?php endif; ?>
+<img src="<?= siteLogoUrl() ?>" alt="Logo">
                 </div>
             </div>
-            <div class="footer-bottom">
-                <p>&copy; <?= date('Y') ?> <?= e($siteName) ?>. Todos os direitos reservados.</p>
-            </div>
-        </div>
-    </footer>
+        </footer>
 
     <script src="<?= SITE_URL ?>/assets/js/main.js"></script>
     <script>

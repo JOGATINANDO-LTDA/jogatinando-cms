@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/s3.php';
+
 class Storage {
     private static function base() {
         return UPLOAD_PATH;
@@ -86,5 +88,67 @@ class Storage {
         }
         self::delete($tmpPath);
         return true;
+    }
+
+    // === S3 Mirror Methods ===
+
+    public static function isS3Configured() {
+        return S3::isConfigured();
+    }
+
+    public static function mirrorToS3($localPath, $s3Name) {
+        if (!self::isS3Configured()) return false;
+        return S3::upload($localPath, $s3Name);
+    }
+
+    public static function deleteFromS3($s3Name) {
+        if (!self::isS3Configured()) return false;
+        return S3::delete($s3Name);
+    }
+
+    public static function getS3Url($s3Name) {
+        if (!self::isS3Configured()) return false;
+        return S3::getUrl($s3Name);
+    }
+
+    public static function extractFromS3Zip($zipS3Name, $destRelDir) {
+        if (!self::isS3Configured()) return false;
+
+        $tmpDir = self::base() . '/_b2tmp';
+        if (!is_dir($tmpDir)) mkdir($tmpDir, 0755, true);
+
+        $zipName = basename($zipS3Name);
+        $tmpZip = $tmpDir . '/' . $zipName;
+
+        $content = @file_get_contents(S3::getUrl($zipS3Name));
+        if ($content === false) return false;
+        file_put_contents($tmpZip, $content);
+
+        $destDir = self::base() . '/' . ltrim($destRelDir, '/');
+        if (!is_dir($destDir)) mkdir($destDir, 0755, true);
+
+        $zip = new ZipArchive();
+        $res = $zip->open($tmpZip);
+        if ($res !== true) { unlink($tmpZip); return false; }
+
+        $zip->extractTo($destDir);
+        $zip->close();
+        unlink($tmpZip);
+        return true;
+    }
+
+    public static function s3FileExists($s3Name) {
+        if (!self::isS3Configured()) return false;
+        return S3::fileExists($s3Name);
+    }
+
+    public static function listS3Files($prefix = '') {
+        if (!self::isS3Configured()) return [];
+        return S3::listFiles($prefix);
+    }
+
+    public static function configureS3CORS() {
+        if (!self::isS3Configured()) return false;
+        return false; // R2 CORS configured via dashboard
     }
 }

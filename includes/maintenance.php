@@ -1,6 +1,12 @@
 <?php
 
 function isMaintenanceActive() {
+    // File-based check (data/ is writable in Docker and Hostinger, gitignored, survives CI/CD)
+    $maintenanceFile = defined('DATA_PATH') ? DATA_PATH . '/.maintenance' : __DIR__ . '/../data/.maintenance';
+    if (file_exists($maintenanceFile)) {
+        return true;
+    }
+    // DB-based check (persists across file overwrites)
     try {
         $db = getDB();
         if (!$db) return false;
@@ -23,7 +29,7 @@ function renderMaintenancePage() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Em Manutenção — <?= e($siteName) ?></title>
-<link rel="icon" href="/assets/svg/logo.svg" type="image/svg+xml">
+<link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:oklch(8% 0.02 260);color:oklch(96% 0.003 250);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;overflow:hidden}

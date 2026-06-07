@@ -51,9 +51,21 @@ if ($isExterno) {
     $fallbackUrl = $gameUrl;
     $frameOrigin = "'self'";
     if (!file_exists($gameDir . '/index.html')) {
-        http_response_code(404);
-        require __DIR__ . '/404.php';
-        exit;
+        // Try to restore from B2 ZIP
+        if (Storage::isS3Configured()) {
+            $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.zip';
+            $restored = Storage::extractFromS3Zip($zipS3Name, 'games/' . $game['game_path']);
+
+            if (!$restored || !file_exists($gameDir . '/index.html')) {
+                http_response_code(404);
+                require __DIR__ . '/404.php';
+                exit;
+            }
+        } else {
+            http_response_code(404);
+            require __DIR__ . '/404.php';
+            exit;
+        }
     }
 } else {
     $gameUrl = '';
@@ -81,7 +93,7 @@ if ($isExterno) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($game['title']) ?> — <?= e(getSetting('site_name', 'CMS de Jogos')) ?></title>
     <meta name="description" content="<?= e(truncateText($game['description'], 160)) ?>">
-    <link rel="icon" href="/assets/svg/logo.svg" type="image/svg+xml">
+    <link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -100,7 +112,7 @@ if ($isExterno) {
         <div class="container navbar-inner">
             <a href="/" class="navbar-brand">
                 <div class="logo-shield">
-                    <img src="/assets/svg/logo.svg" alt="Logo">
+                    <img src="<?= siteLogoUrl() ?>" alt="Logo">
                 </div>
                 <?= e(getSetting('site_name', 'CMS de Jogos')) ?>
             </a>

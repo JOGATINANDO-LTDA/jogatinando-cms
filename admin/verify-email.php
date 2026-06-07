@@ -4,7 +4,7 @@ require_once __DIR__ . '/../config.php';
 $token = $_GET['token'] ?? '';
 if ($token === '') {
     http_response_code(400);
-    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Link inválido</title><link rel="icon" href="../assets/svg/logo.svg" type="image/svg+xml">';
+    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Link inválido</title><link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">';
     echo '<style>body{font-family:sans-serif;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}';
     echo '.card{background:#1a1a2e;border:1px solid #c9a84c;border-radius:12px;padding:40px;max-width:400px;text-align:center}';
     echo 'h1{color:#c9a84c;font-family:Georgia,serif}</style></head><body>';
@@ -19,7 +19,7 @@ $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$user) {
     http_response_code(404);
-    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Token inválido</title><link rel="icon" href="../assets/svg/logo.svg" type="image/svg+xml">';
+    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Token inválido</title><link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">';
     echo '<style>body{font-family:sans-serif;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}';
     echo '.card{background:#1a1a2e;border:1px solid #c9a84c;border-radius:12px;padding:40px;max-width:400px;text-align:center}';
     echo 'h1{color:#c9a84c;font-family:Georgia,serif;margin-bottom:12px}</style></head><body>';
@@ -31,7 +31,7 @@ $stmt = $db->prepare("UPDATE users SET email_verified_at = CURRENT_TIMESTAMP, em
 $stmt->execute([$user['id'], $token]);
 
 if ($stmt->rowCount() > 0) {
-    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Email confirmado!</title><link rel="icon" href="../assets/svg/logo.svg" type="image/svg+xml">';
+    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Email confirmado!</title><link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">';
     echo '<style>body{font-family:sans-serif;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}';
     echo '.card{background:#1a1a2e;border:1px solid #c9a84c;border-radius:12px;padding:40px;max-width:400px;text-align:center}';
     echo 'h1{color:#c9a84c;font-family:Georgia,serif;margin-bottom:12px}';
@@ -41,7 +41,7 @@ if ($stmt->rowCount() > 0) {
     echo '<p><a href="' . ADMIN_URL . '/login" style="color:#c9a84c;">Fazer login →</a></p>';
     echo '</div></body></html>';
 } else {
-    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Erro</title><link rel="icon" href="../assets/svg/logo.svg" type="image/svg+xml">';
+    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Erro</title><link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">';
     echo '<style>body{font-family:sans-serif;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0}';
     echo '.card{background:#1a1a2e;border:1px solid #c9a84c;border-radius:12px;padding:40px;max-width:400px;text-align:center}';
     echo 'h1{color:#c9a84c;font-family:Georgia,serif}</style></head><body>';

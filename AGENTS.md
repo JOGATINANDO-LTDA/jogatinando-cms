@@ -78,6 +78,7 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 - Max 100MB. Images: jpg/jpeg/png/gif/webg. Games: zip only.
 - Structure: `uploads/{banners,games,thumbnails,avatars,blog}/`
 - Game ZIPs are auto-extracted on first play via `game.php` (looks for `index.html` in root or subfolder)
+- Sync to S3/R2 via `admin/bucket-sync.php`
 
 ## Docker notes
 

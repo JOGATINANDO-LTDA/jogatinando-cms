@@ -15,7 +15,7 @@ $consoles = dbQuery("SELECT * FROM retro_consoles WHERE active = 1 ORDER BY sort
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($pageTitle) ?> — <?= e($siteName) ?></title>
     <meta name="description" content="<?= e($footerDescription ?: $siteTagline) ?>">
-    <link rel="icon" href="<?= SITE_URL ?>/assets/svg/logo.svg" type="image/svg+xml">
+    <link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -29,7 +29,7 @@ $consoles = dbQuery("SELECT * FROM retro_consoles WHERE active = 1 ORDER BY sort
         <div class="container navbar-inner">
             <a href="/" class="navbar-brand">
                 <div class="logo-shield">
-                    <img src="/assets/svg/logo.svg" alt="<?= e($siteName) ?>">
+                    <img src="<?= siteLogoUrl() ?>" alt="<?= e($siteName) ?>">
                 </div>
                 <?= e($siteName) ?>
             </a>

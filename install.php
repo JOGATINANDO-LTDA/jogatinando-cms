@@ -2,8 +2,33 @@
 
 require_once 'config.php';
 
+if (defined('INSTALL_LOCK') && INSTALL_LOCK === true) {
+    http_response_code(403);
+    die('Sistema j&aacute; configurado. Remova INSTALL_LOCK de config.php para reativar o instalador.');
+}
+
+// Block if maintenance mode is active (renderMaintenancePage already loaded via config.php)
+$dataPath = defined('DATA_PATH') ? DATA_PATH : __DIR__ . '/data';
+if (file_exists($dataPath . '/.maintenance')) {
+    renderMaintenancePage();
+    exit;
+}
+
+// Block if already installed (marker file survives CI/CD)
+$installedMarker = (defined('DATA_PATH') ? DATA_PATH : __DIR__ . '/data') . '/.installed';
+if (file_exists($installedMarker)) {
+    header('Location: /');
+    exit;
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+$sqliteDb = defined('DATA_PATH') ? DATA_PATH . '/jogatinando.db' : __DIR__ . '/data/jogatinando.db';
+if (file_exists($sqliteDb) && filesize($sqliteDb) > 4096) {
+    header('Location: /');
+    exit;
 }
 
 if (file_exists(DATA_PATH . '/config.local.php')) {
@@ -202,6 +227,7 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
     $content .= "}\n";
     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
     file_put_contents(DATA_PATH . '/config.local.php', $content);
+    @touch(DATA_PATH . '/.installed');
 }
 
 function shouldRemoveInstall() {
@@ -226,7 +252,7 @@ function disableInstallFile() {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CMS de Jogos — Instalação</title>
-    <link rel="icon" href="/assets/svg/logo.svg" type="image/svg+xml">
+    <link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: oklch(10% 0.03 260); color: oklch(96% 0.003 250); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; }
