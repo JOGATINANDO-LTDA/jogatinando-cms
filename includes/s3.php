@@ -210,6 +210,22 @@ class S3 {
         return in_array($httpCode, [200, 204]);
     }
 
+    public static function download($s3Name, $localPath) {
+        $dir = dirname($localPath);
+        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        $uri = self::$cfgBucket . '/' . ltrim($s3Name, '/');
+        $result = self::exec('GET', $uri, '', [], 120);
+        if ($result['code'] !== 200) {
+            self::log("S3::download FAILED for {$s3Name}: HTTP {$result['code']}");
+            return false;
+        }
+        if (file_put_contents($localPath, $result['body']) === false) {
+            self::log("S3::download FAILED to write {$localPath}");
+            return false;
+        }
+        return true;
+    }
+
     public static function fileExists($s3Name) {
         $result = self::exec('HEAD', self::$cfgBucket . '/' . ltrim($s3Name, '/'));
         return $result['code'] === 200;
