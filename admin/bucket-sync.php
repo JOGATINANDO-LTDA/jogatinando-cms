@@ -158,9 +158,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 
     if ($_POST['action'] === 'revert_db_urls') {
+        $publicUrl = rtrim(getSetting('s3_public_url', ''), '/');
+        $downloaded = 0; $skipped = 0; $failed = 0;
+
+        if ($publicUrl !== '') {
+            $tables = [
+                ['table' => 'games', 'column' => 'thumbnail_url'],
+                ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
+                ['table' => 'banners', 'column' => 'image_url'],
+                ['table' => 'team_members', 'column' => 'avatar_url'],
+                ['table' => 'testimonials', 'column' => 'avatar_url'],
+                ['table' => 'users', 'column' => 'avatar_url'],
+                ['table' => 'retro_games', 'column' => 'rom_path'],
+                ['table' => 'retro_games', 'column' => 'thumbnail_url'],
+                ['table' => 'game_templates', 'column' => 'thumbnail_url'],
+                ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+                ['table' => 'store_platforms', 'column' => 'logo_path'],
+            ];
+            foreach ($tables as $t) {
+                $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE ?", [$publicUrl . '%']);
+                foreach ($rows as $row) {
+                    $url = $row[$t['column']];
+                    $parts = explode('/uploads/', $url, 2);
+                    if (!isset($parts[1])) { $skipped++; continue; }
+                    $s3Name = 'uploads/' . $parts[1];
+                    $localPath = UPLOAD_PATH . '/' . $parts[1];
+                    if (file_exists($localPath)) { $skipped++; continue; }
+                    if (Storage::downloadFromS3($s3Name, $localPath)) {
+                        $downloaded++;
+                        $results[] = "⬇ {$s3Name}";
+                    } else {
+                        $failed++;
+                        $results[] = "❌ Falha ao baixar: {$s3Name}";
+                    }
+                }
+            }
+        }
+
         $count = revertS3Urls();
+        $results[] = "Baixados: {$downloaded}, ignorados (já existem): {$skipped}, falhas: {$failed}.";
         $results[] = "URLs revertidas: {$count} registros.";
-        flashMessage('success', "{$count} registros revertidos para URLs locais.");
+        flashMessage('success', "{$downloaded} arquivos baixados do S3, {$count} URLs revertidas para local.");
     }
 
     if ($_POST['action'] === 'fix_broken_urls') {
@@ -440,16 +478,16 @@ define('S3_PUBLIC_URL', 'https://pub-xxxxx.r2.dev');</pre>
         <input type="hidden" name="action" value="update_db_urls">
         <button type="submit" class="btn btn-outline" style="color: oklch(75% 0.15 85); border-color: oklch(55% 0.12 85);">🔄 Atualizar URLs no BD</button>
     </form>
-    <form method="POST" onsubmit="return confirm('Reverter TODAS as URLs do banco de dados para apontar LOCALMENTE (/uploads/...)? Use se o S3 falhou ou as imagens não carregam.')">
+    <form method="POST" onsubmit="return confirm('Baixar TODOS os arquivos do S3 e reverter URLs para apontar local (/uploads/...)? Arquivos que já existem localmente serão ignorados.')">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="revert_db_urls">
-        <button type="submit" class="btn btn-outline" style="color: oklch(55% 0.20 25); border-color: oklch(55% 0.20 25);">↩️ Reverter URLs (voltar a apontar local)</button>
+        <button type="submit" class="btn btn-outline" style="color: oklch(55% 0.20 25); border-color: oklch(55% 0.20 25);">↩️ Reverter URLs + Baixar do S3</button>
     </form>
 </div>
 
 <hr style="border: none; border-top: 1px solid oklch(22% 0.025 260); margin: 24px 0;">
 <h3 style="margin-bottom: 16px; color: oklch(60% 0.012 250);">🧹 Limpar Arquivos Locais</h3>
-<p style="font-size: 13px; color: oklch(50% 0.02 260); margin-bottom: 16px;">Remove arquivos locais que já existem no S3. Jogos e ROMs removidos serão baixados do S3 automaticamente no primeiro acesso.</p>
+<p style="font-size: 13px; color: oklch(50% 0.02 260); margin-bottom: 16px;">Remove arquivos locais que já existem no S3. Para recuperar, use "Reverter URLs + Baixar do S3". Jogos são re-extraídos do S3 automaticamente no primeiro acesso após "Reverter".</p>
 <div id="clean-actions" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px;">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="clean_images">

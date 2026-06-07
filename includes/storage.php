@@ -111,6 +111,11 @@ class Storage {
         return S3::getUrl($s3Name);
     }
 
+    public static function downloadFromS3($s3Name, $localPath) {
+        if (!self::isS3Configured()) return false;
+        return S3::download($s3Name, $localPath);
+    }
+
     public static function extractFromS3Zip($zipS3Name, $destRelDir) {
         if (!self::isS3Configured()) return false;
 
