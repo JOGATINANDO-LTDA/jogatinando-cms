@@ -174,6 +174,13 @@ if ($isExterno) {
                         <h1><?= e($game['title']) ?></h1>
                     </div>
 
+                    <?php if ($game['description']): ?>
+                    <div class="game-info-description">
+                        <h3>Sobre o Jogo</h3>
+                        <p><?= nl2br(e($game['description'])) ?></p>
+                    </div>
+                    <?php endif; ?>
+
                     <?php if ($gameLinks): ?>
                     <div class="game-info-description">
                         <h3><?= $isExterno ? 'Links de Download' : 'Onde comprar' ?></h3>
@@ -194,26 +201,8 @@ if ($isExterno) {
                     <?php endif; ?>
 
 
-                    <?php if (!$isWebPlayable && $gameLinks): ?>
-                    <div class="sidebar-card">
-                        <h3>Distribuição</h3>
-                        <div class="sidebar-links-list">
-                            <?php foreach ($gameLinks as $link): ?>
-                            <a href="<?= e($link['url']) ?>" target="_blank" rel="noopener" class="sidebar-store-link">
-                                <?php if (!empty($link['use_logo']) && !empty($link['logo_path'])): ?>
-                                    <img class="store-link-logo" src="<?= logoImgSrc($link['logo_path']) ?>" alt="<?= e($link['platform_name']) ?>">
-                                <?php else: ?>
-                                    <span><?= e($link['platform_icon'] ?? '🛒') ?></span>
-                                <?php endif; ?>
-                                <span><?= e($link['platform_name']) ?></span>
-                            </a>
-                            <?php endforeach; ?>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-
                     <a href="/" class="btn btn-gold btn-block">← Voltar ao Portfólio</a>
-                </aside>
+                </div>
             </div>
         </div>
     </section>
