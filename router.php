@@ -14,6 +14,12 @@ if ($uri === '/admin/setup-password') {
 
 
 if ($uri === '/install') {
+    // Early guard: redirect if already installed (avoids exposing installer in iframe contexts)
+    $dataDir = __DIR__ . '/data';
+    if (file_exists($dataDir . '/.installed') || file_exists(dirname(__DIR__) . '/.installed') || file_exists($dataDir . '/config.local.php')) {
+        header('Location: /');
+        exit;
+    }
     $_SERVER['PHP_SELF'] = '/install.php';
     require __DIR__ . '/install.php';
     exit;

@@ -1,5 +1,12 @@
 <?php
 
+// Early guard: redirect if already installed (before loading config.php)
+$installDataDir = __DIR__ . '/data';
+if (file_exists($installDataDir . '/.installed') || file_exists(dirname(__DIR__) . '/.installed') || file_exists($installDataDir . '/config.local.php')) {
+    header('Location: /');
+    exit;
+}
+
 require_once 'config.php';
 
 if (defined('INSTALL_LOCK') && INSTALL_LOCK === true) {
