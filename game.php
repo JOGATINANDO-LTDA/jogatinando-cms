@@ -50,8 +50,10 @@ if ($isExterno) {
     $gameUrl = UPLOAD_URL . '/games/' . $game['game_path'] . '/';
     $fallbackUrl = $gameUrl;
     $frameOrigin = "'self'";
+    $pathParts = explode('/', $game['game_path'], 2);
+    $engineSlug = $pathParts[0];
+    $gameSlug = $pathParts[1] ?? '';
     if (!file_exists($gameDir . '/index.html')) {
-        // Try to restore from B2 ZIP
         if (Storage::isS3Configured()) {
             $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.zip';
             $restored = Storage::extractFromS3Zip($zipS3Name, 'games/' . $game['game_path']);
@@ -179,7 +181,7 @@ if ($isExterno) {
                             <?php foreach ($gameLinks as $link): ?>
                             <a class="store-link-item" href="<?= e($link['url']) ?>" target="_blank" rel="noopener">
                                 <?php if (!empty($link['use_logo']) && !empty($link['logo_path'])): ?>
-                                    <img class="store-link-logo" src="/<?= e($link['logo_path']) ?>" alt="<?= e($link['platform_name']) ?>">
+                                    <img class="store-link-logo" src="<?= logoImgSrc($link['logo_path']) ?>" alt="<?= e($link['platform_name']) ?>">
                                 <?php else: ?>
                                     <span class="store-link-icon"><?= e($link['platform_icon'] ?? '🛒') ?></span>
                                 <?php endif; ?>
@@ -191,91 +193,6 @@ if ($isExterno) {
                     </div>
                     <?php endif; ?>
 
-                    <?php if ($game['description']): ?>
-                    <div class="game-info-description">
-                        <h3>Sobre o Jogo</h3>
-                        <p><?= nl2br(e($game['description'])) ?></p>
-                    </div>
-                    <?php endif; ?>
-
-                    <?php if ($isWebPlayable): ?>
-                    <div class="game-info-controls">
-                        <h3>Controles</h3>
-                        <div class="controls-grid">
-                            <div class="control-item">
-                                <kbd>Mouse</kbd>
-                                <span>Interação principal</span>
-                            </div>
-                            <div class="control-item">
-                                <kbd>F11</kbd>
-                                <span>Tela cheia</span>
-                            </div>
-                            <div class="control-item">
-                                <kbd>Esc</kbd>
-                                <span>Sair do jogo</span>
-                            </div>
-                        </div>
-                    </div>
-                    <?php endif; ?>
-
-                    <div class="game-info-tags">
-                        <h3>Categorias</h3>
-                        <div class="tags-list">
-                            <span class="tag"><?= e($game['engine']) ?></span>
-                            <?php if ($isExterno): ?>
-                                <span class="tag">Site Externo</span>
-                            <?php elseif ($isUploadado): ?>
-                                <span class="tag">Navegador</span>
-                                <span class="tag">HTML5</span>
-                            <?php else: ?>
-                                <span class="tag"><?= ($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral' ?></span>
-                                <span class="tag">Distribuição</span>
-                            <?php endif; ?>
-                            <?php if (!empty($game['is_open_source'])): ?><span class="tag">Open Source</span><?php endif; ?>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Sidebar -->
-                <aside class="game-info-sidebar">
-                    <div class="sidebar-card">
-                        <h3>Informações</h3>
-                        <dl class="info-list">
-                            <div class="info-item">
-                                <dt>Engine</dt>
-                                <dd><?= e($game['engine']) ?></dd>
-                            </div>
-                            <div class="info-item">
-                                <dt>Plataforma</dt>
-                                <dd><?= $isExterno ? 'Site Externo (iframe)' : ($isUploadado ? 'Navegador (HTML5)' : 'Distribuição / Loja') ?></dd>
-                            </div>
-                            <div class="info-item">
-                                <dt>Orientação</dt>
-                                <dd><?= $orientation === 'landscape' ? 'Paisagem' : ($orientation === 'portrait' ? 'Retrato' : 'Automático') ?></dd>
-                            </div>
-                            <div class="info-item">
-                                <dt>Tipo</dt>
-                                <dd><?= $isExterno ? 'Externo' : (($game['game_type'] ?? 'autoral') === 'cliente' ? 'Cliente' : 'Autoral') ?></dd>
-                            </div>
-                            <?php if (!empty($game['is_open_source']) && !empty($game['repo_url'])): ?>
-                            <div class="info-item">
-                                <dt>Repositório</dt>
-                                <dd><a href="<?= e($game['repo_url']) ?>" target="_blank" rel="noopener" style="color:var(--gold)">Ver código →</a></dd>
-                            </div>
-                            <?php endif; ?>
-                            <div class="info-item">
-                                <dt>Adicionado</dt>
-                                <dd><?= date('d/m/Y', strtotime($game['created_at'])) ?></dd>
-                            </div>
-                        </dl>
-                    </div>
-
-                    <?php if ($game['thumbnail_url']): ?>
-                    <div class="sidebar-card">
-                        <h3>Thumbnail</h3>
-                        <img src="<?= e($game['thumbnail_url']) ?>" alt="<?= e($game['title']) ?>" class="sidebar-thumb">
-                    </div>
-                    <?php endif; ?>
 
                     <?php if (!$isWebPlayable && $gameLinks): ?>
                     <div class="sidebar-card">
@@ -284,7 +201,7 @@ if ($isExterno) {
                             <?php foreach ($gameLinks as $link): ?>
                             <a href="<?= e($link['url']) ?>" target="_blank" rel="noopener" class="sidebar-store-link">
                                 <?php if (!empty($link['use_logo']) && !empty($link['logo_path'])): ?>
-                                    <img class="store-link-logo" src="/<?= e($link['logo_path']) ?>" alt="<?= e($link['platform_name']) ?>">
+                                    <img class="store-link-logo" src="<?= logoImgSrc($link['logo_path']) ?>" alt="<?= e($link['platform_name']) ?>">
                                 <?php else: ?>
                                     <span><?= e($link['platform_icon'] ?? '🛒') ?></span>
                                 <?php endif; ?>

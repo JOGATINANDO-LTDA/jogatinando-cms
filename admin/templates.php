@@ -68,10 +68,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($result['success']) {
                 $thumbnail_url = $result['url'];
                 if (!empty($oldThumb)) {
-                    $thumbPath = UPLOAD_PATH . str_replace('/uploads', '', $oldThumb);
-                    $thumbPath = realpath($thumbPath);
-                    if ($thumbPath && str_starts_with($thumbPath, realpath(UPLOAD_PATH))) {
-                        @unlink($thumbPath);
+                    $thumbPath = '';
+                    if (str_starts_with($oldThumb, '/uploads/')) {
+                        $thumbPath = UPLOAD_PATH . str_replace('/uploads', '', $oldThumb);
+                        $thumbPath = realpath($thumbPath);
+                        if ($thumbPath && str_starts_with($thumbPath, realpath(UPLOAD_PATH))) {
+                            @unlink($thumbPath);
+                        }
+                    }
+                    if (Storage::isS3Configured()) {
+                        $s3Name = urlToS3Name($oldThumb);
+                        if ($s3Name) Storage::deleteFromS3($s3Name);
                     }
                 }
             } else {
@@ -98,10 +105,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         foreach ($removeGallery as $imgUrl) {
             $key = array_search($imgUrl, $gallery);
             if ($key !== false) {
-                $filePath = UPLOAD_PATH . str_replace('/uploads', '', $imgUrl);
-                $filePath = realpath($filePath);
-                if ($filePath && str_starts_with($filePath, realpath(UPLOAD_PATH))) {
-                    @unlink($filePath);
+                $filePath = '';
+                if (str_starts_with($imgUrl, '/uploads/')) {
+                    $filePath = UPLOAD_PATH . str_replace('/uploads', '', $imgUrl);
+                    $filePath = realpath($filePath);
+                    if ($filePath && str_starts_with($filePath, realpath(UPLOAD_PATH))) {
+                        @unlink($filePath);
+                    }
+                }
+                if (Storage::isS3Configured()) {
+                    $s3Name = urlToS3Name($imgUrl);
+                    if ($s3Name) Storage::deleteFromS3($s3Name);
                 }
                 array_splice($gallery, $key, 1);
             }
@@ -152,9 +166,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($has_free_file && isset($_FILES['template_archive']) && $_FILES['template_archive']['error'] === UPLOAD_ERR_OK) {
             // Delete old archive if exists
             if ($id > 0 && !empty($existing['game_path'])) {
-                $oldFile = UPLOAD_PATH . str_replace('/uploads', '', $existing['game_path']);
-                if (file_exists($oldFile)) {
+                $oldFile = '';
+                if (str_starts_with($existing['game_path'], '/uploads/')) {
+                    $oldFile = UPLOAD_PATH . str_replace('/uploads', '', $existing['game_path']);
+                }
+                if ($oldFile && file_exists($oldFile)) {
                     @unlink($oldFile);
+                }
+                if (Storage::isS3Configured()) {
+                    $s3Name = urlToS3Name($existing['game_path']);
+                    if ($s3Name) Storage::deleteFromS3($s3Name);
                 }
             }
             $result = uploadFile($_FILES['template_archive'], 'templates', ['zip']);
@@ -167,10 +188,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 exit;
             }
         } elseif ($id > 0 && !$has_free_file && !empty($existing['game_path'])) {
-            // has_free_file was unchecked — delete old archive
-            $oldFile = UPLOAD_PATH . str_replace('/uploads', '', $existing['game_path']);
-            if (file_exists($oldFile)) {
+            $oldFile = '';
+            if (str_starts_with($existing['game_path'], '/uploads/')) {
+                $oldFile = UPLOAD_PATH . str_replace('/uploads', '', $existing['game_path']);
+            }
+            if ($oldFile && file_exists($oldFile)) {
                 @unlink($oldFile);
+            }
+            if (Storage::isS3Configured()) {
+                $s3Name = urlToS3Name($existing['game_path']);
+                if ($s3Name) Storage::deleteFromS3($s3Name);
             }
         } elseif ($id > 0 && !empty($existing['game_path'])) {
             $game_path = $existing['game_path'];
@@ -212,22 +239,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $template = dbQueryOne("SELECT * FROM game_templates WHERE id = ?", [$id]);
         if ($template) {
             if (!empty($template['thumbnail_url'])) {
-                $thumbPath = UPLOAD_PATH . str_replace('/uploads', '', $template['thumbnail_url']);
-                if (file_exists($thumbPath)) {
+                $thumbPath = '';
+                if (str_starts_with($template['thumbnail_url'], '/uploads/')) {
+                    $thumbPath = UPLOAD_PATH . str_replace('/uploads', '', $template['thumbnail_url']);
+                }
+                if ($thumbPath && file_exists($thumbPath)) {
                     @unlink($thumbPath);
+                }
+                if (Storage::isS3Configured()) {
+                    $s3Name = urlToS3Name($template['thumbnail_url']);
+                    if ($s3Name) Storage::deleteFromS3($s3Name);
                 }
             }
             if (!empty($template['game_path'])) {
-                $archiveFile = UPLOAD_PATH . str_replace('/uploads', '', $template['game_path']);
-                if (file_exists($archiveFile)) {
+                $archiveFile = '';
+                if (str_starts_with($template['game_path'], '/uploads/')) {
+                    $archiveFile = UPLOAD_PATH . str_replace('/uploads', '', $template['game_path']);
+                }
+                if ($archiveFile && file_exists($archiveFile)) {
                     @unlink($archiveFile);
+                }
+                if (Storage::isS3Configured()) {
+                    $s3Name = urlToS3Name($template['game_path']);
+                    if ($s3Name) Storage::deleteFromS3($s3Name);
                 }
             }
             $gallery = json_decode($template['gallery'] ?? '[]', true) ?: [];
             foreach ($gallery as $imgUrl) {
-                $filePath = UPLOAD_PATH . str_replace('/uploads', '', $imgUrl);
-                if (file_exists($filePath)) {
+                $filePath = '';
+                if (str_starts_with($imgUrl, '/uploads/')) {
+                    $filePath = UPLOAD_PATH . str_replace('/uploads', '', $imgUrl);
+                }
+                if ($filePath && file_exists($filePath)) {
                     @unlink($filePath);
+                }
+                if (Storage::isS3Configured()) {
+                    $s3Name = urlToS3Name($imgUrl);
+                    if ($s3Name) Storage::deleteFromS3($s3Name);
                 }
             }
             dbDelete('game_templates', $id);
@@ -525,7 +573,7 @@ if ($action === 'new' || $action === 'edit') {
                             <div class="form-group" style="flex:0 0 30%;margin-bottom:0">
                                 <div style="display:flex;align-items:center;gap:6px">
                                     <?php if (!empty($tl['use_logo']) && !empty($tl['logo_path'])): ?>
-                                        <img src="/<?= e($tl['logo_path']) ?>" alt="" class="platform-thumb" style="height:18px;width:auto;flex-shrink:0">
+                                        <img src="<?= logoImgSrc($tl['logo_path']) ?>" alt="" class="platform-thumb" style="height:18px;width:auto;flex-shrink:0">
                                     <?php else: ?>
                                         <span class="platform-thumb" style="font-size:18px;flex-shrink:0"><?= e($tl['platform_icon'] ?? '🛒') ?></span>
                                     <?php endif; ?>
@@ -616,7 +664,7 @@ if ($action === 'new' || $action === 'edit') {
                         selectHtml += '<option value="' + p.id + '" ' + (p.id == platformId ? 'selected' : '') + '>' + p.name + '</option>';
                         if (p.id == platformId) {
                             thumbHtml = p.use_logo && p.logo_path
-                                ? '<img class="platform-thumb" src="/' + p.logo_path + '" alt="" style="height:18px;width:auto;flex-shrink:0">'
+                                ? '<img class="platform-thumb" src="' + (p.logo_path.startsWith('http') ? p.logo_path : '/' + p.logo_path) + '" alt="" style="height:18px;width:auto;flex-shrink:0">'
                                 : '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">' + p.icon + '</span>';
                         }
                     });
@@ -649,7 +697,7 @@ if ($action === 'new' || $action === 'edit') {
                         var selected = platforms.find(function(p) { return p.id == e.target.value; });
                         if (selected) {
                             if (selected.use_logo && selected.logo_path) {
-                                thumb.outerHTML = '<img class="platform-thumb" src="/' + selected.logo_path + '" alt="" style="height:18px;width:auto;flex-shrink:0">';
+                                thumb.outerHTML = '<img class="platform-thumb" src="' + (selected.logo_path.startsWith('http') ? selected.logo_path : '/' + selected.logo_path) + '" alt="" style="height:18px;width:auto;flex-shrink:0">';
                             } else {
                                 thumb.outerHTML = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">' + selected.icon + '</span>';
                             }
@@ -716,7 +764,7 @@ if ($action === 'new' || $action === 'edit') {
                                     foreach ($links as $pl) {
                                         $badge = '';
                                         if (!empty($pl['use_logo']) && !empty($pl['logo_path'])) {
-                                            $badge .= '<img src="/' . e($pl['logo_path']) . '" alt="" style="height:14px;width:auto">';
+                                            $badge .= '<img src="' . logoImgSrc($pl['logo_path']) . '" alt="" style="height:14px;width:auto">';
                                         } else {
                                             $badge .= e($pl['icon'] ?? '🛒');
                                         }

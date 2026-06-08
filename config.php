@@ -69,10 +69,17 @@ if (defined('CMS_INSTALL_VERSION') && CMS_INSTALL_VERSION !== CMS_VERSION) {
         exit;
     }
     if ($vAction === 'fresh') {
+        $nonce = $_POST['fresh_nonce'] ?? '';
+        if ($nonce !== ($_SESSION['fresh_nonce'] ?? '')) {
+            http_response_code(403);
+            exit('Token inválido. Recarregue a página e tente novamente.');
+        }
+        unset($_SESSION['fresh_nonce']);
         unlink(LOCAL_CONFIG);
         header('Location: /install');
         exit;
     }
+    $_SESSION['fresh_nonce'] = bin2hex(random_bytes(32));
     ?><!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -110,6 +117,7 @@ hr{border:none;border-top:1px solid oklch(25% 0.02 260);margin:20px 0}
 </form>
 <hr>
 <form method="POST" onsubmit="return confirm('Todos os dados serão perdidos. Confirma?')">
+<input type="hidden" name="fresh_nonce" value="<?= htmlspecialchars($_SESSION['fresh_nonce']) ?>">
 <button type="submit" name="vaction" value="fresh" class="btn btn-danger">Nova instalação (dados serão perdidos)</button>
 </form>
 </div>

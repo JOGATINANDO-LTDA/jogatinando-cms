@@ -71,6 +71,13 @@ class Storage {
                 $zip->close();
                 return false;
             }
+            if ($zip->getExternalAttributesIndex($i, $opsys, $attr) && $opsys === ZipArchive::OPSYS_UNIX) {
+                $unixMode = ($attr >> 16) & 0xFFFF;
+                if (($unixMode & 0120000) === 0120000) {
+                    $zip->close();
+                    return false;
+                }
+            }
         }
         $zip->extractTo($destDir);
         $zip->close();

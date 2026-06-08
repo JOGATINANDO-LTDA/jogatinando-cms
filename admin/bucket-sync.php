@@ -197,6 +197,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ['table' => 'retro_games', 'column' => 'thumbnail_url'],
                 ['table' => 'game_templates', 'column' => 'thumbnail_url'],
                 ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+                ['table' => 'store_platforms', 'column' => 'logo_path'],
             ];
             $updated = 0;
             foreach ($urlTables as $t) {
@@ -210,8 +211,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $updated++;
                 }
             }
-            $basePrefix = rtrim($baseUrl, '/') . '/uploads/';
-            dbExec("UPDATE store_platforms SET logo_path = REPLACE(logo_path, '/uploads/', ?) WHERE logo_path LIKE '/uploads/%'", [$basePrefix]);
             $results[] = "URLs atualizadas: {$updated} registros.";
         }
         flashMessage('success', 'Sincronização completa finalizada.');
@@ -241,6 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ['table' => 'retro_games', 'column' => 'thumbnail_url'],
                 ['table' => 'game_templates', 'column' => 'thumbnail_url'],
                 ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+                ['table' => 'store_platforms', 'column' => 'logo_path'],
             ];
             $updated = 0;
             foreach ($tables as $t) {
@@ -254,15 +254,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $updated++;
                 }
             }
-            $basePrefix = rtrim($baseUrl, '/') . '/uploads/';
-            dbExec("UPDATE store_platforms SET logo_path = REPLACE(logo_path, '/uploads/', ?) WHERE logo_path LIKE '/uploads/%'", [$basePrefix]);
             $results[] = "URLs atualizadas: {$updated} registros.";
             flashMessage('success', "{$updated} registros atualizados com URLs do S3.");
         }
     }
 
     if ($_POST['action'] === 'revert_db_urls') {
+        $cfg = S3::getResolvedConfig();
         $publicUrl = rtrim(getSetting('s3_public_url', ''), '/');
+        if ($publicUrl === '') $publicUrl = rtrim($cfg['public_url'], '/');
         $downloaded = 0; $skipped = 0; $failed = 0;
 
         if ($publicUrl !== '') {

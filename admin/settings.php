@@ -907,7 +907,7 @@ function onS3BucketSelect(sel) {
                     $migrateMessage = '<div class="status success">Migração concluída! Redirecionando para o login…</div>';
                     $migrateSuccess = true;
                     $migrateRedirect = true;
-                    session_destroy();
+                    clearSession();
                 } catch (Exception $ex) {
                     $migrateMessage = '<div class="status error">' . e($ex->getMessage()) . '</div>';
                 }

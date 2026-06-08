@@ -85,7 +85,7 @@ $siteName = getSetting('site_name', SITE_NAME);
                             <?php foreach ($templateLinks as $tl): ?>
                             <a class="store-link-item" href="<?= e($tl['url']) ?>" target="_blank" rel="noopener">
                                 <?php if (!empty($tl['use_logo']) && !empty($tl['logo_path'])): ?>
-                                <img src="/<?= e($tl['logo_path']) ?>" alt="<?= e($tl['platform_name']) ?>" class="store-link-logo">
+                                <img src="<?= logoImgSrc($tl['logo_path']) ?>" alt="<?= e($tl['platform_name']) ?>" class="store-link-logo">
                                 <?php else: ?>
                                 <span class="store-link-icon"><?= e($tl['platform_icon'] ?? '🛒') ?></span>
                                 <?php endif; ?>
@@ -191,7 +191,7 @@ $siteName = getSetting('site_name', SITE_NAME);
                             <?php foreach ($templateLinks as $tl): ?>
                             <a class="store-link-item store-link-item--sidebar" href="<?= e($tl['url']) ?>" target="_blank" rel="noopener">
                                 <?php if (!empty($tl['use_logo']) && !empty($tl['logo_path'])): ?>
-                                <img src="/<?= e($tl['logo_path']) ?>" alt="<?= e($tl['platform_name']) ?>" class="store-link-logo">
+                                <img src="<?= logoImgSrc($tl['logo_path']) ?>" alt="<?= e($tl['platform_name']) ?>" class="store-link-logo">
                                 <?php else: ?>
                                 <span class="store-link-icon"><?= e($tl['platform_icon'] ?? '🛒') ?></span>
                                 <?php endif; ?>

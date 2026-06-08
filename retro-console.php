@@ -33,12 +33,13 @@ if ($letter !== '' && preg_match('/^[A-Z]$/i', $letter)) {
 }
 
 $sort = $_GET['sort'] ?? '';
+$allowedOrders = ['title ASC', 'title DESC', 'featured DESC, sort_order ASC, created_at DESC'];
 if ($sort === 'alpha_asc') {
-    $order = "title ASC";
+    $order = 'title ASC';
 } elseif ($sort === 'alpha_desc') {
-    $order = "title DESC";
+    $order = 'title DESC';
 } else {
-    $order = "featured DESC, sort_order ASC, created_at DESC";
+    $order = 'featured DESC, sort_order ASC, created_at DESC';
 }
 
 $games = dbQuery("SELECT * FROM retro_games WHERE $where ORDER BY $order", $params);
