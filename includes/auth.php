@@ -173,7 +173,10 @@ function isSmtpConfigured() {
 }
 
 function redirectOrError($msg, $detail) {
-    if (file_exists(ROOT_PATH . '/install.php')) {
+    // Only redirect to installer if system is truly not installed
+    // (config.local.php doesn't exist). If config exists but DB is broken,
+    // show error page instead — avoids redirect loop.
+    if (file_exists(ROOT_PATH . '/install.php') && !file_exists(DATA_PATH . '/config.local.php')) {
         header('Location: /install');
         exit;
     }
