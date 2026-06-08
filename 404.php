@@ -13,7 +13,7 @@ $siteName = defined('SITE_NAME') ? SITE_NAME : 'Jogatinando';
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="/assets/css/style.css">
+    <link rel="stylesheet" href="<?= assetUrl('/assets/css/style.css') ?>">
     <style>
         .error-container { display:flex;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:24px }
         .error-code { font-family:'Cinzel',serif;font-size:120px;font-weight:900;background:linear-gradient(135deg,var(--gold),#e8c84a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1;margin:0 }

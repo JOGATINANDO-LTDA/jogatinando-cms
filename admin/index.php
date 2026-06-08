@@ -3,12 +3,23 @@ $pageTitle = 'Dashboard';
 require_once __DIR__ . '/../includes/header.php';
 
 $db = getDB();
-$gameCount = $db->query("SELECT COUNT(*) FROM games WHERE active = 1")->fetchColumn();
-$bannerCount = $db->query("SELECT COUNT(*) FROM banners WHERE active = 1")->fetchColumn();
-$postCount = $db->query("SELECT COUNT(*) FROM blog_posts WHERE active = 1")->fetchColumn();
-$testimonialCount = $db->query("SELECT COUNT(*) FROM testimonials WHERE active = 1")->fetchColumn();
-$faqCount = $db->query("SELECT COUNT(*) FROM faq_items WHERE active = 1")->fetchColumn();
-$teamCount = $db->query("SELECT COUNT(*) FROM team_members WHERE active = 1")->fetchColumn();
+$counts = $db->query("
+    SELECT
+        (SELECT COUNT(*) FROM games WHERE active = 1) AS games,
+        (SELECT COUNT(*) FROM banners WHERE active = 1) AS banners,
+        (SELECT COUNT(*) FROM blog_posts WHERE active = 1) AS posts,
+        (SELECT COUNT(*) FROM testimonials WHERE active = 1) AS testimonials,
+        (SELECT COUNT(*) FROM faq_items WHERE active = 1) AS faq,
+        (SELECT COUNT(*) FROM team_members WHERE active = 1) AS team,
+        (SELECT COUNT(*) FROM users WHERE status = 'pending') AS pending_users
+")->fetch(PDO::FETCH_ASSOC);
+$gameCount = $counts['games'];
+$bannerCount = $counts['banners'];
+$postCount = $counts['posts'];
+$testimonialCount = $counts['testimonials'];
+$faqCount = $counts['faq'];
+$teamCount = $counts['team'];
+$pendingUsers = $counts['pending_users'];
 
 // Recent games
 $recentGames = dbQuery("SELECT * FROM games ORDER BY created_at DESC LIMIT 5");
@@ -127,7 +138,6 @@ $recentGames = dbQuery("SELECT * FROM games ORDER BY created_at DESC LIMIT 5");
 </div>
 
 <?php
-$pendingUsers = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending'")->fetchColumn();
 $canManageUsers = can('perm_users');
 ?>
 <?php if ($pendingUsers > 0 && $canManageUsers): ?>

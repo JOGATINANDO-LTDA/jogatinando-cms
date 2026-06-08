@@ -59,7 +59,7 @@ $availableLetters = array_column($letterRows, 'letter');
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/style.css">
+    <link rel="stylesheet" href="<?= assetUrl('/assets/css/style.css') ?>">
 </head>
 <body>
     <div class="cosmic-bg"></div>
@@ -180,6 +180,6 @@ $availableLetters = array_column($letterRows, 'letter');
         </div>
     </footer>
 
-    <script src="<?= SITE_URL ?>/assets/js/main.js"></script>
+    <script src="<?= assetUrl('/assets/js/main.js') ?>"></script>
 </body>
 </html>
