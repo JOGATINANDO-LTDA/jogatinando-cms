@@ -39,6 +39,14 @@ RewriteEngine On
     ExpiresByType font/woff2 "access plus 1 year"
 </IfModule>
 
+<IfModule mod_headers.c>
+    <FilesMatch "\.(jpg|jpeg|png|gif|webp|svg|css|js|woff2?|ttf|otf|ico)$">
+        Header append Cache-Control "public, immutable"
+    </FilesMatch>
+</IfModule>
+
+FileETag None
+
 # === HEADERS DE SEGURANÇA ===
 <IfModule mod_headers.c>
     Header set Connection keep-alive

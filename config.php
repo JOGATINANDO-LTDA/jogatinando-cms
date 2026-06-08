@@ -7,6 +7,15 @@ ini_set('log_errors', 1);
 $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 
+// Paths
+if (!defined('ROOT_PATH')) define('ROOT_PATH', dirname(__FILE__));
+if (!defined('DATA_PATH')) define('DATA_PATH', ROOT_PATH . '/data');
+
+// Local session files (avoids /tmp contention on shared hosting)
+$sessionPath = DATA_PATH . '/sessions';
+if (!is_dir($sessionPath)) @mkdir($sessionPath, 0700, true);
+session_save_path($sessionPath);
+
 session_set_cookie_params([
     'lifetime' => 0,
     'path' => '/',
@@ -17,9 +26,6 @@ session_set_cookie_params([
 ]);
 session_start();
 
-// Paths
-if (!defined('ROOT_PATH')) define('ROOT_PATH', dirname(__FILE__));
-if (!defined('DATA_PATH')) define('DATA_PATH', ROOT_PATH . '/data');
 if (!defined('UPLOAD_PATH')) define('UPLOAD_PATH', ROOT_PATH . '/uploads');
 if (!defined('DB_PATH')) define('DB_PATH', DATA_PATH . '/jogatinando.db');
 

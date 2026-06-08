@@ -6,6 +6,12 @@ function e($string) {
     return htmlspecialchars($string ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+function assetUrl($path) {
+    $file = ROOT_PATH . $path;
+    $mtime = file_exists($file) ? filemtime($file) : CMS_VERSION;
+    return SITE_URL . $path . '?v=' . $mtime;
+}
+
 function sendSmtpMail($to, $subject, $body, $from = null, $fromName = null) {
     $host = defined('SMTP_HOST') ? SMTP_HOST : 'smtp.zoho.com';
     $port = defined('SMTP_PORT') ? SMTP_PORT : 587;
@@ -651,13 +657,19 @@ function logoImgSrc($path) {
 }
 
 function siteLogoUrl() {
+    static $cached = null;
+    if ($cached !== null) return $cached;
     $url = getSetting('site_logo_url', '');
-    return $url !== '' ? $url : '/assets/svg/logo.svg';
+    $cached = $url !== '' ? $url : '/assets/svg/logo.svg';
+    return $cached;
 }
 
 function siteFaviconUrl() {
+    static $cached = null;
+    if ($cached !== null) return $cached;
     $url = getSetting('site_favicon_url', '');
-    return $url !== '' ? $url : '/assets/svg/logo.svg';
+    $cached = $url !== '' ? $url : '/assets/svg/logo.svg';
+    return $cached;
 }
 
 function resizeAndSaveLogo($tmpPath) {
