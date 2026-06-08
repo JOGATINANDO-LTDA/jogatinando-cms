@@ -421,7 +421,7 @@ if ($action === 'new' || $action === 'edit') {
                         <div class="form-group" style="flex:0 0 30%;margin-bottom:0">
                             <div style="display:flex;align-items:center;gap:6px">
                                 <?php if (!empty($gl['use_logo']) && !empty($gl['logo_path'])): ?>
-                                    <img src="/<?= e($gl['logo_path']) ?>" alt="" class="platform-thumb" style="height:18px;width:auto;flex-shrink:0">
+                                    <img src="<?= logoImgSrc($gl['logo_path']) ?>" alt="" class="platform-thumb" style="height:18px;width:auto;flex-shrink:0">
                                 <?php else: ?>
                                     <span class="platform-thumb" style="font-size:18px;flex-shrink:0"><?= e($gl['platform_icon'] ?? '🛒') ?></span>
                                 <?php endif; ?>
@@ -595,7 +595,7 @@ if ($action === 'new' || $action === 'edit') {
             selectHtml += `<option value="${p.id}" ${p.id == platformId ? 'selected' : ''}>${p.name}</option>`;
             if (p.id == platformId) {
                 thumbHtml = p.use_logo && p.logo_path
-                    ? `<img class="platform-thumb" src="/${p.logo_path}" alt="" style="height:18px;width:auto;flex-shrink:0">`
+                        ? `<img class="platform-thumb" src="${p.logo_path.startsWith('http') ? p.logo_path : '/' + p.logo_path}" alt="" style="height:18px;width:auto;flex-shrink:0">`
                     : `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">${p.icon}</span>`;
             }
         });
@@ -630,7 +630,7 @@ if ($action === 'new' || $action === 'edit') {
             const selected = platforms.find(p => p.id == e.target.value);
             if (selected) {
                 if (selected.use_logo && selected.logo_path) {
-                    thumb.outerHTML = `<img class="platform-thumb" src="/${selected.logo_path}" alt="" style="height:18px;width:auto;flex-shrink:0">`;
+                    thumb.outerHTML = `<img class="platform-thumb" src="${selected.logo_path.startsWith('http') ? selected.logo_path : '/' + selected.logo_path}" alt="" style="height:18px;width:auto;flex-shrink:0">`;
                 } else {
                     thumb.outerHTML = `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">${selected.icon}</span>`;
                 }

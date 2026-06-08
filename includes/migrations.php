@@ -949,7 +949,7 @@ function migration_026($db, $type) {
     try {
         if ($type === 'mysql') {
             $db->exec("ALTER TABLE users DROP COLUMN IF EXISTS `role`");
-        } else {
+        } elseif (version_compare($db->getAttribute(PDO::ATTR_SERVER_VERSION), '3.35.0', '>=')) {
             $db->exec("ALTER TABLE users DROP COLUMN `role`");
         }
     } catch (Exception $e) {}
@@ -958,7 +958,7 @@ function migration_026($db, $type) {
     try {
         if ($type === 'mysql') {
             $db->exec("ALTER TABLE roles DROP COLUMN IF EXISTS `level`");
-        } else {
+        } elseif (version_compare($db->getAttribute(PDO::ATTR_SERVER_VERSION), '3.35.0', '>=')) {
             $db->exec("ALTER TABLE roles DROP COLUMN `level`");
         }
     } catch (Exception $e) {}

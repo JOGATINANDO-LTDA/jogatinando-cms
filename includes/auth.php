@@ -15,7 +15,7 @@ function requireLogin() {
     }
     $timeout = 1800;
     if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity']) > $timeout) {
-        session_destroy();
+        clearSession();
         $redirect = isset($_SERVER['REQUEST_URI']) ? '?redirect=' . urlencode($_SERVER['REQUEST_URI']) : '';
         header('Location: ' . ADMIN_URL . '/login' . $redirect);
         exit;
@@ -215,8 +215,16 @@ function requireInstalled() {
     }
 }
 
-function logout() {
+function clearSession() {
+    $_SESSION = [];
+    $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    setcookie(session_name(), '', time() - 42000, '/', '', $isHttps, true);
     session_destroy();
+}
+
+function logout() {
+    clearSession();
     header('Location: ' . ADMIN_URL . '/login');
     exit;
 }

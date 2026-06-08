@@ -13,11 +13,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         $attempts = $_SESSION['login_attempts'] ?? 0;
         $lockoutTime = $_SESSION['login_lockout'] ?? 0;
+        $ip = $_SERVER['REMOTE_ADDR'] ?? 'unknown';
+        $ipLockFile = DATA_PATH . '/lockout_' . md5('login' . $ip) . '.tmp';
+        $ipLocked = file_exists($ipLockFile) && filemtime($ipLockFile) > (time() - 300);
         if ($lockoutTime > time()) {
             $error = 'Muitas tentativas. Tente novamente em ' . ceil(($lockoutTime - time()) / 60) . ' min.';
-        } elseif ($attempts >= 5) {
+        } elseif ($attempts >= 5 || $ipLocked) {
             $_SESSION['login_lockout'] = time() + 300;
             $_SESSION['login_attempts'] = 0;
+            file_put_contents($ipLockFile, '1');
             $error = 'Muitas tentativas. Tente novamente em 5 minutos.';
         } else {
         $username = trim($_POST['username'] ?? '');
@@ -34,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Conta pendente de ativação. Verifique seu email para confirmar o cadastro.';
             } elseif (login($username, $password)) {
                 unset($_SESSION['login_attempts'], $_SESSION['login_lockout']);
+                @unlink($ipLockFile);
                 $redirect = $_GET['redirect'] ?? '';
                 if ($redirect && str_starts_with($redirect, ADMIN_URL)) {
                     header('Location: ' . $redirect);

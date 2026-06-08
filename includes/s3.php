@@ -207,20 +207,63 @@ class S3 {
 
         self::$lastResponseBody = $resp;
 
+        if (!in_array($httpCode, [200, 204])) {
+            error_log("S3::upload FAILED: HTTP {$httpCode} for {$s3Name}");
+        }
+
         return in_array($httpCode, [200, 204]);
     }
 
     public static function download($s3Name, $localPath) {
         $dir = dirname($localPath);
         if (!is_dir($dir)) mkdir($dir, 0755, true);
-        $uri = self::$cfgBucket . '/' . ltrim($s3Name, '/');
-        $result = self::exec('GET', $uri, '', [], 120);
-        if ($result['code'] !== 200) {
-            self::log("S3::download FAILED for {$s3Name}: HTTP {$result['code']}");
+
+        $endpoint = rtrim(self::$cfgEndpoint, '/');
+        $uri = '/' . self::$cfgBucket . '/' . ltrim($s3Name, '/');
+        $url = $endpoint . $uri;
+
+        $payloadHash = hash('sha256', '');
+        $amzDate = gmdate('Ymd\THis\Z');
+
+        $headers = [
+            'Host'                 => parse_url($endpoint, PHP_URL_HOST),
+            'X-Amz-Content-SHA256' => $payloadHash,
+            'X-Amz-Date'           => $amzDate,
+        ];
+
+        $parsed = parse_url($uri);
+        $signPath = $parsed['path'] ?? '/';
+        $signQuery = $parsed['query'] ?? '';
+
+        $signature = self::sign('GET', $signPath, $signQuery, $headers, $payloadHash, $amzDate);
+        $headers['Authorization'] = $signature;
+
+        $fp = fopen($localPath, 'wb');
+        if (!$fp) {
+            error_log("S3::download FAILED to open {$localPath} for writing");
             return false;
         }
-        if (file_put_contents($localPath, $result['body']) === false) {
-            self::log("S3::download FAILED to write {$localPath}");
+
+        $ch = curl_init($url);
+        $httpHeaders = [];
+        foreach ($headers as $k => $v) {
+            $httpHeaders[] = "$k: $v";
+        }
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => false,
+            CURLOPT_HTTPHEADER     => $httpHeaders,
+            CURLOPT_TIMEOUT        => 120,
+            CURLOPT_FILE           => $fp,
+            CURLOPT_FOLLOWLOCATION => true,
+        ]);
+        curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+        fclose($fp);
+
+        if ($httpCode !== 200) {
+            @unlink($localPath);
+            error_log("S3::download FAILED for {$s3Name}: HTTP {$httpCode}");
             return false;
         }
         return true;

@@ -156,7 +156,7 @@ if ($action === 'new' || $action === 'edit') {
                     <div class="form-group">
                         <label>Logo atual</label>
                         <div>
-                            <img src="/<?= e($platform['logo_path']) ?>" alt="Logo" style="height:32px;width:auto;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);padding:4px">
+                            <img src="<?= logoImgSrc($platform['logo_path']) ?>" alt="Logo" style="height:32px;width:auto;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);padding:4px">
                         </div>
                     </div>
                 </div>
@@ -222,7 +222,7 @@ if ($action === 'new' || $action === 'edit') {
                             <td>
                                 <span style="display:inline-flex;align-items:center;gap:8px">
                                     <?php if (!empty($p['use_logo']) && !empty($p['logo_path'])): ?>
-                                        <img src="/<?= e($p['logo_path']) ?>" alt="<?= e($p['name']) ?>" style="height:20px;width:auto">
+                                        <img src="<?= logoImgSrc($p['logo_path']) ?>" alt="<?= e($p['name']) ?>" style="height:20px;width:auto">
                                     <?php else: ?>
                                         <span style="font-size:20px"><?= e($p['icon'] ?? '🛒') ?></span>
                                     <?php endif; ?>
