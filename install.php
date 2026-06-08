@@ -240,8 +240,10 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
     $content .= "}\n";
     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
     file_put_contents(DATA_PATH . '/config.local.php', $content);
+    $persistentDir = dirname(ROOT_PATH);
+    file_put_contents($persistentDir . '/config.local.php', $content);
     @touch(DATA_PATH . '/.installed');
-    @touch(dirname(ROOT_PATH) . '/.installed');
+    @touch($persistentDir . '/.installed');
 }
 
 function shouldRemoveInstall() {

@@ -34,10 +34,18 @@ if (!defined('DB_PATH')) define('DB_PATH', DATA_PATH . '/jogatinando.db');
 
 define('CMS_VERSION', '1.1.0');
 define('LOCAL_CONFIG', DATA_PATH . '/config.local.php');
+define('LOCAL_CONFIG_PERSISTENT', dirname(ROOT_PATH) . '/config.local.php');
 
-// Load local config from data/ first
-if (file_exists(LOCAL_CONFIG)) {
+// Track which file was loaded for write ops (version mismatch, etc.)
+$activeConfig = null;
+
+// Load config — persistent (outside webroot) first, then data/ (legacy)
+if (file_exists(LOCAL_CONFIG_PERSISTENT)) {
+    require_once LOCAL_CONFIG_PERSISTENT;
+    $activeConfig = LOCAL_CONFIG_PERSISTENT;
+} elseif (file_exists(LOCAL_CONFIG)) {
     require_once LOCAL_CONFIG;
+    $activeConfig = LOCAL_CONFIG;
 }
 
 if (!defined('INSTALL_LOCK')) {
@@ -45,9 +53,9 @@ if (!defined('INSTALL_LOCK')) {
     define('INSTALL_LOCK', $envLock === '1' || $envLock === 'true');
 }
 
-// Auto-migrate legacy root config.local.php → data/
+// Auto-migrate legacy root config.local.php → persistent (outside webroot)
 $legacyConfig = ROOT_PATH . '/config.local.php';
-if (file_exists($legacyConfig) && !file_exists(LOCAL_CONFIG)) {
+if (file_exists($legacyConfig) && $activeConfig === null) {
     $content = file_get_contents($legacyConfig);
     if (!str_contains($content, 'CMS_INSTALL_VERSION')) {
         $content = preg_replace(
@@ -56,24 +64,26 @@ if (file_exists($legacyConfig) && !file_exists(LOCAL_CONFIG)) {
             $content
         );
     }
-    if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
-    file_put_contents(LOCAL_CONFIG, $content);
-    unlink($legacyConfig);
-    require_once LOCAL_CONFIG;
+    $persistentDir = dirname(LOCAL_CONFIG_PERSISTENT);
+    if (!is_dir($persistentDir)) mkdir($persistentDir, 0755, true);
+    file_put_contents(LOCAL_CONFIG_PERSISTENT, $content);
+    @unlink($legacyConfig);
+    require_once LOCAL_CONFIG_PERSISTENT;
+    $activeConfig = LOCAL_CONFIG_PERSISTENT;
 }
 
 // Version mismatch — ask user before booting
 if (defined('CMS_INSTALL_VERSION') && CMS_INSTALL_VERSION !== CMS_VERSION) {
     $vAction = $_POST['vaction'] ?? '';
+    $configPath = $activeConfig ?? LOCAL_CONFIG;
     if ($vAction === 'keep') {
-        $oldPath = LOCAL_CONFIG;
-        $content = file_get_contents($oldPath);
+        $content = file_get_contents($configPath);
         $content = preg_replace(
             "/define\('CMS_INSTALL_VERSION',\s*'[^']*'\);/",
             "define('CMS_INSTALL_VERSION', '" . CMS_VERSION . "');",
             $content
         );
-        file_put_contents($oldPath, $content);
+        file_put_contents($configPath, $content);
         header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     }
@@ -84,7 +94,7 @@ if (defined('CMS_INSTALL_VERSION') && CMS_INSTALL_VERSION !== CMS_VERSION) {
             exit('Token inválido. Recarregue a página e tente novamente.');
         }
         unset($_SESSION['fresh_nonce']);
-        if (!unlink(LOCAL_CONFIG)) {
+        if (!unlink($configPath)) {
             http_response_code(500);
             exit('Erro ao remover arquivo de configuração. Verifique permissões.');
         }

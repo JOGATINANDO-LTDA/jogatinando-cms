@@ -327,6 +327,8 @@ function _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom,
 
     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
     file_put_contents($configPath, $localConfig);
+    $persistentDir = dirname(ROOT_PATH);
+    file_put_contents($persistentDir . '/config.local.php', $localConfig);
     setSetting('contact_recipient', $contactRecipient);
 }
 
@@ -903,6 +905,8 @@ function onS3BucketSelect(sel) {
                     }
                     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
                     file_put_contents($configPath, $localConfig);
+                    $persistentDir = dirname(ROOT_PATH);
+                    file_put_contents($persistentDir . '/config.local.php', $localConfig);
 
                     $migrateMessage = '<div class="status success">Migração concluída! Redirecionando para o login…</div>';
                     $migrateSuccess = true;
