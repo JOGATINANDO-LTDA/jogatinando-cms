@@ -11,10 +11,13 @@ $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
 if (!defined('ROOT_PATH')) define('ROOT_PATH', dirname(__FILE__));
 if (!defined('DATA_PATH')) define('DATA_PATH', ROOT_PATH . '/data');
 
-// Local session files (avoids /tmp contention on shared hosting)
+// Local session files (avoids /tmp contention on shared hosting).
+// Falls back to default save path if data/ is not writable.
 $sessionPath = DATA_PATH . '/sessions';
-if (!is_dir($sessionPath)) @mkdir($sessionPath, 0700, true);
-session_save_path($sessionPath);
+if (!is_dir($sessionPath)) { @mkdir($sessionPath, 0700, true); }
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    session_save_path($sessionPath);
+}
 
 session_set_cookie_params([
     'lifetime' => 0,

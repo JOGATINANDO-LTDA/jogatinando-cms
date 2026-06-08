@@ -83,6 +83,18 @@ class Storage {
         }
         $zip->extractTo($destDir);
         $zip->close();
+
+        // Remove any symlinks that may have bypassed the attribute check
+        // (defense in depth — prevents extraction dir escape on all platforms)
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($destDir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            if ($item->isLink()) {
+                @unlink($item->getPathname());
+            }
+        }
         return true;
     }
 
@@ -148,6 +160,17 @@ class Storage {
         $zip->extractTo($destDir);
         $zip->close();
         unlink($tmpZip);
+
+        // Remove any symlinks (defense in depth — prevents extraction dir escape)
+        $iterator = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($destDir, RecursiveDirectoryIterator::SKIP_DOTS),
+            RecursiveIteratorIterator::CHILD_FIRST
+        );
+        foreach ($iterator as $item) {
+            if ($item->isLink()) {
+                @unlink($item->getPathname());
+            }
+        }
         return true;
     }
 

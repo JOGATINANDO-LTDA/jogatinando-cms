@@ -317,12 +317,12 @@ function _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom,
     }
 
     $localConfig .= "if (!defined('SMTP_PASS')) {\n";
-    $localConfig .= "    define('SMTP_HOST', '" . addslashes($smtpHost) . "');\n";
-    $localConfig .= "    define('SMTP_PORT', '" . addslashes($smtpPort) . "');\n";
-    $localConfig .= "    define('SMTP_USER', '" . addslashes($smtpUser) . "');\n";
-    $localConfig .= "    define('SMTP_PASS', '" . addslashes($smtpPass) . "');\n";
-    $localConfig .= "    define('SMTP_FROM', '" . addslashes($smtpFrom) . "');\n";
-    $localConfig .= "    define('SMTP_FROM_NAME', '" . addslashes($smtpFromName) . "');\n";
+    $localConfig .= "    define('SMTP_HOST', " . var_export($smtpHost, true) . ");\n";
+    $localConfig .= "    define('SMTP_PORT', " . var_export($smtpPort, true) . ");\n";
+    $localConfig .= "    define('SMTP_USER', " . var_export($smtpUser, true) . ");\n";
+    $localConfig .= "    define('SMTP_PASS', " . var_export($smtpPass, true) . ");\n";
+    $localConfig .= "    define('SMTP_FROM', " . var_export($smtpFrom, true) . ");\n";
+    $localConfig .= "    define('SMTP_FROM_NAME', " . var_export($smtpFromName, true) . ");\n";
     $localConfig .= "}\n";
 
     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
