@@ -217,7 +217,9 @@ function requireInstalled() {
 
 function clearSession() {
     $_SESSION = [];
-    setcookie(session_name(), '', time() - 42000, '/', '', false, true);
+    $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
+    setcookie(session_name(), '', time() - 42000, '/', '', $isHttps, true);
     session_destroy();
 }
 

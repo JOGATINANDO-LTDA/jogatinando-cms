@@ -65,6 +65,8 @@ class Storage {
         if ($res !== true) {
             return false;
         }
+        $opsys = null;
+        $attr = 0;
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $name = $zip->getNameIndex($i);
             if (strpos($name, '..') !== false || strpos($name, '/') === 0) {

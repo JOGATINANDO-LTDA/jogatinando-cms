@@ -75,7 +75,10 @@ if (defined('CMS_INSTALL_VERSION') && CMS_INSTALL_VERSION !== CMS_VERSION) {
             exit('Token inválido. Recarregue a página e tente novamente.');
         }
         unset($_SESSION['fresh_nonce']);
-        unlink(LOCAL_CONFIG);
+        if (!unlink(LOCAL_CONFIG)) {
+            http_response_code(500);
+            exit('Erro ao remover arquivo de configuração. Verifique permissões.');
+        }
         header('Location: /install');
         exit;
     }

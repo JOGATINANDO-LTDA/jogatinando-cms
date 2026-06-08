@@ -873,14 +873,14 @@ function onS3BucketSelect(sel) {
 
                     // Write config.local.php
                     $localConfig = '<?php' . "\n\n";
-                    $localConfig .= "if (!defined('CMS_INSTALL_VERSION')) define('CMS_INSTALL_VERSION', '" . CMS_VERSION . "');\n";
+                    $localConfig .= "if (!defined('CMS_INSTALL_VERSION')) define('CMS_INSTALL_VERSION', " . var_export(CMS_VERSION, true) . ");\n";
                     $localConfig .= "if (!defined('DB_TYPE')) {\n";
                     $localConfig .= "    define('DB_TYPE', 'mysql');\n";
-                    $localConfig .= "    define('DB_HOST', '$host');\n";
-                    $localConfig .= "    define('DB_PORT', '$port');\n";
-                    $localConfig .= "    define('DB_NAME', '$name');\n";
-                    $localConfig .= "    define('DB_USER', '$user');\n";
-                    $localConfig .= "    define('DB_PASS', '$pass');\n";
+                    $localConfig .= "    define('DB_HOST', " . var_export($host, true) . ");\n";
+                    $localConfig .= "    define('DB_PORT', " . var_export($port, true) . ");\n";
+                    $localConfig .= "    define('DB_NAME', " . var_export($name, true) . ");\n";
+                    $localConfig .= "    define('DB_USER', " . var_export($user, true) . ");\n";
+                    $localConfig .= "    define('DB_PASS', " . var_export($pass, true) . ");\n";
                     $localConfig .= "}\n\n";
 
                     $configPath = DATA_PATH . '/config.local.php';
@@ -888,7 +888,7 @@ function onS3BucketSelect(sel) {
                     if ($existingContent !== '' && preg_match_all('/define\(\'(SMTP_\w+)\',\s*\'(.*?)\'\);/', $existingContent, $m)) {
                         $localConfig .= "if (!defined('SMTP_PASS')) {\n";
                         foreach ($m[1] as $i => $const) {
-                            $localConfig .= "    define('$const', '" . addslashes($m[2][$i]) . "');\n";
+                            $localConfig .= "    define('$const', " . var_export($m[2][$i], true) . ");\n";
                         }
                         $localConfig .= "}\n";
                     } elseif (file_exists(ROOT_PATH . '/config.local.php')) {
@@ -896,7 +896,7 @@ function onS3BucketSelect(sel) {
                         if (preg_match_all('/define\(\'(SMTP_\w+)\',\s*\'(.*?)\'\);/', $rootContent, $m)) {
                             $localConfig .= "if (!defined('SMTP_PASS')) {\n";
                             foreach ($m[1] as $i => $const) {
-                                $localConfig .= "    define('$const', '" . addslashes($m[2][$i]) . "');\n";
+                                $localConfig .= "    define('$const', " . var_export($m[2][$i], true) . ");\n";
                             }
                             $localConfig .= "}\n";
                         }
