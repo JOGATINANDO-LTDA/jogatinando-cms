@@ -7,6 +7,18 @@ ini_set('log_errors', 1);
 $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
 
+// Paths
+if (!defined('ROOT_PATH')) define('ROOT_PATH', dirname(__FILE__));
+if (!defined('DATA_PATH')) define('DATA_PATH', ROOT_PATH . '/data');
+
+// Local session files (avoids /tmp contention on shared hosting).
+// Falls back to default save path if data/ is not writable.
+$sessionPath = DATA_PATH . '/sessions';
+if (!is_dir($sessionPath)) { @mkdir($sessionPath, 0700, true); }
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    session_save_path($sessionPath);
+}
+
 session_set_cookie_params([
     'lifetime' => 0,
     'path' => '/',
@@ -17,9 +29,6 @@ session_set_cookie_params([
 ]);
 session_start();
 
-// Paths
-if (!defined('ROOT_PATH')) define('ROOT_PATH', dirname(__FILE__));
-if (!defined('DATA_PATH')) define('DATA_PATH', ROOT_PATH . '/data');
 if (!defined('UPLOAD_PATH')) define('UPLOAD_PATH', ROOT_PATH . '/uploads');
 if (!defined('DB_PATH')) define('DB_PATH', DATA_PATH . '/jogatinando.db');
 
@@ -69,10 +78,20 @@ if (defined('CMS_INSTALL_VERSION') && CMS_INSTALL_VERSION !== CMS_VERSION) {
         exit;
     }
     if ($vAction === 'fresh') {
-        unlink(LOCAL_CONFIG);
+        $nonce = $_POST['fresh_nonce'] ?? '';
+        if ($nonce !== ($_SESSION['fresh_nonce'] ?? '')) {
+            http_response_code(403);
+            exit('Token inválido. Recarregue a página e tente novamente.');
+        }
+        unset($_SESSION['fresh_nonce']);
+        if (!unlink(LOCAL_CONFIG)) {
+            http_response_code(500);
+            exit('Erro ao remover arquivo de configuração. Verifique permissões.');
+        }
         header('Location: /install');
         exit;
     }
+    $_SESSION['fresh_nonce'] = bin2hex(random_bytes(32));
     ?><!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -110,6 +129,7 @@ hr{border:none;border-top:1px solid oklch(25% 0.02 260);margin:20px 0}
 </form>
 <hr>
 <form method="POST" onsubmit="return confirm('Todos os dados serão perdidos. Confirma?')">
+<input type="hidden" name="fresh_nonce" value="<?= htmlspecialchars($_SESSION['fresh_nonce']) ?>">
 <button type="submit" name="vaction" value="fresh" class="btn btn-danger">Nova instalação (dados serão perdidos)</button>
 </form>
 </div>
@@ -132,7 +152,7 @@ if (defined('SITE_URL')) {
 } elseif (!empty($_ENV['SITE_URL'])) {
     define('SITE_URL', rtrim($_ENV['SITE_URL'], '/'));
 } elseif (php_sapi_name() !== 'cli') {
-    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] == 443) ? 'https' : 'http';
+    $proto = $isHttps ? 'https' : 'http';
     $host = strtolower(trim($_SERVER['HTTP_HOST'] ?? 'localhost'));
     $host = preg_replace('/[^a-z0-9.:\[\]-]/', '', $host);
     define('SITE_URL', $proto . '://' . $host);

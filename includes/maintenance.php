@@ -8,12 +8,7 @@ function isMaintenanceActive() {
     }
     // DB-based check (persists across file overwrites)
     try {
-        $db = getDB();
-        if (!$db) return false;
-        $stmt = $db->prepare("SELECT `value` FROM site_settings WHERE `key` = ?");
-        $stmt->execute(['maintenance_mode']);
-        $row = $stmt->fetch();
-        return $row && $row['value'] === '1';
+        return getSetting('maintenance_mode') === '1';
     } catch (Exception $e) {
         return false;
     }

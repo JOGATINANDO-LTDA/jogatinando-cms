@@ -214,15 +214,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 function writeLocalConfig($type, $host = null, $port = null, $name = null, $user = null, $pass = null) {
     $content = '<?php' . "\n\n";
-    $content .= "if (!defined('CMS_INSTALL_VERSION')) define('CMS_INSTALL_VERSION', '" . CMS_VERSION . "');\n";
+    $content .= "if (!defined('CMS_INSTALL_VERSION')) define('CMS_INSTALL_VERSION', " . var_export(CMS_VERSION, true) . ");\n";
     $content .= "if (!defined('DB_TYPE')) {\n";
-    $content .= "    define('DB_TYPE', '$type');\n";
+    $content .= "    define('DB_TYPE', " . var_export($type, true) . ");\n";
     if ($type === 'mysql') {
-        $content .= "    define('DB_HOST', '$host');\n";
-        $content .= "    define('DB_PORT', '$port');\n";
-        $content .= "    define('DB_NAME', '$name');\n";
-        $content .= "    define('DB_USER', '$user');\n";
-        $content .= "    define('DB_PASS', '$pass');\n";
+        $content .= "    define('DB_HOST', " . var_export($host, true) . ");\n";
+        $content .= "    define('DB_PORT', " . var_export($port, true) . ");\n";
+        $content .= "    define('DB_NAME', " . var_export($name, true) . ");\n";
+        $content .= "    define('DB_USER', " . var_export($user, true) . ");\n";
+        $content .= "    define('DB_PASS', " . var_export($pass, true) . ");\n";
     }
     $content .= "}\n";
     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
