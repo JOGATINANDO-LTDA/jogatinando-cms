@@ -351,28 +351,89 @@ function revertS3Urls() {
         ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
         ['table' => 'store_platforms', 'column' => 'logo_path'],
     ];
+
+    $s3Bases = _revertS3BaseUrls();
+
     $updated = 0;
+
+    foreach (['site_logo_url', 'site_favicon_url'] as $key) {
+        $val = getSetting($key, '');
+        if ($val === '') continue;
+        $new = _revertSingleUrl($val, $s3Bases);
+        if ($new !== null) {
+            setSetting($key, $new);
+            $updated++;
+        }
+    }
+
     foreach ($tables as $t) {
-        $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%' OR {$t['column']} LIKE '/uploads/%'");
+        $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%'");
         $seen = [];
         foreach ($rows as $row) {
             $id = $row['id'];
             if (isset($seen[$id])) continue;
             $seen[$id] = true;
-            $oldUrl = $row[$t['column']];
-            $parts = explode('/uploads/', $oldUrl, 2);
-            if (isset($parts[1])) {
-                if ($t['table'] === 'retro_games' && $t['column'] === 'rom_path') {
-                    $localUrl = $parts[1];
-                } else {
-                    $localUrl = '/uploads/' . $parts[1];
-                }
-                dbExec("UPDATE {$t['table']} SET {$t['column']} = ? WHERE id = ?", [$localUrl, $id]);
+            $new = _revertSingleUrl($row[$t['column']], $s3Bases, $t['table'], $t['column']);
+            if ($new !== null) {
+                dbExec("UPDATE {$t['table']} SET {$t['column']} = ? WHERE id = ?", [$new, $id]);
                 $updated++;
             }
         }
     }
     return $updated;
+}
+
+function _revertS3BaseUrls() {
+    $bases = [];
+    $pub = getSetting('s3_public_url', '');
+    if ($pub !== '') $bases[] = rtrim($pub, '/');
+    if (defined('S3_ENDPOINT') && S3_ENDPOINT) $bases[] = rtrim(S3_ENDPOINT, '/');
+    return $bases;
+}
+
+function _revertSingleUrl($url, $s3Bases = [], $table = null, $column = null) {
+    if ($url === '' || $url === null) return null;
+    if (str_starts_with($url, '/')) return null;
+
+    $parts = explode('/uploads/', $url, 2);
+    if (isset($parts[1])) {
+        if ($table === 'retro_games' && $column === 'rom_path') return $parts[1];
+        return '/uploads/' . $parts[1];
+    }
+
+    foreach ($s3Bases as $base) {
+        $prefix = $base . '/';
+        if (str_starts_with($url, $prefix)) {
+            $rest = substr($url, strlen($prefix));
+            if ($table === 'retro_games' && $column === 'rom_path') return $rest;
+            if (str_starts_with($rest, 'uploads/')) return '/' . $rest;
+            return '/uploads/' . $rest;
+        }
+    }
+
+    if (preg_match('#/uploads/[^?#\s]+#', $url, $m)) {
+        $path = ltrim($m[0], '/');
+        if ($table === 'retro_games' && $column === 'rom_path') return $path;
+        return '/' . $path;
+    }
+
+    $host = @parse_url($url, PHP_URL_HOST);
+    $path = @parse_url($url, PHP_URL_PATH);
+    if ($host && $path && $path !== '/') {
+        $isS3 = str_contains($host, 'r2.dev')
+             || str_contains($host, 'backblaze')
+             || str_starts_with($host, 's3.')
+             || str_contains($host, '.s3.')
+             || str_contains($host, 'cloudfront');
+        if ($isS3) {
+            $rest = ltrim($path, '/');
+            if ($table === 'retro_games' && $column === 'rom_path') return $rest;
+            if (str_starts_with($rest, 'uploads/')) return '/' . $rest;
+            return '/uploads/' . $rest;
+        }
+    }
+
+    return null;
 }
 
 function truncateText($text, $length = 150) {
