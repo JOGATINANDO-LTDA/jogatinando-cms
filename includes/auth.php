@@ -173,10 +173,7 @@ function isSmtpConfigured() {
 }
 
 function redirectOrError($msg, $detail) {
-    // Only redirect to installer if system is truly not installed
-    // (config.local.php doesn't exist). If config exists but DB is broken,
-    // show error page instead — avoids redirect loop.
-    if (file_exists(ROOT_PATH . '/install.php') && !file_exists(DATA_PATH . '/config.local.php')) {
+    if (file_exists(ROOT_PATH . '/install.php')) {
         header('Location: /install');
         exit;
     }
@@ -218,16 +215,8 @@ function requireInstalled() {
     }
 }
 
-function clearSession() {
-    $_SESSION = [];
-    $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
-    setcookie(session_name(), '', time() - 42000, '/', '', $isHttps, true);
-    session_destroy();
-}
-
 function logout() {
-    clearSession();
+    session_destroy();
     header('Location: ' . ADMIN_URL . '/login');
     exit;
 }
