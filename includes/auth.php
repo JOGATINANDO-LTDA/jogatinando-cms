@@ -3,6 +3,11 @@
  * Authentication helpers
  */
 
+function clearSession() {
+    $_SESSION = [];
+    session_destroy();
+}
+
 function isLoggedIn() {
     return isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true;
 }
