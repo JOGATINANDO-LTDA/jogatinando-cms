@@ -55,15 +55,19 @@ if ($isExterno) {
     $gameSlug = $pathParts[1] ?? '';
     if (!file_exists($gameDir . '/index.html')) {
         if (Storage::isS3Configured()) {
-            $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.zip';
-            $restored = Storage::extractFromS3Zip($zipS3Name, 'games/' . $game['game_path']);
-
-            if (!$restored || !file_exists($gameDir . '/index.html')) {
-                http_response_code(404);
-                require __DIR__ . '/404.php';
-                exit;
+            $s3Prefix = 'uploads/games/' . $game['game_path'] . '/';
+            $s3Files = S3::listFiles($s3Prefix);
+            if (!empty($s3Files)) {
+                foreach ($s3Files as $sf) {
+                    $rel = substr($sf['key'], strlen($s3Prefix));
+                    $localFile = $gameDir . '/' . $rel;
+                    $dir = dirname($localFile);
+                    if (!is_dir($dir)) mkdir($dir, 0755, true);
+                    Storage::downloadFromS3($sf['key'], $localFile);
+                }
             }
-        } else {
+        }
+        if (!file_exists($gameDir . '/index.html')) {
             http_response_code(404);
             require __DIR__ . '/404.php';
             exit;

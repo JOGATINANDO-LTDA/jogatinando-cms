@@ -594,15 +594,6 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
         return ['success' => false, 'message' => 'Falha ao salvar o arquivo.'];
     }
 
-    $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.' . $ext;
-    if (getSetting('s3_auto_sync', '0') === '1' && Storage::isS3Configured()) {
-        $tmpFullPath = UPLOAD_PATH . '/' . $tmpRelPath;
-        if (!Storage::mirrorToS3($tmpFullPath, $zipS3Name)) {
-            error_log("S3 mirror failed: {$zipS3Name}");
-            enqueueSync($tmpFullPath, $zipS3Name);
-        }
-    }
-
     $extracted = false;
     $extractError = '';
 
@@ -646,6 +637,21 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
         } else {
             Storage::delete($gameRelDir);
             return ['success' => false, 'message' => 'Arquivo index.html não encontrado no pacote. O jogo precisa ter um index.html na raiz.'];
+        }
+    }
+
+    if (getSetting('s3_auto_sync', '0') === '1' && Storage::isS3Configured()) {
+        $s3Prefix = 'uploads/games/' . $engineSlug . '/' . $gameSlug;
+        $it = new RecursiveIteratorIterator(
+            new RecursiveDirectoryIterator($gameDir, RecursiveDirectoryIterator::SKIP_DOTS)
+        );
+        foreach ($it as $f) {
+            if (!$f->isFile()) continue;
+            $rel = str_replace('\\', '/', substr($f->getPathname(), strlen($gameDir) + 1));
+            $s3Name = $s3Prefix . '/' . $rel;
+            if (!Storage::mirrorToS3($f->getPathname(), $s3Name)) {
+                enqueueSync($f->getPathname(), $s3Name);
+            }
         }
     }
 
@@ -732,8 +738,11 @@ function deleteGameDir($gamePath) {
     if (Storage::isS3Configured()) {
         $parts = explode('/', $gamePath, 2);
         if (count($parts) === 2) {
-            $zipS3Name = 'zips/' . $parts[0] . '/' . $parts[1] . '.zip';
-            Storage::deleteFromS3($zipS3Name);
+            $s3Prefix = 'uploads/games/' . $gamePath . '/';
+            $files = S3::listFiles($s3Prefix);
+            foreach ($files as $f) {
+                Storage::deleteFromS3($f['key']);
+            }
         }
     }
 }
