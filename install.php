@@ -2,7 +2,7 @@
 
 // Early guard: redirect if already installed (before loading config.php)
 $installDataDir = __DIR__ . '/data';
-if (file_exists($installDataDir . '/.installed') || file_exists(dirname(__DIR__) . '/.installed') || file_exists($installDataDir . '/config.local.php')) {
+if (file_exists($installDataDir . '/config.local.php') || file_exists(dirname(__DIR__) . '/config.local.php')) {
     header('Location: /');
     exit;
 }
@@ -21,19 +21,6 @@ if (file_exists($dataPath . '/.maintenance') || file_exists(dirname(__DIR__) . '
     exit;
 }
 
-// Block if already installed (check parent dir first — survives CI/CD that wipes data/)
-$parentMarker = dirname(__DIR__) . '/.installed';
-if (file_exists($parentMarker)) {
-    header('Location: /');
-    exit;
-}
-
-$installedMarker = $dataPath . '/.installed';
-if (file_exists($installedMarker)) {
-    header('Location: /');
-    exit;
-}
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -44,7 +31,7 @@ if (file_exists($sqliteDb) && filesize($sqliteDb) > 4096) {
     exit;
 }
 
-if (file_exists(DATA_PATH . '/config.local.php')) {
+if (file_exists(DATA_PATH . '/config.local.php') || file_exists(dirname(ROOT_PATH) . '/config.local.php')) {
     header('Location: /');
     exit;
 }
