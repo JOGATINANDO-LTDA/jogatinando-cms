@@ -463,6 +463,141 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $results[] = "Resumo: {$deleted} diretórios removidos, {$skipped} ignorados.";
         flashMessage('success', "{$deleted} diretórios de jogos removidos.");
     }
+
+    if ($_POST['action'] === 'check_integrity') {
+        $tables = [
+            ['table' => 'games', 'column' => 'thumbnail_url'],
+            ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
+            ['table' => 'banners', 'column' => 'image_url'],
+            ['table' => 'team_members', 'column' => 'avatar_url'],
+            ['table' => 'testimonials', 'column' => 'avatar_url'],
+            ['table' => 'users', 'column' => 'avatar_url'],
+            ['table' => 'retro_games', 'column' => 'rom_path'],
+            ['table' => 'retro_games', 'column' => 'thumbnail_url'],
+            ['table' => 'game_templates', 'column' => 'thumbnail_url'],
+            ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+            ['table' => 'store_platforms', 'column' => 'logo_path'],
+        ];
+        $prefixes = ['uploads/thumbnails/', 'uploads/banners/', 'uploads/blog/', 'uploads/avatars/', 'uploads/platforms/', 'uploads/retro/', 'zips/'];
+        $s3Files = [];
+        foreach ($prefixes as $prefix) {
+            $files = S3::listFiles($prefix);
+            foreach ($files as $f) {
+                $s3Files[$f['key']] = $f;
+            }
+        }
+
+        $referenced = [];
+        foreach ($tables as $t) {
+            $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%' OR {$t['column']} LIKE '/uploads/%'");
+            foreach ($rows as $row) {
+                $parts = explode('/uploads/', $row[$t['column']], 2);
+                if (isset($parts[1])) {
+                    $referenced['uploads/' . $parts[1]] = true;
+                }
+            }
+        }
+        foreach (['site_logo_url', 'site_favicon_url'] as $key) {
+            $val = getSetting($key, '');
+            if ($val === '') continue;
+            $parts = explode('/uploads/', $val, 2);
+            if (isset($parts[1])) {
+                $referenced['uploads/' . $parts[1]] = true;
+            }
+        }
+
+        $orphans = [];
+        $broken = [];
+        $orphanSize = 0;
+        foreach ($s3Files as $key => $info) {
+            if (!isset($referenced[$key])) {
+                $orphans[] = ['key' => $key, 'size' => $info['size']];
+                $orphanSize += $info['size'];
+            }
+        }
+        foreach ($referenced as $key => $v) {
+            if (!isset($s3Files[$key])) {
+                $broken[] = $key;
+            }
+        }
+
+        $results[] = "📋 Verificação de integridade:";
+        $results[] = "Total de objetos no S3: " . count($s3Files);
+        $results[] = "Total de referências no BD: " . count($referenced);
+        $results[] = "Órfãos no S3 (sem referência no BD): " . count($orphans) . " (~" . number_format($orphanSize / 1024 / 1024, 1) . " MB)";
+        foreach (array_slice($orphans, 0, 50) as $o) {
+            $results[] = "  🟠 {$o['key']} (" . number_format($o['size']) . " B)";
+        }
+        if (count($orphans) > 50) $results[] = "  ... e mais " . (count($orphans) - 50) . " órfãos.";
+
+        $brokenNoZips = array_filter($broken, fn($k) => !str_starts_with($k, 'zips/'));
+        $results[] = "Referências quebradas (no BD mas sem objeto no S3): " . count($brokenNoZips);
+        foreach (array_slice($brokenNoZips, 0, 50) as $k) {
+            $results[] = "  🔴 {$k}";
+        }
+        if (count($brokenNoZips) > 50) $results[] = "  ... e mais " . (count($brokenNoZips) - 50) . " quebradas.";
+        flashMessage('success', "Verificação concluída: " . count($orphans) . " órfãos no S3, " . count($brokenNoZips) . " referências quebradas.");
+    }
+
+    if ($_POST['action'] === 'clean_orphans_s3') {
+        $tables = [
+            ['table' => 'games', 'column' => 'thumbnail_url'],
+            ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
+            ['table' => 'banners', 'column' => 'image_url'],
+            ['table' => 'team_members', 'column' => 'avatar_url'],
+            ['table' => 'testimonials', 'column' => 'avatar_url'],
+            ['table' => 'users', 'column' => 'avatar_url'],
+            ['table' => 'retro_games', 'column' => 'rom_path'],
+            ['table' => 'retro_games', 'column' => 'thumbnail_url'],
+            ['table' => 'game_templates', 'column' => 'thumbnail_url'],
+            ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+            ['table' => 'store_platforms', 'column' => 'logo_path'],
+        ];
+        $prefixes = ['uploads/thumbnails/', 'uploads/banners/', 'uploads/blog/', 'uploads/avatars/', 'uploads/platforms/', 'uploads/retro/', 'zips/'];
+        $s3Files = [];
+        foreach ($prefixes as $prefix) {
+            $files = S3::listFiles($prefix);
+            foreach ($files as $f) {
+                $s3Files[$f['key']] = $f;
+            }
+        }
+
+        $referenced = [];
+        foreach ($tables as $t) {
+            $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%' OR {$t['column']} LIKE '/uploads/%'");
+            foreach ($rows as $row) {
+                $parts = explode('/uploads/', $row[$t['column']], 2);
+                if (isset($parts[1])) {
+                    $referenced['uploads/' . $parts[1]] = true;
+                }
+            }
+        }
+        foreach (['site_logo_url', 'site_favicon_url'] as $key) {
+            $val = getSetting($key, '');
+            if ($val === '') continue;
+            $parts = explode('/uploads/', $val, 2);
+            if (isset($parts[1])) {
+                $referenced['uploads/' . $parts[1]] = true;
+            }
+        }
+
+        $deleted = 0; $failed = 0; $skipped = 0;
+        foreach ($s3Files as $key => $info) {
+            if (!isset($referenced[$key])) {
+                if (S3::delete($key)) {
+                    $results[] = "🗑 {$key}";
+                    $deleted++;
+                } else {
+                    $results[] = "❌ Falha ao deletar: {$key}";
+                    $failed++;
+                }
+            } else {
+                $skipped++;
+            }
+        }
+        $results[] = "Limpeza concluída: {$deleted} deletados, {$failed} falhas, {$skipped} ignorados (referenciados).";
+        flashMessage('success', "{$deleted} objetos órfãos removidos do S3.");
+    }
 }
 
 $s3Configured = Storage::isS3Configured();
@@ -593,6 +728,16 @@ define('S3_PUBLIC_URL', 'https://pub-xxxxx.r2.dev');</pre>
         <input type="hidden" name="action" value="revert_db_urls">
         <button type="submit" class="btn btn-outline" style="color: oklch(55% 0.20 25); border-color: oklch(55% 0.20 25);">↩️ Reverter URLs + Baixar do S3</button>
     </form>
+    <form method="POST">
+        <?= csrfField() ?>
+        <input type="hidden" name="action" value="check_integrity">
+        <button type="submit" class="btn btn-outline" style="color: oklch(75% 0.18 195); border-color: oklch(55% 0.12 195);">🔍 Verificar Integridade</button>
+    </form>
+    <form method="POST">
+        <?= csrfField() ?>
+        <input type="hidden" name="action" value="clean_orphans_s3">
+        <button type="submit" class="btn btn-outline" style="color: oklch(65% 0.20 35); border-color: oklch(55% 0.20 35);">🧹 Limpar Órfãos do S3</button>
+    </form>
 </div>
 
 <hr style="border: none; border-top: 1px solid oklch(22% 0.025 260); margin: 24px 0;">
@@ -652,6 +797,8 @@ var confirmMsgs = {
     clean_games: 'Remover diretórios de jogos extraídos que já possuem ZIP no S3?\nEles serão re-extraídos automaticamente ao jogar.',
     clean_roms: 'Remover ROMs locais que já existem no S3?',
     process_sync_queue: 'Enviar arquivos pendentes da fila para o S3?',
+    check_integrity: 'Verificar integridade das referências entre BD e S3?\n\nLista objetos no S3, compara com URLs do BD, mostra órfãos e quebrados.',
+    clean_orphans_s3: 'Remover objetos órfãos do S3?\n\nIsso deletará TODOS os objetos do bucket que não têm referência no banco de dados. Recomendado executar "Verificar Integridade" antes.',
 };
 document.querySelectorAll('#sync-actions form, #clean-actions form, #sync-queue-form').forEach(function(f) {
     f.addEventListener('submit', function(e) {
