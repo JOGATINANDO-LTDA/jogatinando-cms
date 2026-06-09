@@ -293,7 +293,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $results[] = "⬇ {$s3Name}";
                     } else {
                         $failed++;
-                        $results[] = "❌ Falha ao baixar: {$s3Name}";
+                        $err = Storage::getS3DownloadError();
+                        $results[] = "❌ Falha ao baixar: {$s3Name}" . ($err ? " — {$err}" : '');
                     }
                 }
             }
