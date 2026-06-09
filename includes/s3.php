@@ -274,6 +274,11 @@ class S3 {
         return $result['code'] === 200;
     }
 
+    public static function delete($s3Name) {
+        $result = self::exec('DELETE', self::$cfgBucket . '/' . ltrim($s3Name, '/'));
+        return $result['code'] === 204 || $result['code'] === 200;
+    }
+
     public static function getUrl($s3Name) {
         self::loadConfig();
         if (self::$cfgPublicUrl !== '') {
