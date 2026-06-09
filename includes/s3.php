@@ -150,6 +150,7 @@ class S3 {
     }
 
     public static function upload($localPath, $s3Name) {
+        self::loadConfig();
         self::$uploadError = '';
         if (!file_exists($localPath)) {
             self::$uploadError = "Arquivo local não encontrado: {$localPath}";
