@@ -24,7 +24,8 @@ function getLocalUploadFiles($dir) {
 }
 
 function s3SyncFile($localPath, $s3Name) {
-    return S3::upload($localPath, $s3Name) ? 'uploaded' : 'failed';
+    if (S3::upload($localPath, $s3Name)) return 'uploaded';
+    return 'failed: ' . S3::getLastUploadError();
 }
 
 $results = [];
@@ -45,7 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             foreach ($files as $f) {
                 $result = s3SyncFile($f['local'], $f['s3name']);
                 if ($result === 'uploaded') $results[] = "✅ {$f['s3name']}";
-                elseif ($result === 'failed') $results[] = "❌ {$f['s3name']}";
+                elseif (str_starts_with($result, 'failed')) {
+                    $reason = substr($result, 7);
+                    $results[] = "❌ {$f['s3name']} — {$reason}";
+                }
             }
         }
         if (empty($results)) $results[] = 'Nenhum arquivo novo para sincronizar.';
@@ -77,7 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     if (S3::upload($tmpZip, $zipS3Name)) {
                         $results[] = "✅ {$zipS3Name}";
                     } else {
-                        $results[] = "❌ {$zipS3Name}";
+                        $err = S3::getLastUploadError();
+                        $results[] = "❌ {$zipS3Name} — {$err}";
                     }
                     unlink($tmpZip);
                 }
@@ -105,7 +110,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $s3Name = 'uploads/retro/' . $console . '/' . $type . '/' . $file;
                         $result = s3SyncFile($localPath, $s3Name);
                         if ($result === 'uploaded') $results[] = "✅ {$s3Name}";
-                        elseif ($result === 'failed') $results[] = "❌ {$s3Name}";
+                        elseif (str_starts_with($result, 'failed')) {
+                            $reason = substr($result, 7);
+                            $results[] = "❌ {$s3Name} — {$reason}";
+                        }
                     }
                 }
             }
@@ -120,7 +128,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             foreach ($files as $f) {
                 $result = s3SyncFile($f['local'], $f['s3name']);
                 if ($result === 'uploaded') $results[] = "⬆ {$f['s3name']}";
-                elseif ($result === 'failed') $results[] = "❌ {$f['s3name']}";
+                elseif (str_starts_with($result, 'failed')) {
+                    $reason = substr($result, 7);
+                    $results[] = "❌ {$f['s3name']} — {$reason}";
+                }
             }
         }
 
@@ -146,7 +157,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     if (S3::upload($tmpZip, $zipS3Name)) {
                         $results[] = "⬆ {$zipS3Name}";
                     } else {
-                        $results[] = "❌ {$zipS3Name}";
+                        $err = S3::getLastUploadError();
+                        $results[] = "❌ {$zipS3Name} — {$err}";
                     }
                     unlink($tmpZip);
                 }
@@ -171,7 +183,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $s3Name = 'uploads/retro/' . $console . '/' . $type . '/' . $file;
                         $result = s3SyncFile($localPath, $s3Name);
                         if ($result === 'uploaded') $results[] = "⬆ {$s3Name}";
-                        elseif ($result === 'failed') $results[] = "❌ {$s3Name}";
+                        elseif (str_starts_with($result, 'failed')) {
+                            $reason = substr($result, 7);
+                            $results[] = "❌ {$s3Name} — {$reason}";
+                        }
                     }
                 }
             }
@@ -365,7 +380,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $results[] = "✅ {$row['s3_name']}";
             } else {
                 $failed++;
-                $results[] = "❌ Falha: {$row['s3_name']}";
+                $err = S3::getLastUploadError();
+                $results[] = "❌ Falha: {$row['s3_name']} — {$err}";
             }
         }
         $queueCount = getSyncQueueCount();
