@@ -55,6 +55,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 
     if ($_POST['action'] === 'restore_from_s3') {
+        ob_implicit_flush(true);
+        echo "<p style='color:var(--gold);'>Restaurando arquivos do S3...</p>\n";
+        flush();
         $tables = [
             ['table' => 'games', 'column' => 'thumbnail_url'],
             ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
@@ -69,53 +72,62 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ['table' => 'store_platforms', 'column' => 'logo_path'],
         ];
         $restored = 0; $skipped = 0; $failed = 0;
+        $count = 0;
         $seen = [];
         foreach ($tables as $t) {
             $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} != '' AND {$t['column']} IS NOT NULL");
             foreach ($rows as $row) {
                 $url = $row[$t['column']];
                 if (str_starts_with($url, 'http')) {
-                    $pos = strpos($url, '/uploads/');
-                    if ($pos === false) continue;
-                    $relPath = substr($url, $pos + 1);
+                    $parts = explode('/uploads/', $url, 2);
+                    if (count($parts) < 2) continue;
+                    $suffix = $parts[1];
                 } elseif (str_starts_with($url, '/uploads/')) {
-                    $relPath = substr($url, 1);
+                    $suffix = substr($url, 9);
                 } else {
                     continue;
                 }
-                if (isset($seen[$relPath])) continue;
-                $seen[$relPath] = true;
-                $localPath = UPLOAD_PATH . '/' . $relPath;
+                $s3Key = 'uploads/' . $suffix;
+                if (isset($seen[$s3Key])) continue;
+                $seen[$s3Key] = true;
+                $localPath = UPLOAD_PATH . '/' . $suffix;
                 if (file_exists($localPath)) { $skipped++; continue; }
                 $dir = dirname($localPath);
                 if (!is_dir($dir)) @mkdir($dir, 0755, true);
-                if (Storage::downloadFromS3($relPath, $localPath)) {
-                    $results[] = "⬇ {$relPath}";
+                if (Storage::downloadFromS3($s3Key, $localPath)) {
+                    $results[] = "⬇ {$s3Key}";
                     $restored++;
                 } else {
                     $err = Storage::getS3DownloadError();
-                    $results[] = "❌ {$relPath} — {$err}";
+                    $results[] = "❌ {$s3Key} — {$err}";
                     $failed++;
+                }
+                $count++;
+                if ($count % 5 === 0) {
+                    echo "<script>document.getElementById('restore-progress').textContent = '{$restored} restaurados, {$skipped} ignorados, {$failed} falhas';</script>\n";
+                    flush();
                 }
             }
         }
         foreach (['site_logo_url', 'site_favicon_url'] as $key) {
             $val = getSetting($key, '');
             if ($val === '') continue;
-            if (!str_starts_with($val, '/uploads/') && !str_starts_with($val, 'http')) continue;
-            $relPath = ltrim($val, '/');
-            if (isset($seen[$relPath])) continue;
-            $seen[$relPath] = true;
-            $localPath = UPLOAD_PATH . '/' . $relPath;
+            $parts = explode('/uploads/', $val, 2);
+            if (count($parts) < 2) continue;
+            $suffix = $parts[1];
+            $s3Key = 'uploads/' . $suffix;
+            if (isset($seen[$s3Key])) continue;
+            $seen[$s3Key] = true;
+            $localPath = UPLOAD_PATH . '/' . $suffix;
             if (file_exists($localPath)) { $skipped++; continue; }
             $dir = dirname($localPath);
             if (!is_dir($dir)) @mkdir($dir, 0755, true);
-            if (Storage::downloadFromS3($relPath, $localPath)) {
-                $results[] = "⬇ {$relPath}";
+            if (Storage::downloadFromS3($s3Key, $localPath)) {
+                $results[] = "⬇ {$s3Key}";
                 $restored++;
             } else {
                 $err = Storage::getS3DownloadError();
-                $results[] = "❌ {$relPath} — {$err}";
+                $results[] = "❌ {$s3Key} — {$err}";
                 $failed++;
             }
         }
@@ -137,7 +149,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
         $results[] = "Restaurados: {$restored}, ignorados (já existem): {$skipped}, falhas: {$failed}.";
+        echo "<p style='color:oklch(75% .15 85);'>Restauração concluída. Recarregando...</p>\n";
+        flush();
         flashMessage('success', "{$restored} arquivos restaurados do S3.");
+        ob_end_flush();
     }
 
     if ($_POST['action'] === 'sync_games') {
@@ -606,6 +621,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
 
+        // game_path → zips/{engine}/{slug}.zip
+        $gamePaths = dbQuery("SELECT game_path FROM games WHERE game_path IS NOT NULL AND game_path != ''");
+        foreach ($gamePaths as $gp) {
+            $referenced['zips/' . $gp['game_path'] . '.zip'] = true;
+        }
+        // game_templates.game_path → S3 key
+        $tmplPaths = dbQuery("SELECT game_path FROM game_templates WHERE game_path IS NOT NULL AND game_path != ''");
+        foreach ($tmplPaths as $tp) {
+            if (str_starts_with($tp['game_path'], '/uploads/')) {
+                $parts = explode('/uploads/', $tp['game_path'], 2);
+                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
+            } elseif (str_starts_with($tp['game_path'], 'http')) {
+                $parts = explode('/uploads/', $tp['game_path'], 2);
+                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
+            }
+        }
+        // retro_games.rom_path → uploads/retro/{console}/rom|rommod/{path}
+        $romGames = dbQuery("SELECT console, rom_path FROM retro_games WHERE rom_path IS NOT NULL AND rom_path != ''");
+        foreach ($romGames as $rg) {
+            $console = $rg['console'];
+            $rp = ltrim($rg['rom_path'], '/');
+            $referenced['uploads/retro/' . $console . '/rom/' . $rp] = true;
+            $referenced['uploads/retro/' . $console . '/rommod/' . $rp] = true;
+        }
+
         $orphans = [];
         $broken = [];
         $orphanSize = 0;
@@ -630,13 +670,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
         if (count($orphans) > 50) $results[] = "  ... e mais " . (count($orphans) - 50) . " órfãos.";
 
-        $brokenNoZips = array_filter($broken, fn($k) => !str_starts_with($k, 'zips/'));
-        $results[] = "Referências quebradas (no BD mas sem objeto no S3): " . count($brokenNoZips);
-        foreach (array_slice($brokenNoZips, 0, 50) as $k) {
+        $results[] = "Referências quebradas (no BD mas sem objeto no S3): " . count($broken);
+        foreach (array_slice($broken, 0, 50) as $k) {
             $results[] = "  🔴 {$k}";
         }
-        if (count($brokenNoZips) > 50) $results[] = "  ... e mais " . (count($brokenNoZips) - 50) . " quebradas.";
-        flashMessage('success', "Verificação concluída: " . count($orphans) . " órfãos no S3, " . count($brokenNoZips) . " referências quebradas.");
+        if (count($broken) > 50) $results[] = "  ... e mais " . (count($broken) - 50) . " quebradas.";
+        flashMessage('success', "Verificação concluída: " . count($orphans) . " órfãos no S3, " . count($broken) . " referências quebradas.");
     }
 
     if ($_POST['action'] === 'clean_orphans_s3') {
@@ -679,6 +718,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if (isset($parts[1])) {
                 $referenced['uploads/' . $parts[1]] = true;
             }
+        }
+
+        // game_path → zips/{engine}/{slug}.zip
+        $gamePaths = dbQuery("SELECT game_path FROM games WHERE game_path IS NOT NULL AND game_path != ''");
+        foreach ($gamePaths as $gp) {
+            $referenced['zips/' . $gp['game_path'] . '.zip'] = true;
+        }
+        // game_templates.game_path → S3 key
+        $tmplPaths = dbQuery("SELECT game_path FROM game_templates WHERE game_path IS NOT NULL AND game_path != ''");
+        foreach ($tmplPaths as $tp) {
+            if (str_starts_with($tp['game_path'], '/uploads/')) {
+                $parts = explode('/uploads/', $tp['game_path'], 2);
+                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
+            } elseif (str_starts_with($tp['game_path'], 'http')) {
+                $parts = explode('/uploads/', $tp['game_path'], 2);
+                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
+            }
+        }
+        // retro_games.rom_path → uploads/retro/{console}/rom|rommod/{path}
+        $romGames = dbQuery("SELECT console, rom_path FROM retro_games WHERE rom_path IS NOT NULL AND rom_path != ''");
+        foreach ($romGames as $rg) {
+            $console = $rg['console'];
+            $rp = ltrim($rg['rom_path'], '/');
+            $referenced['uploads/retro/' . $console . '/rom/' . $rp] = true;
+            $referenced['uploads/retro/' . $console . '/rommod/' . $rp] = true;
         }
 
         $deleted = 0; $failed = 0; $skipped = 0;
