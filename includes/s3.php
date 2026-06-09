@@ -150,7 +150,12 @@ class S3 {
     }
 
     public static function upload($localPath, $s3Name) {
-        if (!file_exists($localPath)) return false;
+        self::$uploadError = '';
+        if (!file_exists($localPath)) {
+            self::$uploadError = "Arquivo local não encontrado: {$localPath}";
+            error_log("S3::upload FAILED: local file not found {$localPath}");
+            return false;
+        }
         $size = filesize($localPath);
         $ext = strtolower(pathinfo($s3Name, PATHINFO_EXTENSION));
         $mimeMap = [
@@ -188,36 +193,63 @@ class S3 {
             $httpHeaders[] = "$k: $v";
         }
 
-        $fp = fopen($localPath, 'rb');
-        if (!$fp) return false;
+        $fp = @fopen($localPath, 'rb');
+        if (!$fp) {
+            self::$uploadError = "Falha ao abrir arquivo para leitura: {$localPath}";
+            error_log("S3::upload FAILED: cannot open {$localPath}");
+            return false;
+        }
 
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_PUT            => true,
+            CURLOPT_CUSTOMREQUEST  => 'PUT',
+            CURLOPT_UPLOAD         => true,
             CURLOPT_HTTPHEADER     => $httpHeaders,
             CURLOPT_TIMEOUT        => 120,
             CURLOPT_INFILE         => $fp,
             CURLOPT_INFILESIZE     => $size,
+            CURLOPT_SSL_VERIFYPEER => false,
+            CURLOPT_SSL_VERIFYHOST => 0,
         ]);
 
         $resp = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
         curl_close($ch);
         fclose($fp);
 
         self::$lastResponseBody = $resp;
 
         if (!in_array($httpCode, [200, 204])) {
-            error_log("S3::upload FAILED: HTTP {$httpCode} for {$s3Name}");
+            $detail = '';
+            if ($resp !== false && $resp !== '') {
+                $xml = @simplexml_load_string($resp);
+                if ($xml && isset($xml->Code) && isset($xml->Message)) {
+                    $detail = (string)$xml->Code . ': ' . (string)$xml->Message;
+                } else {
+                    $detail = substr($resp, 0, 300);
+                }
+            } elseif ($curlErr !== '') {
+                $detail = $curlErr;
+            }
+            $errMsg = "S3::upload FAILED: HTTP {$httpCode} for {$s3Name}";
+            if ($detail !== '') $errMsg .= " — {$detail}";
+            self::$uploadError = $detail ?: "HTTP {$httpCode}";
+            error_log($errMsg);
         }
 
         return in_array($httpCode, [200, 204]);
     }
 
     private static $downloadError = '';
+    private static $uploadError = '';
 
     public static function getLastDownloadError() {
         return self::$downloadError;
+    }
+
+    public static function getLastUploadError() {
+        return self::$uploadError;
     }
 
     public static function download($s3Name, $localPath) {
