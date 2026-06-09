@@ -20,7 +20,7 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/admin.css">
+    <link rel="stylesheet" href="<?= assetUrl('/assets/css/admin.css') ?>">
 </head>
 <body>
     <div class="admin-layout">

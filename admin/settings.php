@@ -112,11 +112,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     }
 
     // Sync .maintenance marker file with DB flag
-    $maintenanceFile = DATA_PATH . '/.maintenance';
-    if ($settings['maintenance_mode'] === '1') {
-        @touch($maintenanceFile);
-    } else {
-        @unlink($maintenanceFile);
+    $maintenanceFiles = [DATA_PATH . '/.maintenance'];
+    $parentFile = dirname(ROOT_PATH) . '/.maintenance';
+    if (is_writable(dirname(ROOT_PATH)) || !file_exists($parentFile)) {
+        $maintenanceFiles[] = $parentFile;
+    }
+    foreach ($maintenanceFiles as $f) {
+        if ($settings['maintenance_mode'] === '1') @touch($f);
+        else @unlink($f);
     }
 
     flashMessage('success', 'Configurações salvas!');
@@ -324,6 +327,8 @@ function _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom,
 
     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
     file_put_contents($configPath, $localConfig);
+    $persistentDir = dirname(ROOT_PATH);
+    file_put_contents($persistentDir . '/config.local.php', $localConfig);
     setSetting('contact_recipient', $contactRecipient);
 }
 
@@ -442,7 +447,7 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
                 <input type="hidden" name="maintenance_mode" value="0">
                 <input type="checkbox" id="maintenance_mode" name="maintenance_mode" value="1" <?= ($settings['maintenance_mode'] ?? '0') === '1' ? 'checked' : '' ?> style="accent-color:oklch(75% 0.15 85);width:18px;height:18px;cursor:pointer;">
                 <span style="margin-left:8px;font-weight:600;">Ativar modo de manutenção</span>
-                <?php if (file_exists(DATA_PATH . '/.maintenance')): ?>
+                <?php if (file_exists(DATA_PATH . '/.maintenance') || file_exists(dirname(ROOT_PATH) . '/.maintenance')): ?>
                     <span style="margin-left:8px;font-size:11px;color:oklch(65% 0.18 145);">✓ arquivo .maintenance presente</span>
                 <?php endif; ?>
             </label>
@@ -870,14 +875,14 @@ function onS3BucketSelect(sel) {
 
                     // Write config.local.php
                     $localConfig = '<?php' . "\n\n";
-                    $localConfig .= "if (!defined('CMS_INSTALL_VERSION')) define('CMS_INSTALL_VERSION', '" . CMS_VERSION . "');\n";
+                    $localConfig .= "if (!defined('CMS_INSTALL_VERSION')) define('CMS_INSTALL_VERSION', " . var_export(CMS_VERSION, true) . ");\n";
                     $localConfig .= "if (!defined('DB_TYPE')) {\n";
                     $localConfig .= "    define('DB_TYPE', 'mysql');\n";
-                    $localConfig .= "    define('DB_HOST', '$host');\n";
-                    $localConfig .= "    define('DB_PORT', '$port');\n";
-                    $localConfig .= "    define('DB_NAME', '$name');\n";
-                    $localConfig .= "    define('DB_USER', '$user');\n";
-                    $localConfig .= "    define('DB_PASS', '$pass');\n";
+                    $localConfig .= "    define('DB_HOST', " . var_export($host, true) . ");\n";
+                    $localConfig .= "    define('DB_PORT', " . var_export($port, true) . ");\n";
+                    $localConfig .= "    define('DB_NAME', " . var_export($name, true) . ");\n";
+                    $localConfig .= "    define('DB_USER', " . var_export($user, true) . ");\n";
+                    $localConfig .= "    define('DB_PASS', " . var_export($pass, true) . ");\n";
                     $localConfig .= "}\n\n";
 
                     $configPath = DATA_PATH . '/config.local.php';
@@ -885,7 +890,7 @@ function onS3BucketSelect(sel) {
                     if ($existingContent !== '' && preg_match_all('/define\(\'(SMTP_\w+)\',\s*\'(.*?)\'\);/', $existingContent, $m)) {
                         $localConfig .= "if (!defined('SMTP_PASS')) {\n";
                         foreach ($m[1] as $i => $const) {
-                            $localConfig .= "    define('$const', '" . addslashes($m[2][$i]) . "');\n";
+                            $localConfig .= "    define('$const', " . var_export($m[2][$i], true) . ");\n";
                         }
                         $localConfig .= "}\n";
                     } elseif (file_exists(ROOT_PATH . '/config.local.php')) {
@@ -893,18 +898,20 @@ function onS3BucketSelect(sel) {
                         if (preg_match_all('/define\(\'(SMTP_\w+)\',\s*\'(.*?)\'\);/', $rootContent, $m)) {
                             $localConfig .= "if (!defined('SMTP_PASS')) {\n";
                             foreach ($m[1] as $i => $const) {
-                                $localConfig .= "    define('$const', '" . addslashes($m[2][$i]) . "');\n";
+                                $localConfig .= "    define('$const', " . var_export($m[2][$i], true) . ");\n";
                             }
                             $localConfig .= "}\n";
                         }
                     }
                     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
                     file_put_contents($configPath, $localConfig);
+                    $persistentDir = dirname(ROOT_PATH);
+                    file_put_contents($persistentDir . '/config.local.php', $localConfig);
 
                     $migrateMessage = '<div class="status success">Migração concluída! Redirecionando para o login…</div>';
                     $migrateSuccess = true;
                     $migrateRedirect = true;
-                    session_destroy();
+                    clearSession();
                 } catch (Exception $ex) {
                     $migrateMessage = '<div class="status error">' . e($ex->getMessage()) . '</div>';
                 }

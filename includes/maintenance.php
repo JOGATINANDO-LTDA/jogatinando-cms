@@ -1,19 +1,19 @@
 <?php
 
 function isMaintenanceActive() {
-    // File-based check (data/ is writable in Docker and Hostinger, gitignored, survives CI/CD)
+    // Parent dir check (survives CI/CD that wipes public_html/)
+    $parentFile = defined('ROOT_PATH') ? dirname(ROOT_PATH) . '/.maintenance' : __DIR__ . '/../../.maintenance';
+    if (file_exists($parentFile)) {
+        return true;
+    }
+    // data/ check (primary for Docker, fast path)
     $maintenanceFile = defined('DATA_PATH') ? DATA_PATH . '/.maintenance' : __DIR__ . '/../data/.maintenance';
     if (file_exists($maintenanceFile)) {
         return true;
     }
     // DB-based check (persists across file overwrites)
     try {
-        $db = getDB();
-        if (!$db) return false;
-        $stmt = $db->prepare("SELECT `value` FROM site_settings WHERE `key` = ?");
-        $stmt->execute(['maintenance_mode']);
-        $row = $stmt->fetch();
-        return $row && $row['value'] === '1';
+        return getSetting('maintenance_mode') === '1';
     } catch (Exception $e) {
         return false;
     }

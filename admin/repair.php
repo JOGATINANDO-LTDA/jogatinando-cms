@@ -651,7 +651,7 @@ if (isset($_GET['repair_result'])) {
         <h3 class="card-title" style="color:var(--gold, #c9a84c)">📋 Relatório do Reparo</h3>
     </div>
     <div class="card-body" style="font-family:var(--mono, 'JetBrains Mono', monospace);font-size:13px;line-height:1.7;white-space:pre-wrap;color:var(--fg-muted, #aaa)">
-        <?= $repairResult ?>
+        <?= e($repairResult) ?>
     </div>
 </div>
 <?php endif; ?>

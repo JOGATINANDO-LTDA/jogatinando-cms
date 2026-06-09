@@ -15,7 +15,7 @@ function requireLogin() {
     }
     $timeout = 1800;
     if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity']) > $timeout) {
-        session_destroy();
+        clearSession();
         $redirect = isset($_SERVER['REQUEST_URI']) ? '?redirect=' . urlencode($_SERVER['REQUEST_URI']) : '';
         header('Location: ' . ADMIN_URL . '/login' . $redirect);
         exit;

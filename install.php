@@ -1,5 +1,12 @@
 <?php
 
+// Early guard: redirect if already installed (before loading config.php)
+$installDataDir = __DIR__ . '/data';
+if (file_exists($installDataDir . '/config.local.php') || file_exists(dirname(__DIR__) . '/config.local.php')) {
+    header('Location: /');
+    exit;
+}
+
 require_once 'config.php';
 
 if (defined('INSTALL_LOCK') && INSTALL_LOCK === true) {
@@ -9,15 +16,8 @@ if (defined('INSTALL_LOCK') && INSTALL_LOCK === true) {
 
 // Block if maintenance mode is active (renderMaintenancePage already loaded via config.php)
 $dataPath = defined('DATA_PATH') ? DATA_PATH : __DIR__ . '/data';
-if (file_exists($dataPath . '/.maintenance')) {
+if (file_exists($dataPath . '/.maintenance') || file_exists(dirname(__DIR__) . '/.maintenance')) {
     renderMaintenancePage();
-    exit;
-}
-
-// Block if already installed (marker file survives CI/CD)
-$installedMarker = (defined('DATA_PATH') ? DATA_PATH : __DIR__ . '/data') . '/.installed';
-if (file_exists($installedMarker)) {
-    header('Location: /');
     exit;
 }
 
@@ -31,7 +31,7 @@ if (file_exists($sqliteDb) && filesize($sqliteDb) > 4096) {
     exit;
 }
 
-if (file_exists(DATA_PATH . '/config.local.php')) {
+if (file_exists(DATA_PATH . '/config.local.php') || file_exists(dirname(ROOT_PATH) . '/config.local.php')) {
     header('Location: /');
     exit;
 }
@@ -214,20 +214,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
 function writeLocalConfig($type, $host = null, $port = null, $name = null, $user = null, $pass = null) {
     $content = '<?php' . "\n\n";
-    $content .= "if (!defined('CMS_INSTALL_VERSION')) define('CMS_INSTALL_VERSION', '" . CMS_VERSION . "');\n";
+    $content .= "if (!defined('CMS_INSTALL_VERSION')) define('CMS_INSTALL_VERSION', " . var_export(CMS_VERSION, true) . ");\n";
     $content .= "if (!defined('DB_TYPE')) {\n";
-    $content .= "    define('DB_TYPE', '$type');\n";
+    $content .= "    define('DB_TYPE', " . var_export($type, true) . ");\n";
     if ($type === 'mysql') {
-        $content .= "    define('DB_HOST', '$host');\n";
-        $content .= "    define('DB_PORT', '$port');\n";
-        $content .= "    define('DB_NAME', '$name');\n";
-        $content .= "    define('DB_USER', '$user');\n";
-        $content .= "    define('DB_PASS', '$pass');\n";
+        $content .= "    define('DB_HOST', " . var_export($host, true) . ");\n";
+        $content .= "    define('DB_PORT', " . var_export($port, true) . ");\n";
+        $content .= "    define('DB_NAME', " . var_export($name, true) . ");\n";
+        $content .= "    define('DB_USER', " . var_export($user, true) . ");\n";
+        $content .= "    define('DB_PASS', " . var_export($pass, true) . ");\n";
     }
     $content .= "}\n";
     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
     file_put_contents(DATA_PATH . '/config.local.php', $content);
+    $persistentDir = dirname(ROOT_PATH);
+    file_put_contents($persistentDir . '/config.local.php', $content);
     @touch(DATA_PATH . '/.installed');
+    @touch($persistentDir . '/.installed');
 }
 
 function shouldRemoveInstall() {

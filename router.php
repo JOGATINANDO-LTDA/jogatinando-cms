@@ -14,6 +14,12 @@ if ($uri === '/admin/setup-password') {
 
 
 if ($uri === '/install') {
+    // Early guard: redirect only if config.local.php exists (in data/ or outside webroot)
+    $dataDir = __DIR__ . '/data';
+    if (file_exists($dataDir . '/config.local.php') || file_exists(dirname(__DIR__) . '/config.local.php')) {
+        header('Location: /');
+        exit;
+    }
     $_SERVER['PHP_SELF'] = '/install.php';
     require __DIR__ . '/install.php';
     exit;

@@ -257,12 +257,16 @@ function dbDelete($table, $id) {
 }
 
 function getSetting($key, $default = '') {
+    if (array_key_exists($key, $GLOBALS['_setting_cache'] ?? [])) {
+        return $GLOBALS['_setting_cache'][$key];
+    }
     $db = getDB();
     if (!$db) return $default;
     $stmt = $db->prepare("SELECT `value` FROM site_settings WHERE `key` = ?");
     $stmt->execute([$key]);
     $row = $stmt->fetch();
-    return $row ? $row['value'] : $default;
+    $GLOBALS['_setting_cache'][$key] = $row ? $row['value'] : $default;
+    return $GLOBALS['_setting_cache'][$key];
 }
 
 function setSetting($key, $value) {
@@ -270,5 +274,7 @@ function setSetting($key, $value) {
     if (!$db) return false;
     $prefix = getDbType() === 'mysql' ? 'REPLACE INTO' : 'INSERT OR REPLACE INTO';
     $stmt = $db->prepare("$prefix site_settings (`key`, `value`) VALUES (?, ?)");
-    return $stmt->execute([$key, $value]);
+    $ok = $stmt->execute([$key, $value]);
+    unset($GLOBALS['_setting_cache'][$key]);
+    return $ok;
 }

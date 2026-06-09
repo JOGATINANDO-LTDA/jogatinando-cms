@@ -65,11 +65,20 @@ class Storage {
         if ($res !== true) {
             return false;
         }
+        $opsys = null;
+        $attr = 0;
         for ($i = 0; $i < $zip->numFiles; $i++) {
             $name = $zip->getNameIndex($i);
             if (strpos($name, '..') !== false || strpos($name, '/') === 0) {
                 $zip->close();
                 return false;
+            }
+            if ($zip->getExternalAttributesIndex($i, $opsys, $attr) && $opsys === ZipArchive::OPSYS_UNIX) {
+                $unixMode = ($attr >> 16) & 0xFFFF;
+                if (($unixMode & 0120000) === 0120000) {
+                    $zip->close();
+                    return false;
+                }
             }
         }
         $zip->extractTo($destDir);
@@ -109,6 +118,11 @@ class Storage {
     public static function getS3Url($s3Name) {
         if (!self::isS3Configured()) return false;
         return S3::getUrl($s3Name);
+    }
+
+    public static function downloadFromS3($s3Name, $localPath) {
+        if (!self::isS3Configured()) return false;
+        return S3::download($s3Name, $localPath);
     }
 
     public static function extractFromS3Zip($zipS3Name, $destRelDir) {

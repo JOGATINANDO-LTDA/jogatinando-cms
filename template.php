@@ -34,7 +34,7 @@ $siteName = getSetting('site_name', SITE_NAME);
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="<?= SITE_URL ?>/assets/css/style.css">
+    <link rel="stylesheet" href="<?= assetUrl('/assets/css/style.css') ?>">
 </head>
 <body>
     <div class="cosmic-bg"></div>
@@ -85,7 +85,7 @@ $siteName = getSetting('site_name', SITE_NAME);
                             <?php foreach ($templateLinks as $tl): ?>
                             <a class="store-link-item" href="<?= e($tl['url']) ?>" target="_blank" rel="noopener">
                                 <?php if (!empty($tl['use_logo']) && !empty($tl['logo_path'])): ?>
-                                <img src="/<?= e($tl['logo_path']) ?>" alt="<?= e($tl['platform_name']) ?>" class="store-link-logo">
+                                <img src="<?= logoImgSrc($tl['logo_path']) ?>" alt="<?= e($tl['platform_name']) ?>" class="store-link-logo">
                                 <?php else: ?>
                                 <span class="store-link-icon"><?= e($tl['platform_icon'] ?? '🛒') ?></span>
                                 <?php endif; ?>
@@ -191,7 +191,7 @@ $siteName = getSetting('site_name', SITE_NAME);
                             <?php foreach ($templateLinks as $tl): ?>
                             <a class="store-link-item store-link-item--sidebar" href="<?= e($tl['url']) ?>" target="_blank" rel="noopener">
                                 <?php if (!empty($tl['use_logo']) && !empty($tl['logo_path'])): ?>
-                                <img src="/<?= e($tl['logo_path']) ?>" alt="<?= e($tl['platform_name']) ?>" class="store-link-logo">
+                                <img src="<?= logoImgSrc($tl['logo_path']) ?>" alt="<?= e($tl['platform_name']) ?>" class="store-link-logo">
                                 <?php else: ?>
                                 <span class="store-link-icon"><?= e($tl['platform_icon'] ?? '🛒') ?></span>
                                 <?php endif; ?>

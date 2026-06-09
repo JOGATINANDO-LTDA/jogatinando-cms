@@ -113,6 +113,109 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         flashMessage('success', 'ROMs sincronizadas.');
     }
 
+    if ($_POST['action'] === 'sync_all') {
+        $directories = ['thumbnails', 'banners', 'blog', 'avatars', 'platforms'];
+        foreach ($directories as $dir) {
+            $files = getLocalUploadFiles($dir);
+            foreach ($files as $f) {
+                $result = s3SyncFile($f['local'], $f['s3name']);
+                if ($result === 'uploaded') $results[] = "⬆ {$f['s3name']}";
+                elseif ($result === 'failed') $results[] = "❌ {$f['s3name']}";
+            }
+        }
+
+        $games = dbQuery("SELECT id, game_path, engine, title FROM games WHERE game_path IS NOT NULL AND game_path != ''");
+        foreach ($games as $game) {
+            $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
+            if (!is_dir($gameDir)) continue;
+            $engineSlug = explode('/', $game['game_path'])[0];
+            $gameSlug = explode('/', $game['game_path'])[1] ?? $game['game_path'];
+            $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.zip';
+            if (!S3::fileExists($zipS3Name)) {
+                $tmpZip = UPLOAD_PATH . '/_b2tmp/' . $gameSlug . '.zip';
+                if (!is_dir(dirname($tmpZip))) mkdir(dirname($tmpZip), 0755, true);
+                $zip = new ZipArchive();
+                if ($zip->open($tmpZip, ZipArchive::CREATE) === true) {
+                    $items = scandir($gameDir);
+                    foreach ($items as $item) {
+                        if ($item === '.' || $item === '..') continue;
+                        $itemPath = $gameDir . '/' . $item;
+                        if (is_file($itemPath)) { $zip->addFile($itemPath, $item); }
+                    }
+                    $zip->close();
+                    if (S3::upload($tmpZip, $zipS3Name)) {
+                        $results[] = "⬆ {$zipS3Name}";
+                    } else {
+                        $results[] = "❌ {$zipS3Name}";
+                    }
+                    unlink($tmpZip);
+                }
+            } else {
+                $results[] = "⏭ {$zipS3Name} (já existe)";
+            }
+        }
+
+        $retroBase = UPLOAD_PATH . '/retro';
+        if (is_dir($retroBase)) {
+            $consoles = scandir($retroBase);
+            foreach ($consoles as $console) {
+                if ($console === '.' || $console === '..') continue;
+                foreach (['rom', 'rommod'] as $type) {
+                    $typeDir = $retroBase . '/' . $console . '/' . $type;
+                    if (!is_dir($typeDir)) continue;
+                    $files = scandir($typeDir);
+                    foreach ($files as $file) {
+                        if ($file === '.' || $file === '..') continue;
+                        $localPath = $typeDir . '/' . $file;
+                        if (!is_file($localPath)) continue;
+                        $s3Name = 'uploads/retro/' . $console . '/' . $type . '/' . $file;
+                        $result = s3SyncFile($localPath, $s3Name);
+                        if ($result === 'uploaded') $results[] = "⬆ {$s3Name}";
+                        elseif ($result === 'failed') $results[] = "❌ {$s3Name}";
+                    }
+                }
+            }
+        }
+
+        $cfg = S3::getResolvedConfig();
+        $publicUrl = $cfg['public_url'];
+        $bucket = $cfg['bucket'];
+        $endpoint = $cfg['endpoint'];
+        $baseUrl = $publicUrl !== '' ? rtrim($publicUrl, '/') : '';
+        if ($baseUrl === '' && $endpoint !== '' && $bucket !== '') {
+            $baseUrl = rtrim($endpoint, '/') . '/' . $bucket;
+        }
+        if ($baseUrl !== '') {
+            $urlTables = [
+                ['table' => 'games', 'column' => 'thumbnail_url'],
+                ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
+                ['table' => 'banners', 'column' => 'image_url'],
+                ['table' => 'team_members', 'column' => 'avatar_url'],
+                ['table' => 'testimonials', 'column' => 'avatar_url'],
+                ['table' => 'users', 'column' => 'avatar_url'],
+                ['table' => 'retro_games', 'column' => 'rom_path'],
+                ['table' => 'retro_games', 'column' => 'thumbnail_url'],
+                ['table' => 'game_templates', 'column' => 'thumbnail_url'],
+                ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+                ['table' => 'store_platforms', 'column' => 'logo_path'],
+            ];
+            $updated = 0;
+            foreach ($urlTables as $t) {
+                $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE '/uploads/%'");
+                foreach ($rows as $row) {
+                    $oldUrl = $row[$t['column']];
+                    if (empty($oldUrl)) continue;
+                    $s3Name = 'uploads' . substr($oldUrl, 8);
+                    $newUrl = rtrim($baseUrl, '/') . '/' . ltrim($s3Name, '/');
+                    dbExec("UPDATE {$t['table']} SET {$t['column']} = ? WHERE id = ?", [$newUrl, $row['id']]);
+                    $updated++;
+                }
+            }
+            $results[] = "URLs atualizadas: {$updated} registros.";
+        }
+        flashMessage('success', 'Sincronização completa finalizada.');
+    }
+
     if ($_POST['action'] === 'update_db_urls') {
         $cfg = S3::getResolvedConfig();
         $publicUrl = $cfg['public_url'];
@@ -137,6 +240,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ['table' => 'retro_games', 'column' => 'thumbnail_url'],
                 ['table' => 'game_templates', 'column' => 'thumbnail_url'],
                 ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+                ['table' => 'store_platforms', 'column' => 'logo_path'],
             ];
             $updated = 0;
             foreach ($tables as $t) {
@@ -150,17 +254,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $updated++;
                 }
             }
-            $basePrefix = rtrim($baseUrl, '/') . '/uploads/';
-            dbExec("UPDATE store_platforms SET logo_path = REPLACE(logo_path, '/uploads/', ?) WHERE logo_path LIKE '/uploads/%'", [$basePrefix]);
             $results[] = "URLs atualizadas: {$updated} registros.";
             flashMessage('success', "{$updated} registros atualizados com URLs do S3.");
         }
     }
 
     if ($_POST['action'] === 'revert_db_urls') {
+        $cfg = S3::getResolvedConfig();
+        $publicUrl = rtrim(getSetting('s3_public_url', ''), '/');
+        if ($publicUrl === '') $publicUrl = rtrim($cfg['public_url'], '/');
+        $downloaded = 0; $skipped = 0; $failed = 0;
+
+        if ($publicUrl !== '') {
+            $tables = [
+                ['table' => 'games', 'column' => 'thumbnail_url'],
+                ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
+                ['table' => 'banners', 'column' => 'image_url'],
+                ['table' => 'team_members', 'column' => 'avatar_url'],
+                ['table' => 'testimonials', 'column' => 'avatar_url'],
+                ['table' => 'users', 'column' => 'avatar_url'],
+                ['table' => 'retro_games', 'column' => 'rom_path'],
+                ['table' => 'retro_games', 'column' => 'thumbnail_url'],
+                ['table' => 'game_templates', 'column' => 'thumbnail_url'],
+                ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+                ['table' => 'store_platforms', 'column' => 'logo_path'],
+            ];
+            foreach ($tables as $t) {
+                $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE ?", [$publicUrl . '%']);
+                foreach ($rows as $row) {
+                    $url = $row[$t['column']];
+                    $parts = explode('/uploads/', $url, 2);
+                    if (!isset($parts[1])) { $skipped++; continue; }
+                    $s3Name = 'uploads/' . $parts[1];
+                    $localPath = UPLOAD_PATH . '/' . $parts[1];
+                    if (file_exists($localPath)) { $skipped++; continue; }
+                    if (Storage::downloadFromS3($s3Name, $localPath)) {
+                        $downloaded++;
+                        $results[] = "⬇ {$s3Name}";
+                    } else {
+                        $failed++;
+                        $results[] = "❌ Falha ao baixar: {$s3Name}";
+                    }
+                }
+            }
+        }
+
         $count = revertS3Urls();
+        $results[] = "Baixados: {$downloaded}, ignorados (já existem): {$skipped}, falhas: {$failed}.";
         $results[] = "URLs revertidas: {$count} registros.";
-        flashMessage('success', "{$count} registros revertidos para URLs locais.");
+        flashMessage('success', "{$downloaded} arquivos baixados do S3, {$count} URLs revertidas para local.");
     }
 
     if ($_POST['action'] === 'fix_broken_urls') {
@@ -415,41 +557,46 @@ define('S3_PUBLIC_URL', 'https://pub-xxxxx.r2.dev');</pre>
 <?php endif; ?>
 
 <div id="sync-actions" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px;">
-    <form method="POST" onsubmit="return confirm('Enviar imagens para o S3 (R2)?')">
+    <form method="POST">
+        <?= csrfField() ?>
+        <input type="hidden" name="action" value="sync_all">
+        <button type="submit" class="btn btn-gold" style="font-weight:700;">⬆ Sincronizar Tudo</button>
+    </form>
+    <form method="POST">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="sync_images">
         <button type="submit" class="btn btn-gold">⬆ Sincronizar Imagens</button>
     </form>
-    <form method="POST" onsubmit="return confirm('Recriar e enviar ZIPs dos jogos para o S3?')">
+    <form method="POST">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="sync_games">
         <button type="submit" class="btn btn-gold">⬆ Sincronizar Jogos</button>
     </form>
-    <form method="POST" onsubmit="return confirm('Enviar ROMs para o S3?')">
+    <form method="POST">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="sync_roms">
         <button type="submit" class="btn btn-gold">⬆ Sincronizar ROMs</button>
     </form>
-    <form method="POST" onsubmit="return confirm('Corrigir URLs mal formadas no banco de dados (https: sem //, //uploads duplicado etc)?')">
+    <form method="POST">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="fix_broken_urls">
         <button type="submit" class="btn btn-outline" style="color: oklch(75% 0.15 85); border-color: oklch(55% 0.12 85);">🔧 Corrigir URLs Quebradas</button>
     </form>
-    <form method="POST" onsubmit="return confirm('Atualizar todas as URLs do banco de dados para apontar para o S3? É recomendável sincronizar os arquivos antes.')">
+    <form method="POST">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="update_db_urls">
         <button type="submit" class="btn btn-outline" style="color: oklch(75% 0.15 85); border-color: oklch(55% 0.12 85);">🔄 Atualizar URLs no BD</button>
     </form>
-    <form method="POST" onsubmit="return confirm('Reverter TODAS as URLs do banco de dados para apontar LOCALMENTE (/uploads/...)? Use se o S3 falhou ou as imagens não carregam.')">
+    <form method="POST">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="revert_db_urls">
-        <button type="submit" class="btn btn-outline" style="color: oklch(55% 0.20 25); border-color: oklch(55% 0.20 25);">↩️ Reverter URLs (voltar a apontar local)</button>
+        <button type="submit" class="btn btn-outline" style="color: oklch(55% 0.20 25); border-color: oklch(55% 0.20 25);">↩️ Reverter URLs + Baixar do S3</button>
     </form>
 </div>
 
 <hr style="border: none; border-top: 1px solid oklch(22% 0.025 260); margin: 24px 0;">
 <h3 style="margin-bottom: 16px; color: oklch(60% 0.012 250);">🧹 Limpar Arquivos Locais</h3>
-<p style="font-size: 13px; color: oklch(50% 0.02 260); margin-bottom: 16px;">Remove arquivos locais que já existem no S3. Jogos e ROMs removidos serão baixados do S3 automaticamente no primeiro acesso.</p>
+<p style="font-size: 13px; color: oklch(50% 0.02 260); margin-bottom: 16px;">Remove arquivos locais que já existem no S3. Para recuperar, use "Reverter URLs + Baixar do S3". Jogos são re-extraídos do S3 automaticamente no primeiro acesso após "Reverter".</p>
 <div id="clean-actions" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px;">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="clean_images">
@@ -492,8 +639,27 @@ define('S3_PUBLIC_URL', 'https://pub-xxxxx.r2.dev');</pre>
 </style>
 
 <script>
+var confirmMsgs = {
+    sync_all: 'Executar sincronização completa?\n\n1. ⬆ Enviar imagens\n2. ⬆ Enviar ZIPs dos jogos\n3. ⬆ Enviar ROMs\n4. 🔄 Atualizar URLs para S3\n\nIsso pode levar alguns minutos.',
+    sync_images: 'Enviar imagens para o S3 (R2)?',
+    sync_games: 'Recriar e enviar ZIPs dos jogos para o S3?',
+    sync_roms: 'Enviar ROMs para o S3?',
+    fix_broken_urls: 'Corrigir URLs mal formadas no banco de dados?',
+    update_db_urls: 'Atualizar todas as URLs do BD para apontar para o S3?',
+    revert_db_urls: 'Baixar TODOS os arquivos do S3 e reverter URLs para local (/uploads/...)?\nArquivos que já existem localmente serão ignorados.',
+    clean_images: 'Remover imagens locais que já existem no S3?',
+    clean_games: 'Remover diretórios de jogos extraídos que já possuem ZIP no S3?\nEles serão re-extraídos automaticamente ao jogar.',
+    clean_roms: 'Remover ROMs locais que já existem no S3?',
+    process_sync_queue: 'Enviar arquivos pendentes da fila para o S3?',
+};
 document.querySelectorAll('#sync-actions form, #clean-actions form, #sync-queue-form').forEach(function(f) {
-    f.addEventListener('submit', function() {
+    f.addEventListener('submit', function(e) {
+        var action = this.querySelector('input[name="action"]').value;
+        var msg = confirmMsgs[action] || 'Confirmar?';
+        if (!confirm(msg)) {
+            e.preventDefault();
+            return;
+        }
         document.getElementById('sync-overlay').style.display = 'flex';
     });
 });

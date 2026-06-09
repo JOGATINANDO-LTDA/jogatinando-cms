@@ -6,6 +6,12 @@ function e($string) {
     return htmlspecialchars($string ?? '', ENT_QUOTES, 'UTF-8');
 }
 
+function assetUrl($path) {
+    $file = ROOT_PATH . $path;
+    $mtime = file_exists($file) ? filemtime($file) : CMS_VERSION;
+    return SITE_URL . $path . '?v=' . $mtime;
+}
+
 function sendSmtpMail($to, $subject, $body, $from = null, $fromName = null) {
     $host = defined('SMTP_HOST') ? SMTP_HOST : 'smtp.zoho.com';
     $port = defined('SMTP_PORT') ? SMTP_PORT : 587;
@@ -151,7 +157,6 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
     finfo_close($finfo);
     $allowedMimes = [
         'image/jpeg','image/png','image/gif','image/webp',
-        'application/zip','application/x-zip-compressed',
     ];
     if (!in_array($mime, $allowedMimes)) {
         return ['success' => false, 'message' => 'Tipo de arquivo não permitido.'];
@@ -167,8 +172,13 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
 
     $localPath = UPLOAD_PATH . '/' . $relPath;
     if (Storage::isS3Configured() && file_exists($localPath)) {
-        Storage::mirrorToS3($localPath, $s3Name);
-        $publicUrl = Storage::getS3Url($s3Name);
+        if (Storage::mirrorToS3($localPath, $s3Name)) {
+            $publicUrl = Storage::getS3Url($s3Name);
+        } else {
+            error_log("S3 mirror failed: {$s3Name}");
+            $publicUrl = '/uploads/' . $directory . '/' . $filename;
+            enqueueSync($localPath, $s3Name);
+        }
     } else {
         $publicUrl = '/uploads/' . $directory . '/' . $filename;
         enqueueSync($localPath, $s3Name);
@@ -207,6 +217,14 @@ function uploadRetroRom($file, $consoleSlug, $gameSlug, $type = 'original', $all
         return ['success' => false, 'message' => 'Extensão não permitida: .' . $ext];
     }
 
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+    $blockedMimes = ['text/html', 'text/php', 'application/x-php', 'application/x-httpd-php', 'application/x-javascript', 'text/javascript', 'application/json'];
+    if (in_array($mime, $blockedMimes)) {
+        return ['success' => false, 'message' => 'Tipo de arquivo não permitido.'];
+    }
+
     $consoleSlug = generateSlug($consoleSlug);
     $gameSlug = generateSlug($gameSlug);
     $typeDir = $type === 'modified' ? 'rommod' : 'rom';
@@ -228,8 +246,13 @@ function uploadRetroRom($file, $consoleSlug, $gameSlug, $type = 'original', $all
 
     $s3Name = 'uploads/retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename;
     if (Storage::isS3Configured()) {
-        Storage::mirrorToS3($destination, $s3Name);
-        $publicUrl = Storage::getS3Url($s3Name);
+        if (Storage::mirrorToS3($destination, $s3Name)) {
+            $publicUrl = Storage::getS3Url($s3Name);
+        } else {
+            error_log("S3 mirror failed: {$s3Name}");
+            $publicUrl = '/uploads/retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename;
+            enqueueSync($destination, $s3Name);
+        }
     } else {
         $publicUrl = '/uploads/retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename;
         enqueueSync($destination, $s3Name);
@@ -328,24 +351,89 @@ function revertS3Urls() {
         ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
         ['table' => 'store_platforms', 'column' => 'logo_path'],
     ];
+
+    $s3Bases = _revertS3BaseUrls();
+
     $updated = 0;
+
+    foreach (['site_logo_url', 'site_favicon_url'] as $key) {
+        $val = getSetting($key, '');
+        if ($val === '') continue;
+        $new = _revertSingleUrl($val, $s3Bases);
+        if ($new !== null) {
+            setSetting($key, $new);
+            $updated++;
+        }
+    }
+
     foreach ($tables as $t) {
-        $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%' OR {$t['column']} LIKE '/uploads/%'");
+        $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%'");
         $seen = [];
         foreach ($rows as $row) {
             $id = $row['id'];
             if (isset($seen[$id])) continue;
             $seen[$id] = true;
-            $oldUrl = $row[$t['column']];
-            $parts = explode('/uploads/', $oldUrl, 2);
-            if (isset($parts[1])) {
-                $localUrl = '/uploads/' . $parts[1];
-                dbExec("UPDATE {$t['table']} SET {$t['column']} = ? WHERE id = ?", [$localUrl, $id]);
+            $new = _revertSingleUrl($row[$t['column']], $s3Bases, $t['table'], $t['column']);
+            if ($new !== null) {
+                dbExec("UPDATE {$t['table']} SET {$t['column']} = ? WHERE id = ?", [$new, $id]);
                 $updated++;
             }
         }
     }
     return $updated;
+}
+
+function _revertS3BaseUrls() {
+    $bases = [];
+    $pub = getSetting('s3_public_url', '');
+    if ($pub !== '') $bases[] = rtrim($pub, '/');
+    if (defined('S3_ENDPOINT') && S3_ENDPOINT) $bases[] = rtrim(S3_ENDPOINT, '/');
+    return $bases;
+}
+
+function _revertSingleUrl($url, $s3Bases = [], $table = null, $column = null) {
+    if ($url === '' || $url === null) return null;
+    if (str_starts_with($url, '/')) return null;
+
+    $parts = explode('/uploads/', $url, 2);
+    if (isset($parts[1])) {
+        if ($table === 'retro_games' && $column === 'rom_path') return $parts[1];
+        return '/uploads/' . $parts[1];
+    }
+
+    foreach ($s3Bases as $base) {
+        $prefix = $base . '/';
+        if (str_starts_with($url, $prefix)) {
+            $rest = substr($url, strlen($prefix));
+            if ($table === 'retro_games' && $column === 'rom_path') return $rest;
+            if (str_starts_with($rest, 'uploads/')) return '/' . $rest;
+            return '/uploads/' . $rest;
+        }
+    }
+
+    if (preg_match('#/uploads/[^?#\s]+#', $url, $m)) {
+        $path = ltrim($m[0], '/');
+        if ($table === 'retro_games' && $column === 'rom_path') return $path;
+        return '/' . $path;
+    }
+
+    $host = @parse_url($url, PHP_URL_HOST);
+    $path = @parse_url($url, PHP_URL_PATH);
+    if ($host && $path && $path !== '/') {
+        $isS3 = str_contains($host, 'r2.dev')
+             || str_contains($host, 'backblaze')
+             || str_starts_with($host, 's3.')
+             || str_contains($host, '.s3.')
+             || str_contains($host, 'cloudfront');
+        if ($isS3) {
+            $rest = ltrim($path, '/');
+            if ($table === 'retro_games' && $column === 'rom_path') return $rest;
+            if (str_starts_with($rest, 'uploads/')) return '/' . $rest;
+            return '/uploads/' . $rest;
+        }
+    }
+
+    return null;
 }
 
 function truncateText($text, $length = 150) {
@@ -453,6 +541,14 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
         return ['success' => false, 'message' => 'Formato não suportado. Use: ' . implode(', ', ALLOWED_GAME_EXTENSIONS)];
     }
 
+    $finfo = finfo_open(FILEINFO_MIME_TYPE);
+    $mime = finfo_file($finfo, $file['tmp_name']);
+    finfo_close($finfo);
+    $allowedMimes = ['application/zip', 'application/x-zip-compressed', 'application/gzip', 'application/x-gzip', 'application/x-tar'];
+    if (!in_array($mime, $allowedMimes)) {
+        return ['success' => false, 'message' => 'Tipo de arquivo não permitido. Apenas arquivos .zip compactados são aceitos.'];
+    }
+
     $engineSlug = generateSlug($engine);
     $gameSlug = generateSlug($gameTitle);
     $gameRelDir = 'games/' . $engineSlug . '/' . $gameSlug;
@@ -470,7 +566,9 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
     $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.' . $ext;
     if (Storage::isS3Configured()) {
         $tmpFullPath = UPLOAD_PATH . '/' . $tmpRelPath;
-        Storage::mirrorToS3($tmpFullPath, $zipS3Name);
+        if (!Storage::mirrorToS3($tmpFullPath, $zipS3Name)) {
+            error_log("S3 mirror failed: {$zipS3Name}");
+        }
     } else {
         enqueueSync(UPLOAD_PATH . '/' . $tmpRelPath, $zipS3Name);
     }
@@ -614,14 +712,25 @@ function deleteGameDir($gamePath) {
 //  Logo / Favicon Helpers
 // ──────────────────────────────────────────────
 
+function logoImgSrc($path) {
+    if (empty($path)) return '';
+    return str_starts_with($path, 'http') ? $path : '/' . ltrim($path, '/');
+}
+
 function siteLogoUrl() {
+    static $cached = null;
+    if ($cached !== null) return $cached;
     $url = getSetting('site_logo_url', '');
-    return $url !== '' ? $url : '/assets/svg/logo.svg';
+    $cached = $url !== '' ? $url : '/assets/svg/logo.svg';
+    return $cached;
 }
 
 function siteFaviconUrl() {
+    static $cached = null;
+    if ($cached !== null) return $cached;
     $url = getSetting('site_favicon_url', '');
-    return $url !== '' ? $url : '/assets/svg/logo.svg';
+    $cached = $url !== '' ? $url : '/assets/svg/logo.svg';
+    return $cached;
 }
 
 function resizeAndSaveLogo($tmpPath) {
@@ -645,8 +754,12 @@ function resizeAndSaveLogo($tmpPath) {
     if (!$ok) return false;
 
     if (Storage::isS3Configured()) {
-        Storage::mirrorToS3($absPath, 'uploads/' . $relPath);
-        $url = Storage::getS3Url('uploads/' . $relPath);
+        if (Storage::mirrorToS3($absPath, 'uploads/' . $relPath)) {
+            $url = Storage::getS3Url('uploads/' . $relPath);
+        } else {
+            error_log("S3 mirror failed: uploads/{$relPath}");
+            $url = '/uploads/' . $relPath;
+        }
     } else {
         $url = '/uploads/' . $relPath;
     }
@@ -676,8 +789,12 @@ function generateFavicons($tmpPath) {
 
         if (imagepng($dst, $absPath)) {
             if (Storage::isS3Configured()) {
-                Storage::mirrorToS3($absPath, 'uploads/' . $relPath);
-                $urls[$size] = Storage::getS3Url('uploads/' . $relPath);
+                if (Storage::mirrorToS3($absPath, 'uploads/' . $relPath)) {
+                    $urls[$size] = Storage::getS3Url('uploads/' . $relPath);
+                } else {
+                    error_log("S3 mirror failed: uploads/{$relPath}");
+                    $urls[$size] = '/uploads/' . $relPath;
+                }
             } else {
                 $urls[$size] = '/uploads/' . $relPath;
             }

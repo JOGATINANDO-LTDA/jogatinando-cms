@@ -1,7 +1,7 @@
 # Bloqueia execução de scripts em uploads
 <IfModule mod_rewrite.c>
     RewriteEngine On
-    RewriteRule \.(?:php|phtml|php3|php4|php5|php7|php8|phar|shtml|cgi|pl|py|asp|aspx|jsp)$ - [F]
+    RewriteRule \.(?:php|phtml|pht|phtm|php3|php4|php5|php7|php8|phar|shtml|cgi|pl|py|asp|aspx|jsp)$ - [F]
 </IfModule>
 
 # Bloqueia acesso a arquivos de configuração e ocultos

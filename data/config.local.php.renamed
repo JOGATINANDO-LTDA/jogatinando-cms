@@ -1,0 +1,20 @@
+<?php
+
+if (!defined('CMS_INSTALL_VERSION')) define('CMS_INSTALL_VERSION', '1.1.0');
+if (!defined('DB_TYPE')) {
+    define('DB_TYPE', 'mysql');
+    define('DB_HOST', 'localhost');
+    define('DB_PORT', '3306');
+    define('DB_NAME', 'SEU_BANCO_AQUI');
+    define('DB_USER', 'SEU_USUARIO_AQUI');
+    define('DB_PASS', 'SUA_SENHA_AQUI');
+}
+
+if (!defined('SMTP_PASS')) {
+    define('SMTP_HOST', 'smtp.zoho.com');
+    define('SMTP_PORT', '587');
+    define('SMTP_USER', 'seu@email.com');
+    define('SMTP_PASS', 'sua_senha_smtp');
+    define('SMTP_FROM', 'orcamento@seudominio.com.br');
+    define('SMTP_FROM_NAME', 'Orçamento');
+}
