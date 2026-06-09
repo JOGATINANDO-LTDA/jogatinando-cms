@@ -1152,3 +1152,63 @@ function migration_030($db, $type) {
         }
     } catch (Exception $e) {}
 }
+
+function migration_031($db, $type) {
+    // Settings for S3 auto-sync and serve-media
+    try {
+        $set = function($key, $val) use ($db, $type) {
+            $exists = $db->query("SELECT COUNT(*) FROM site_settings WHERE key='{$key}'")->fetchColumn();
+            if (!$exists) {
+                if ($type === 'mysql') {
+                    $db->exec("INSERT INTO site_settings (`key`, `value`) VALUES ('{$key}', '{$val}')");
+                } else {
+                    $db->exec("INSERT INTO site_settings (`key`, `value`) VALUES ('{$key}', '{$val}')");
+                }
+            }
+        };
+        $set('s3_auto_sync', '0');
+        $set('s3_serve_media', '0');
+    } catch (Exception $e) {}
+
+    // Normalize all media URLs to relative /uploads/... paths
+    $columns = [
+        ['games', 'thumbnail_url'],
+        ['blog_posts', 'thumbnail_url'],
+        ['banners', 'image_url'],
+        ['team_members', 'avatar_url'],
+        ['testimonials', 'avatar_url'],
+        ['users', 'avatar_url'],
+        ['game_templates', 'thumbnail_url'],
+        ['retro_consoles', 'thumbnail_url'],
+        ['retro_games', 'thumbnail_url'],
+        ['store_platforms', 'logo_path'],
+    ];
+
+    foreach ($columns as $col) {
+        try {
+            $rows = $db->query("SELECT id, {$col[1]} FROM {$col[0]} WHERE {$col[1]} LIKE 'http%'");
+            foreach ($rows as $row) {
+                $url = $row[$col[1]];
+                $pos = strpos($url, '/uploads/');
+                if ($pos !== false) {
+                    $relative = substr($url, $pos);
+                    $db->exec("UPDATE {$col[0]} SET {$col[1]} = " . ($type === 'mysql' ? "'{$relative}'" : "'{$relative}'") . " WHERE id = {$row['id']}");
+                }
+            }
+        } catch (Exception $e) {}
+    }
+
+    // Normalize site_logo_url and site_favicon_url
+    try {
+        foreach (['site_logo_url', 'site_favicon_url'] as $key) {
+            $row = $db->query("SELECT value FROM site_settings WHERE key='{$key}'")->fetch(PDO::FETCH_ASSOC);
+            if ($row && str_starts_with($row['value'] ?? '', 'http')) {
+                $pos = strpos($row['value'], '/uploads/');
+                if ($pos !== false) {
+                    $relative = substr($row['value'], $pos);
+                    $db->exec("UPDATE site_settings SET value = '{$relative}' WHERE key='{$key}'");
+                }
+            }
+        }
+    } catch (Exception $e) {}
+}

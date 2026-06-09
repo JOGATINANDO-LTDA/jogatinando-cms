@@ -151,6 +151,23 @@ function getFileMimeType($path) {
     return $map[$ext] ?? 'application/octet-stream';
 }
 
+function mediaUrl($path) {
+    if (empty($path)) return '';
+    if (str_starts_with($path, 'http')) return $path;
+    $relPath = ltrim($path, '/');
+    if (function_exists('getSetting') && getSetting('s3_serve_media', '0') === '1') {
+        $cfg = S3::getResolvedConfig();
+        $baseUrl = $cfg['public_url'];
+        if ($baseUrl === '' && $cfg['endpoint'] !== '' && $cfg['bucket'] !== '') {
+            $baseUrl = rtrim($cfg['endpoint'], '/') . '/' . $cfg['bucket'];
+        }
+        if ($baseUrl !== '') {
+            return rtrim($baseUrl, '/') . '/' . $relPath;
+        }
+    }
+    return '/' . $relPath;
+}
+
 function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp']) {
     if (!isset($file['error']) || is_array($file['error'])) {
         return ['success' => false, 'message' => 'Upload inválido.'];
@@ -196,24 +213,18 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
         return ['success' => false, 'message' => 'Falha ao salvar o arquivo.'];
     }
 
-    $localPath = UPLOAD_PATH . '/' . $relPath;
-    if (Storage::isS3Configured() && file_exists($localPath)) {
-        if (Storage::mirrorToS3($localPath, $s3Name)) {
-            $publicUrl = Storage::getS3Url($s3Name);
-        } else {
+    if (getSetting('s3_auto_sync', '0') === '1' && Storage::isS3Configured()) {
+        $localPath = UPLOAD_PATH . '/' . $relPath;
+        if (!Storage::mirrorToS3($localPath, $s3Name)) {
             error_log("S3 mirror failed: {$s3Name}");
-            $publicUrl = '/uploads/' . $directory . '/' . $filename;
             enqueueSync($localPath, $s3Name);
         }
-    } else {
-        $publicUrl = '/uploads/' . $directory . '/' . $filename;
-        enqueueSync($localPath, $s3Name);
     }
 
     return [
         'success' => true,
         'filename' => $filename,
-        'url' => $publicUrl,
+        'url' => '/uploads/' . $directory . '/' . $filename,
         'path' => UPLOAD_PATH . '/' . $relPath
     ];
 }
@@ -269,23 +280,17 @@ function uploadRetroRom($file, $consoleSlug, $gameSlug, $type = 'original', $all
     }
 
     $s3Name = 'uploads/retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename;
-    if (Storage::isS3Configured()) {
-        if (Storage::mirrorToS3($destination, $s3Name)) {
-            $publicUrl = Storage::getS3Url($s3Name);
-        } else {
+    if (getSetting('s3_auto_sync', '0') === '1' && Storage::isS3Configured()) {
+        if (!Storage::mirrorToS3($destination, $s3Name)) {
             error_log("S3 mirror failed: {$s3Name}");
-            $publicUrl = '/uploads/retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename;
             enqueueSync($destination, $s3Name);
         }
-    } else {
-        $publicUrl = '/uploads/retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename;
-        enqueueSync($destination, $s3Name);
     }
 
     return [
         'success' => true,
         'filename' => $filename,
-        'url' => $publicUrl,
+        'url' => '/uploads/retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename,
         'path' => $destination,
         'rel_path' => 'retro/' . $consoleSlug . '/' . $typeDir . '/' . $filename,
         'type_dir' => $typeDir,
@@ -590,13 +595,12 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
     }
 
     $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.' . $ext;
-    if (Storage::isS3Configured()) {
+    if (getSetting('s3_auto_sync', '0') === '1' && Storage::isS3Configured()) {
         $tmpFullPath = UPLOAD_PATH . '/' . $tmpRelPath;
         if (!Storage::mirrorToS3($tmpFullPath, $zipS3Name)) {
             error_log("S3 mirror failed: {$zipS3Name}");
+            enqueueSync($tmpFullPath, $zipS3Name);
         }
-    } else {
-        enqueueSync(UPLOAD_PATH . '/' . $tmpRelPath, $zipS3Name);
     }
 
     $extracted = false;
@@ -740,14 +744,14 @@ function deleteGameDir($gamePath) {
 
 function logoImgSrc($path) {
     if (empty($path)) return '';
-    return str_starts_with($path, 'http') ? $path : '/' . ltrim($path, '/');
+    return mediaUrl($path);
 }
 
 function siteLogoUrl() {
     static $cached = null;
     if ($cached !== null) return $cached;
     $url = getSetting('site_logo_url', '');
-    $cached = $url !== '' ? $url : '/assets/svg/logo.svg';
+    $cached = $url !== '' ? mediaUrl($url) : '/assets/svg/logo.svg';
     return $cached;
 }
 
@@ -755,7 +759,7 @@ function siteFaviconUrl() {
     static $cached = null;
     if ($cached !== null) return $cached;
     $url = getSetting('site_favicon_url', '');
-    $cached = $url !== '' ? $url : '/assets/svg/logo.svg';
+    $cached = $url !== '' ? mediaUrl($url) : '/assets/svg/logo.svg';
     return $cached;
 }
 
@@ -779,19 +783,14 @@ function resizeAndSaveLogo($tmpPath) {
     imagedestroy($dst);
     if (!$ok) return false;
 
-    if (Storage::isS3Configured()) {
-        if (Storage::mirrorToS3($absPath, 'uploads/' . $relPath)) {
-            $url = Storage::getS3Url('uploads/' . $relPath);
-        } else {
+    if (getSetting('s3_auto_sync', '0') === '1' && Storage::isS3Configured()) {
+        if (!Storage::mirrorToS3($absPath, 'uploads/' . $relPath)) {
             error_log("S3 mirror failed: uploads/{$relPath}");
-            $url = '/uploads/' . $relPath;
         }
-    } else {
-        $url = '/uploads/' . $relPath;
     }
 
-    setSetting('site_logo_url', $url);
-    return $url;
+    setSetting('site_logo_url', '/uploads/' . $relPath);
+    return '/uploads/' . $relPath;
 }
 
 function generateFavicons($tmpPath) {
@@ -814,16 +813,12 @@ function generateFavicons($tmpPath) {
         if (!is_dir($dir)) mkdir($dir, 0755, true);
 
         if (imagepng($dst, $absPath)) {
-            if (Storage::isS3Configured()) {
-                if (Storage::mirrorToS3($absPath, 'uploads/' . $relPath)) {
-                    $urls[$size] = Storage::getS3Url('uploads/' . $relPath);
-                } else {
+            if (getSetting('s3_auto_sync', '0') === '1' && Storage::isS3Configured()) {
+                if (!Storage::mirrorToS3($absPath, 'uploads/' . $relPath)) {
                     error_log("S3 mirror failed: uploads/{$relPath}");
-                    $urls[$size] = '/uploads/' . $relPath;
                 }
-            } else {
-                $urls[$size] = '/uploads/' . $relPath;
             }
+            $urls[$size] = '/uploads/' . $relPath;
         }
         imagedestroy($dst);
     }

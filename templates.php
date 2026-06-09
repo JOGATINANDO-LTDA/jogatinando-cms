@@ -127,7 +127,7 @@ $engines = dbQuery('SELECT name, slug, icon FROM engines WHERE active = 1 ORDER 
                         <a href="<?= e($templateUrl) ?>" class="catalog-card">
                             <div class="catalog-thumb">
                                 <?php if (!empty($t['thumbnail_url'])): ?>
-                                    <img src="<?= e($t['thumbnail_url']) ?>" alt="<?= e($t['title']) ?>">
+                                    <img src="<?= e(mediaUrl($t['thumbnail_url'])) ?>" alt="<?= e($t['title']) ?>">
                                 <?php else: ?>
                                     <div class="catalog-thumb-placeholder">📦</div>
                                 <?php endif; ?>
