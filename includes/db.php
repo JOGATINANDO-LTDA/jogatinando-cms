@@ -164,7 +164,8 @@ function getMigrationList() {
           27 => 'add_team_member_user_id',
            28 => 'add_aspect_ratio_to_games',
             29 => 'add_iframe_width_height_to_games',
-            30 => 'create_sync_queue',
+             30 => 'create_sync_queue',
+            31 => 'normalize_media_urls_s3_settings',
     ];
 }
 

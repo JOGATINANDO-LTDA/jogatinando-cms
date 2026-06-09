@@ -154,7 +154,7 @@ $footerDescription = getSetting('footer_description', '');
             <?php if (!empty($banners)): ?>
             <div class="hero-carousel">
                 <?php foreach ($banners as $i => $banner): ?>
-                <div class="hero-slide <?= $i === 0 ? 'active' : '' ?>" style="background-image: url('<?= e($banner['image_url']) ?>')">
+                <div class="hero-slide <?= $i === 0 ? 'active' : '' ?>" style="background-image: url('<?= e(mediaUrl($banner['image_url'])) ?>')">
                     <div class="hero-overlay"></div>
                     <div class="hero-content">
                         <h1><?= e($banner['title']) ?></h1>
@@ -303,7 +303,7 @@ $footerDescription = getSetting('footer_description', '');
                     <a href="/<?= e($engineSlug) ?>/<?= e($game['slug']) ?>" class="blog-card game-card-compact">
                     <?php if ($game['thumbnail_url']): ?>
                     <div class="blog-thumb">
-                        <img src="<?= e($game['thumbnail_url']) ?>" alt="<?= e($game['title']) ?>">
+                        <img src="<?= e(mediaUrl($game['thumbnail_url'])) ?>" alt="<?= e($game['title']) ?>">
                     </div>
                     <?php endif; ?>
                     <div class="blog-content">
@@ -338,7 +338,7 @@ $footerDescription = getSetting('footer_description', '');
                 <article class="blog-card">
                     <?php if ($post['thumbnail_url']): ?>
                     <div class="blog-thumb">
-                        <img src="<?= e($post['thumbnail_url']) ?>" alt="<?= e($post['title']) ?>">
+                        <img src="<?= e(mediaUrl($post['thumbnail_url'])) ?>" alt="<?= e($post['title']) ?>">
                     </div>
                     <?php endif; ?>
                     <div class="blog-content">
@@ -384,7 +384,7 @@ $footerDescription = getSetting('footer_description', '');
                     <p class="testimonial-text">"<?= e($t['quote']) ?>"</p>
                     <div class="testimonial-author">
                         <?php if ($t['avatar_url']): ?>
-                        <img src="<?= e($t['avatar_url']) ?>" alt="<?= e($t['name']) ?>" class="testimonial-avatar">
+                        <img src="<?= e(mediaUrl($t['avatar_url'])) ?>" alt="<?= e($t['name']) ?>" class="testimonial-avatar">
                         <?php else: ?>
                         <div class="testimonial-avatar"><?= strtoupper(substr($t['name'], 0, 2)) ?></div>
                         <?php endif; ?>
@@ -450,7 +450,7 @@ $footerDescription = getSetting('footer_description', '');
                 <?php foreach ($teamMembers as $m): ?>
                 <div class="team-card">
                     <?php if ($m['avatar_url']): ?>
-                    <img src="<?= e($m['avatar_url']) ?>" alt="<?= e($m['name']) ?>" class="team-avatar">
+                    <img src="<?= e(mediaUrl($m['avatar_url'])) ?>" alt="<?= e($m['name']) ?>" class="team-avatar">
                     <?php else: ?>
                     <div class="team-avatar-placeholder"><?= strtoupper(substr($m['name'], 0, 1)) ?></div>
                     <?php endif; ?>
