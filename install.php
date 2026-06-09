@@ -229,8 +229,6 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
     file_put_contents(DATA_PATH . '/config.local.php', $content);
     $persistentDir = dirname(ROOT_PATH);
     file_put_contents($persistentDir . '/config.local.php', $content);
-    @touch(DATA_PATH . '/.installed');
-    @touch($persistentDir . '/.installed');
 }
 
 function shouldRemoveInstall() {
