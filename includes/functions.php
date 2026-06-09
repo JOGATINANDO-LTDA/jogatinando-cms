@@ -128,6 +128,29 @@ function generateSlug($text) {
     return $text;
 }
 
+function getFileMimeType($path) {
+    if (function_exists('finfo_open')) {
+        $finfo = @finfo_open(FILEINFO_MIME_TYPE);
+        if ($finfo !== false) {
+            $mime = @finfo_file($finfo, $path);
+            @finfo_close($finfo);
+            if ($mime !== false && $mime !== '') return $mime;
+        }
+    }
+    if (function_exists('mime_content_type')) {
+        $mime = @mime_content_type($path);
+        if ($mime !== false && $mime !== '') return $mime;
+    }
+    $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+    $map = [
+        'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg',
+        'png' => 'image/png', 'gif' => 'image/gif',
+        'webp' => 'image/webp', 'svg' => 'image/svg+xml',
+        'ico' => 'image/x-icon', 'zip' => 'application/zip',
+    ];
+    return $map[$ext] ?? 'application/octet-stream';
+}
+
 function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp']) {
     if (!isset($file['error']) || is_array($file['error'])) {
         return ['success' => false, 'message' => 'Upload inválido.'];
@@ -140,25 +163,27 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
         case UPLOAD_ERR_FORM_SIZE:
             return ['success' => false, 'message' => 'Arquivo muito grande. Máximo: ' . (MAX_UPLOAD_SIZE / 1024 / 1024) . 'MB'];
         default:
+            error_log('uploadFile: código de erro ' . $file['error'] . ' para ' . ($file['name'] ?? 'unknown'));
             return ['success' => false, 'message' => 'Erro no upload (código: ' . $file['error'] . ').'];
     }
 
     if ($file['size'] > MAX_UPLOAD_SIZE) {
+        error_log('uploadFile: tamanho excedido ' . $file['size'] . ' > ' . MAX_UPLOAD_SIZE);
         return ['success' => false, 'message' => 'Arquivo excede o tamanho máximo.'];
     }
 
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     if (!in_array($ext, $allowedExtensions)) {
+        error_log('uploadFile: extensão rejeitada .' . $ext);
         return ['success' => false, 'message' => 'Extensão não permitida: .' . $ext];
     }
 
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mime = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
+    $mime = getFileMimeType($file['tmp_name']);
     $allowedMimes = [
         'image/jpeg','image/png','image/gif','image/webp',
     ];
     if (!in_array($mime, $allowedMimes)) {
+        error_log('uploadFile: MIME rejeitado ' . $mime . ' para ' . ($file['name'] ?? 'unknown'));
         return ['success' => false, 'message' => 'Tipo de arquivo não permitido.'];
     }
 
@@ -167,6 +192,7 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
     $s3Name = 'uploads/' . $relPath;
 
     if (!Storage::upload($file['tmp_name'], $relPath)) {
+        error_log('uploadFile: Storage::upload falhou para ' . $relPath);
         return ['success' => false, 'message' => 'Falha ao salvar o arquivo.'];
     }
 
@@ -217,9 +243,7 @@ function uploadRetroRom($file, $consoleSlug, $gameSlug, $type = 'original', $all
         return ['success' => false, 'message' => 'Extensão não permitida: .' . $ext];
     }
 
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mime = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
+    $mime = getFileMimeType($file['tmp_name']);
     $blockedMimes = ['text/html', 'text/php', 'application/x-php', 'application/x-httpd-php', 'application/x-javascript', 'text/javascript', 'application/json'];
     if (in_array($mime, $blockedMimes)) {
         return ['success' => false, 'message' => 'Tipo de arquivo não permitido.'];
@@ -533,19 +557,20 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
     }
 
     if ($file['size'] > MAX_UPLOAD_SIZE) {
+        error_log("uploadAndExtractGame: tamanho excedido {$file['size']}");
         return ['success' => false, 'message' => 'Arquivo muito grande. Máximo: ' . (MAX_UPLOAD_SIZE / 1024 / 1024) . 'MB'];
     }
 
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
     if (!in_array($ext, ALLOWED_GAME_EXTENSIONS)) {
+        error_log('uploadAndExtractGame: extensão rejeitada .' . $ext);
         return ['success' => false, 'message' => 'Formato não suportado. Use: ' . implode(', ', ALLOWED_GAME_EXTENSIONS)];
     }
 
-    $finfo = finfo_open(FILEINFO_MIME_TYPE);
-    $mime = finfo_file($finfo, $file['tmp_name']);
-    finfo_close($finfo);
+    $mime = getFileMimeType($file['tmp_name']);
     $allowedMimes = ['application/zip', 'application/x-zip-compressed', 'application/gzip', 'application/x-gzip', 'application/x-tar'];
     if (!in_array($mime, $allowedMimes)) {
+        error_log("uploadAndExtractGame: MIME rejeitado {$mime} para " . ($file['name'] ?? 'unknown'));
         return ['success' => false, 'message' => 'Tipo de arquivo não permitido. Apenas arquivos .zip compactados são aceitos.'];
     }
 
@@ -560,6 +585,7 @@ function uploadAndExtractGame($file, $engine, $gameTitle) {
 
     $tmpRelPath = $gameRelDir . '/_upload.' . $ext;
     if (!Storage::upload($file['tmp_name'], $tmpRelPath)) {
+        error_log("uploadAndExtractGame: Storage::upload falhou para {$tmpRelPath}");
         return ['success' => false, 'message' => 'Falha ao salvar o arquivo.'];
     }
 
