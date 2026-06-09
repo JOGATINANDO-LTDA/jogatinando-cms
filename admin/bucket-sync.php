@@ -28,6 +28,26 @@ function s3SyncFile($localPath, $s3Name) {
     return 'failed: ' . S3::getLastUploadError();
 }
 
+function syncDirToS3($localDir, $s3Prefix) {
+    if (!is_dir($localDir)) return [];
+    $results = [];
+    $it = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($localDir, RecursiveDirectoryIterator::SKIP_DOTS)
+    );
+    foreach ($it as $file) {
+        if (!$file->isFile()) continue;
+        $relPath = substr($file->getPathname(), strlen($localDir) + 1);
+        $s3Name = rtrim($s3Prefix, '/') . '/' . str_replace('\\', '/', $relPath);
+        $result = s3SyncFile($file->getPathname(), $s3Name);
+        if ($result === 'uploaded') $results[] = "⬆ {$s3Name}";
+        elseif (str_starts_with($result, 'failed')) {
+            $reason = substr($result, 7);
+            $results[] = "❌ {$s3Name} — {$reason}";
+        }
+    }
+    return $results;
+}
+
 $results = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
@@ -131,21 +151,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $failed++;
             }
         }
-        // Restore game extraction dirs from S3 zips
-        $games = dbQuery("SELECT id, game_path, engine, title FROM games WHERE game_path IS NOT NULL AND game_path != ''");
-        foreach ($games as $game) {
-            $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
+        // Restore game dirs from S3
+        $glist = dbQuery("SELECT id, game_path, engine, title FROM games WHERE game_path IS NOT NULL AND game_path != ''");
+        foreach ($glist as $g) {
+            $gameDir = UPLOAD_PATH . '/games/' . $g['game_path'];
             if (is_dir($gameDir)) { $skipped++; continue; }
-            $engineSlug = explode('/', $game['game_path'])[0];
-            $gameSlug = explode('/', $game['game_path'])[1] ?? $game['game_path'];
-            $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.zip';
-            if (!Storage::s3FileExists($zipS3Name)) { $failed++; continue; }
-            if (Storage::extractFromS3Zip($zipS3Name, 'games/' . $game['game_path'])) {
-                $results[] = "⬇ games/{$game['game_path']} (extraído do ZIP)";
-                $restored++;
-            } else {
-                $results[] = "❌ games/{$game['game_path']} — falha ao extrair ZIP";
-                $failed++;
+            $s3Prefix = 'uploads/games/' . $g['game_path'] . '/';
+            $s3Files = S3::listFiles($s3Prefix);
+            if (empty($s3Files)) { $failed++; continue; }
+            foreach ($s3Files as $sf) {
+                $rel = substr($sf['key'], strlen($s3Prefix));
+                $localFile = $gameDir . '/' . $rel;
+                $dir = dirname($localFile);
+                if (!is_dir($dir)) @mkdir($dir, 0755, true);
+                if (Storage::downloadFromS3($sf['key'], $localFile)) {
+                    $results[] = "⬇ {$sf['key']}";
+                    $restored++;
+                } else {
+                    $err = Storage::getS3DownloadError();
+                    $results[] = "❌ {$sf['key']} — {$err}";
+                    $failed++;
+                }
+                $count++;
+                if ($count % 5 === 0) {
+                    echo "<script>document.getElementById('restore-progress').textContent = '{$restored} restaurados, {$skipped} ignorados, {$failed} falhas';</script>\n";
+                    flush();
+                }
             }
         }
         $results[] = "Restaurados: {$restored}, ignorados (já existem): {$skipped}, falhas: {$failed}.";
@@ -160,34 +191,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         foreach ($games as $game) {
             $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
             if (!is_dir($gameDir)) continue;
-            $engineSlug = explode('/', $game['game_path'])[0];
-            $gameSlug = explode('/', $game['game_path'])[1] ?? $game['game_path'];
-            $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.zip';
-            if (!S3::fileExists($zipS3Name)) {
-                $tmpZip = UPLOAD_PATH . '/_b2tmp/' . $gameSlug . '.zip';
-                if (!is_dir(dirname($tmpZip))) mkdir(dirname($tmpZip), 0755, true);
-                $zip = new ZipArchive();
-                if ($zip->open($tmpZip, ZipArchive::CREATE) === true) {
-                    $items = scandir($gameDir);
-                    foreach ($items as $item) {
-                        if ($item === '.' || $item === '..') continue;
-                        $itemPath = $gameDir . '/' . $item;
-                        if (is_file($itemPath)) {
-                            $zip->addFile($itemPath, $item);
-                        }
-                    }
-                    $zip->close();
-                    if (S3::upload($tmpZip, $zipS3Name)) {
-                        $results[] = "✅ {$zipS3Name}";
-                    } else {
-                        $err = S3::getLastUploadError();
-                        $results[] = "❌ {$zipS3Name} — {$err}";
-                    }
-                    unlink($tmpZip);
-                }
-            } else {
-                $results[] = "⏭ {$zipS3Name} (já existe)";
-            }
+            $s3Prefix = 'uploads/games/' . $game['game_path'];
+            $r = syncDirToS3($gameDir, $s3Prefix);
+            array_push($results, ...$r);
+            if (empty($r)) $results[] = "⏭ games/{$game['game_path']} (sem arquivos)";
         }
         flashMessage('success', 'Jogos sincronizados.');
     }
@@ -238,32 +245,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         foreach ($games as $game) {
             $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
             if (!is_dir($gameDir)) continue;
-            $engineSlug = explode('/', $game['game_path'])[0];
-            $gameSlug = explode('/', $game['game_path'])[1] ?? $game['game_path'];
-            $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.zip';
-            if (!S3::fileExists($zipS3Name)) {
-                $tmpZip = UPLOAD_PATH . '/_b2tmp/' . $gameSlug . '.zip';
-                if (!is_dir(dirname($tmpZip))) mkdir(dirname($tmpZip), 0755, true);
-                $zip = new ZipArchive();
-                if ($zip->open($tmpZip, ZipArchive::CREATE) === true) {
-                    $items = scandir($gameDir);
-                    foreach ($items as $item) {
-                        if ($item === '.' || $item === '..') continue;
-                        $itemPath = $gameDir . '/' . $item;
-                        if (is_file($itemPath)) { $zip->addFile($itemPath, $item); }
-                    }
-                    $zip->close();
-                    if (S3::upload($tmpZip, $zipS3Name)) {
-                        $results[] = "⬆ {$zipS3Name}";
-                    } else {
-                        $err = S3::getLastUploadError();
-                        $results[] = "❌ {$zipS3Name} — {$err}";
-                    }
-                    unlink($tmpZip);
-                }
-            } else {
-                $results[] = "⏭ {$zipS3Name} (já existe)";
-            }
+            $s3Prefix = 'uploads/games/' . $game['game_path'];
+            $r = syncDirToS3($gameDir, $s3Prefix);
+            array_push($results, ...$r);
         }
 
         $retroBase = UPLOAD_PATH . '/retro';
@@ -291,42 +275,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
 
-        $cfg = S3::getResolvedConfig();
-        $publicUrl = $cfg['public_url'];
-        $bucket = $cfg['bucket'];
-        $endpoint = $cfg['endpoint'];
-        $baseUrl = $publicUrl !== '' ? rtrim($publicUrl, '/') : '';
-        if ($baseUrl === '' && $endpoint !== '' && $bucket !== '') {
-            $baseUrl = rtrim($endpoint, '/') . '/' . $bucket;
-        }
-        if ($baseUrl !== '') {
-            $urlTables = [
-                ['table' => 'games', 'column' => 'thumbnail_url'],
-                ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
-                ['table' => 'banners', 'column' => 'image_url'],
-                ['table' => 'team_members', 'column' => 'avatar_url'],
-                ['table' => 'testimonials', 'column' => 'avatar_url'],
-                ['table' => 'users', 'column' => 'avatar_url'],
-                ['table' => 'retro_games', 'column' => 'rom_path'],
-                ['table' => 'retro_games', 'column' => 'thumbnail_url'],
-                ['table' => 'game_templates', 'column' => 'thumbnail_url'],
-                ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
-                ['table' => 'store_platforms', 'column' => 'logo_path'],
-            ];
-            $updated = 0;
-            foreach ($urlTables as $t) {
-                $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE '/uploads/%'");
-                foreach ($rows as $row) {
-                    $oldUrl = $row[$t['column']];
-                    if (empty($oldUrl)) continue;
-                    $s3Name = 'uploads' . substr($oldUrl, 8);
-                    $newUrl = rtrim($baseUrl, '/') . '/' . ltrim($s3Name, '/');
-                    dbExec("UPDATE {$t['table']} SET {$t['column']} = ? WHERE id = ?", [$newUrl, $row['id']]);
-                    $updated++;
+        // === Download phase: baixar do S3 o que falta localmente ===
+        $tables = [
+            ['table' => 'games', 'column' => 'thumbnail_url'],
+            ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
+            ['table' => 'banners', 'column' => 'image_url'],
+            ['table' => 'team_members', 'column' => 'avatar_url'],
+            ['table' => 'testimonials', 'column' => 'avatar_url'],
+            ['table' => 'users', 'column' => 'avatar_url'],
+            ['table' => 'retro_games', 'column' => 'thumbnail_url'],
+            ['table' => 'game_templates', 'column' => 'thumbnail_url'],
+            ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+            ['table' => 'store_platforms', 'column' => 'logo_path'],
+        ];
+        $downloaded = 0; $skippedDownload = 0; $failedDownload = 0;
+        $seen = [];
+        foreach ($tables as $t) {
+            $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%' OR {$t['column']} LIKE '/uploads/%'");
+            foreach ($rows as $row) {
+                $url = $row[$t['column']];
+                $parts = explode('/uploads/', $url, 2);
+                if (!isset($parts[1])) continue;
+                $suffix = $parts[1];
+                $s3Key = 'uploads/' . $suffix;
+                if (isset($seen[$s3Key])) continue;
+                $seen[$s3Key] = true;
+                $localPath = UPLOAD_PATH . '/' . $suffix;
+                if (file_exists($localPath)) { $skippedDownload++; continue; }
+                $dir = dirname($localPath);
+                if (!is_dir($dir)) @mkdir($dir, 0755, true);
+                if (Storage::downloadFromS3($s3Key, $localPath)) {
+                    $results[] = "⬇ {$s3Key}";
+                    $downloaded++;
+                } else {
+                    $err = Storage::getS3DownloadError();
+                    $results[] = "❌ {$s3Key} — {$err}";
+                    $failedDownload++;
                 }
             }
-            $results[] = "URLs atualizadas: {$updated} registros.";
         }
+        foreach (['site_logo_url', 'site_favicon_url'] as $key) {
+            $val = getSetting($key, '');
+            if ($val === '') continue;
+            $parts = explode('/uploads/', $val, 2);
+            if (!isset($parts[1])) continue;
+            $suffix = $parts[1];
+            $s3Key = 'uploads/' . $suffix;
+            if (isset($seen[$s3Key])) continue;
+            $seen[$s3Key] = true;
+            $localPath = UPLOAD_PATH . '/' . $suffix;
+            if (file_exists($localPath)) { $skippedDownload++; continue; }
+            $dir = dirname($localPath);
+            if (!is_dir($dir)) @mkdir($dir, 0755, true);
+            if (Storage::downloadFromS3($s3Key, $localPath)) {
+                $results[] = "⬇ {$s3Key}";
+                $downloaded++;
+            }
+        }
+        // Download game dirs from S3
+        $glist = dbQuery("SELECT id, game_path, engine, title FROM games WHERE game_path IS NOT NULL AND game_path != ''");
+        foreach ($glist as $g) {
+            $gameDir = UPLOAD_PATH . '/games/' . $g['game_path'];
+            if (is_dir($gameDir)) { $skippedDownload++; continue; }
+            $s3Prefix = 'uploads/games/' . $g['game_path'] . '/';
+            $s3Files = S3::listFiles($s3Prefix);
+            if (empty($s3Files)) { $failedDownload++; continue; }
+            foreach ($s3Files as $sf) {
+                $rel = substr($sf['key'], strlen($s3Prefix));
+                $localFile = $gameDir . '/' . $rel;
+                $dir = dirname($localFile);
+                if (!is_dir($dir)) @mkdir($dir, 0755, true);
+                if (!file_exists($localFile)) {
+                    if (Storage::downloadFromS3($sf['key'], $localFile)) {
+                        $results[] = "⬇ {$sf['key']}";
+                        $downloaded++;
+                    } else {
+                        $err = Storage::getS3DownloadError();
+                        $results[] = "❌ {$sf['key']} — {$err}";
+                        $failedDownload++;
+                    }
+                } else {
+                    $skippedDownload++;
+                }
+            }
+        }
+        $results[] = "Upload concluído. Download: {$downloaded} baixados, {$skippedDownload} ignorados, {$failedDownload} falhas.";
         flashMessage('success', 'Sincronização completa finalizada.');
     }
 
@@ -553,10 +586,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
             if (!is_dir($gameDir)) { $skipped++; continue; }
             $total++;
-            $engineSlug = explode('/', $game['game_path'])[0];
-            $gameSlug = explode('/', $game['game_path'])[1] ?? $game['game_path'];
-            $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.zip';
-            if (S3::fileExists($zipS3Name)) {
+            $s3Prefix = 'uploads/games/' . $game['game_path'] . '/';
+            if (!empty(S3::listFiles($s3Prefix))) {
                 $it = new RecursiveDirectoryIterator($gameDir, RecursiveDirectoryIterator::SKIP_DOTS);
                 $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
                 foreach ($files as $f) {
@@ -571,7 +602,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $results[] = "❌ Falha ao remover diretório {$game['game_path']}";
                 }
             } else {
-                $results[] = "⏭ {$game['title']} (ZIP não encontrado no S3)";
+                $results[] = "⏭ {$game['title']} (diretório não encontrado no S3)";
                 $skipped++;
             }
         }
@@ -593,7 +624,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
             ['table' => 'store_platforms', 'column' => 'logo_path'],
         ];
-        $prefixes = ['uploads/thumbnails/', 'uploads/banners/', 'uploads/blog/', 'uploads/avatars/', 'uploads/platforms/', 'uploads/retro/', 'zips/'];
+        $prefixes = ['uploads/thumbnails/', 'uploads/banners/', 'uploads/blog/', 'uploads/avatars/', 'uploads/platforms/', 'uploads/retro/', 'uploads/games/'];
         $s3Files = [];
         foreach ($prefixes as $prefix) {
             $files = S3::listFiles($prefix);
@@ -621,11 +652,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
 
-        // game_path → zips/{engine}/{slug}.zip
-        $gamePaths = dbQuery("SELECT game_path FROM games WHERE game_path IS NOT NULL AND game_path != ''");
-        foreach ($gamePaths as $gp) {
-            $referenced['zips/' . $gp['game_path'] . '.zip'] = true;
-        }
         // game_templates.game_path → S3 key
         $tmplPaths = dbQuery("SELECT game_path FROM game_templates WHERE game_path IS NOT NULL AND game_path != ''");
         foreach ($tmplPaths as $tp) {
@@ -636,14 +662,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $parts = explode('/uploads/', $tp['game_path'], 2);
                 if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
             }
-        }
-        // retro_games.rom_path → uploads/retro/{console}/rom|rommod/{path}
-        $romGames = dbQuery("SELECT console, rom_path FROM retro_games WHERE rom_path IS NOT NULL AND rom_path != ''");
-        foreach ($romGames as $rg) {
-            $console = $rg['console'];
-            $rp = ltrim($rg['rom_path'], '/');
-            $referenced['uploads/retro/' . $console . '/rom/' . $rp] = true;
-            $referenced['uploads/retro/' . $console . '/rommod/' . $rp] = true;
         }
 
         $orphans = [];
@@ -692,7 +710,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
             ['table' => 'store_platforms', 'column' => 'logo_path'],
         ];
-        $prefixes = ['uploads/thumbnails/', 'uploads/banners/', 'uploads/blog/', 'uploads/avatars/', 'uploads/platforms/', 'uploads/retro/', 'zips/'];
+        $prefixes = ['uploads/thumbnails/', 'uploads/banners/', 'uploads/blog/', 'uploads/avatars/', 'uploads/platforms/', 'uploads/retro/', 'uploads/games/'];
         $s3Files = [];
         foreach ($prefixes as $prefix) {
             $files = S3::listFiles($prefix);
@@ -720,11 +738,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
         }
 
-        // game_path → zips/{engine}/{slug}.zip
-        $gamePaths = dbQuery("SELECT game_path FROM games WHERE game_path IS NOT NULL AND game_path != ''");
-        foreach ($gamePaths as $gp) {
-            $referenced['zips/' . $gp['game_path'] . '.zip'] = true;
-        }
         // game_templates.game_path → S3 key
         $tmplPaths = dbQuery("SELECT game_path FROM game_templates WHERE game_path IS NOT NULL AND game_path != ''");
         foreach ($tmplPaths as $tp) {
@@ -735,14 +748,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $parts = explode('/uploads/', $tp['game_path'], 2);
                 if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
             }
-        }
-        // retro_games.rom_path → uploads/retro/{console}/rom|rommod/{path}
-        $romGames = dbQuery("SELECT console, rom_path FROM retro_games WHERE rom_path IS NOT NULL AND rom_path != ''");
-        foreach ($romGames as $rg) {
-            $console = $rg['console'];
-            $rp = ltrim($rg['rom_path'], '/');
-            $referenced['uploads/retro/' . $console . '/rom/' . $rp] = true;
-            $referenced['uploads/retro/' . $console . '/rommod/' . $rp] = true;
         }
 
         $deleted = 0; $failed = 0; $skipped = 0;
@@ -786,11 +791,11 @@ if (is_dir($retroBase)) {
 }
 $localGames = count(dbQuery("SELECT id FROM games WHERE game_path IS NOT NULL AND game_path != ''"));
 
-$s3Images = 0; $s3Roms = 0; $s3Zips = 0;
+$s3Images = 0; $s3Roms = 0; $s3Games = 0;
 if ($s3Configured) {
     $s3Images = count(S3::listFiles('uploads/thumbnails/')) + count(S3::listFiles('uploads/banners/')) + count(S3::listFiles('uploads/blog/')) + count(S3::listFiles('uploads/avatars/')) + count(S3::listFiles('uploads/platforms/'));
     $s3Roms = count(S3::listFiles('uploads/retro/'));
-    $s3Zips = count(S3::listFiles('zips/'));
+    $s3Games = count(S3::listFiles('uploads/games/'));
 }
 
 $syncQueueCount = getSyncQueueCount();
@@ -830,8 +835,8 @@ $serveMedia = getSetting('s3_serve_media', '0');
             </div>
             <div class="stat-box" style="background: oklch(12% 0.02 260); padding: 16px; border-radius: 8px; border: 1px solid var(--border); text-align:center;">
                 <div style="font-size: 28px; font-weight: 800; color: var(--gold);"><?= $localGames ?></div>
-                <div style="font-size: 13px; color: var(--muted);">Jogos (ZIPs)</div>
-                <div style="font-size: 12px; color: oklch(65% 0.18 145);"><?= $s3Zips ?> no S3</div>
+                <div style="font-size: 13px; color: var(--muted);">Jogos (local)</div>
+                <div style="font-size: 12px; color: oklch(65% 0.18 145);"><?= $s3Games ?> no S3</div>
             </div>
             <div class="stat-box" style="background: oklch(12% 0.02 260); padding: 16px; border-radius: 8px; border: 1px solid var(--border); text-align:center;">
                 <div style="font-size: 28px; font-weight: 800; color: var(--gold);"><?= $localRoms ?></div>
