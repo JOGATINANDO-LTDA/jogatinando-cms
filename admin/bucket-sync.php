@@ -845,12 +845,12 @@ $serveMedia = getSetting('s3_serve_media', '0');
     <form method="POST">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="clean_orphans_s3">
-        <button type="submit" class="btn btn-outline" style="color: oklch(65% 0.20 35); border-color: oklch(55% 0.20 35);"> Limpar rfaos do S3</button>
+        <button type="submit" class="btn btn-outline" style="color: oklch(65% 0.20 35); border-color: oklch(55% 0.20 35);"> Limpar órfãos do S3</button>
     </form>
 </div>
 
 <details style="margin-bottom: 24px;">
-    <summary style="cursor: pointer; color: var(--muted); font-size: 13px;">Avanado</summary>
+    <summary style="cursor: pointer; color: var(--muted); font-size: 13px;">Avançado</summary>
     <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
         <form method="POST">
             <?= csrfField() ?>
@@ -944,8 +944,8 @@ var confirmMsgs = {
     clean_games: 'Remover diretrios de jogos extraos que j possuem ZIP no S3?\nEles sero re-extraos automaticamente ao jogar.',
     clean_roms: 'Remover ROMs locais que j existem no S3?',
     process_sync_queue: 'Enviar arquivos pendentes da fila para o S3?',
-    check_integrity: 'Verificar integridade das referncias entre BD e S3?\n\nLista objetos no S3, compara com URLs do BD, mostra rfaos e quebrados.',
-    clean_orphans_s3: 'Remover objetos rfaos do S3?\n\nIsso deletar TODOS os objetos do bucket que no tm referncia no banco de dados. Recomendado executar "Verificar Integridade" antes.',
+    check_integrity: 'Verificar integridade das referências entre BD e S3?\n\nLista objetos no S3, compara com URLs do BD, mostra órfãos e quebrados.',
+    clean_orphans_s3: 'Remover objetos órfãos do S3?\n\nIsso deletará TODOS os objetos do bucket que não têm referência no banco de dados. Recomendado executar "Verificar Integridade" antes.',
 };
 document.querySelectorAll('form[method="POST"]').forEach(function(f) {
     f.addEventListener('submit', function(e) {
