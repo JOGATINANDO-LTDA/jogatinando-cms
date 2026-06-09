@@ -121,8 +121,15 @@ class Storage {
     }
 
     public static function downloadFromS3($s3Name, $localPath) {
-        if (!self::isS3Configured()) return false;
+        if (!self::isS3Configured()) {
+            error_log("Storage::downloadFromS3: S3 not configured");
+            return false;
+        }
         return S3::download($s3Name, $localPath);
+    }
+
+    public static function getS3DownloadError() {
+        return S3::getLastDownloadError();
     }
 
     public static function extractFromS3Zip($zipS3Name, $destRelDir) {

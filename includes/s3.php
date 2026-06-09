@@ -214,9 +214,22 @@ class S3 {
         return in_array($httpCode, [200, 204]);
     }
 
+    private static $downloadError = '';
+
+    public static function getLastDownloadError() {
+        return self::$downloadError;
+    }
+
     public static function download($s3Name, $localPath) {
+        self::$downloadError = '';
         $dir = dirname($localPath);
-        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        if (!is_dir($dir)) {
+            if (!@mkdir($dir, 0755, true)) {
+                self::$downloadError = "Falha ao criar diretório: {$dir}";
+                error_log("S3::download FAILED to create dir {$dir}");
+                return false;
+            }
+        }
 
         $endpoint = rtrim(self::$cfgEndpoint, '/');
         $uri = '/' . self::$cfgBucket . '/' . ltrim($s3Name, '/');
@@ -238,8 +251,9 @@ class S3 {
         $signature = self::sign('GET', $signPath, $signQuery, $headers, $payloadHash, $amzDate);
         $headers['Authorization'] = $signature;
 
-        $fp = fopen($localPath, 'wb');
+        $fp = @fopen($localPath, 'wb');
         if (!$fp) {
+            self::$downloadError = "Falha ao abrir arquivo para escrita: {$localPath}";
             error_log("S3::download FAILED to open {$localPath} for writing");
             return false;
         }
@@ -256,13 +270,22 @@ class S3 {
             CURLOPT_FILE           => $fp,
             CURLOPT_FOLLOWLOCATION => true,
         ]);
-        curl_exec($ch);
+        $resp = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
         curl_close($ch);
         fclose($fp);
 
+        if ($resp === false) {
+            @unlink($localPath);
+            self::$downloadError = "Erro de rede: {$curlErr}";
+            error_log("S3::download FAILED for {$s3Name}: curl_error={$curlErr}");
+            return false;
+        }
+
         if ($httpCode !== 200) {
             @unlink($localPath);
+            self::$downloadError = "HTTP {$httpCode}";
             error_log("S3::download FAILED for {$s3Name}: HTTP {$httpCode}");
             return false;
         }
