@@ -17,14 +17,14 @@ class Storage {
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
+        if (copy($sourcePath, $destPath)) {
+            @unlink($sourcePath);
+            return true;
+        }
         if (is_uploaded_file($sourcePath)) {
             return move_uploaded_file($sourcePath, $destPath);
         }
         if (rename($sourcePath, $destPath)) {
-            return true;
-        }
-        if (copy($sourcePath, $destPath)) {
-            unlink($sourcePath);
             return true;
         }
         return false;
