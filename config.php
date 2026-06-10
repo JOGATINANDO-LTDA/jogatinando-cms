@@ -11,10 +11,13 @@ $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
 if (!defined('ROOT_PATH')) define('ROOT_PATH', dirname(__FILE__));
 if (!defined('DATA_PATH')) define('DATA_PATH', ROOT_PATH . '/data');
 
-// Local session files (avoids /tmp contention on shared hosting)
+// Local session files (avoids /tmp contention on shared hosting).
+// Falls back to default save path if data/ is not writable.
 $sessionPath = DATA_PATH . '/sessions';
-if (!is_dir($sessionPath)) @mkdir($sessionPath, 0700, true);
-session_save_path($sessionPath);
+if (!is_dir($sessionPath)) { @mkdir($sessionPath, 0700, true); }
+if (is_dir($sessionPath) && is_writable($sessionPath)) {
+    session_save_path($sessionPath);
+}
 
 session_set_cookie_params([
     'lifetime' => 0,
@@ -31,20 +34,49 @@ if (!defined('DB_PATH')) define('DB_PATH', DATA_PATH . '/jogatinando.db');
 
 define('CMS_VERSION', '1.1.0');
 define('LOCAL_CONFIG', DATA_PATH . '/config.local.php');
+define('LOCAL_CONFIG_PERSISTENT', dirname(ROOT_PATH) . '/config.local.php');
 
-// Load local config from data/ first
-if (file_exists(LOCAL_CONFIG)) {
+// Track which file was loaded for write ops (version mismatch, etc.)
+$activeConfig = null;
+
+// Load config — persistent (outside webroot) first, then data/ (legacy)
+if (file_exists(LOCAL_CONFIG_PERSISTENT)) {
+    require_once LOCAL_CONFIG_PERSISTENT;
+    $activeConfig = LOCAL_CONFIG_PERSISTENT;
+} elseif (file_exists(LOCAL_CONFIG)) {
     require_once LOCAL_CONFIG;
+    $activeConfig = LOCAL_CONFIG;
 }
 
 if (!defined('INSTALL_LOCK')) {
-    $envLock = $_ENV['INSTALL_LOCK'] ?? '';
+    $envLock = getenv('INSTALL_LOCK') ?: '';
     define('INSTALL_LOCK', $envLock === '1' || $envLock === 'true');
 }
 
-// Auto-migrate legacy root config.local.php → data/
+// DB config from environment (fallback when config.local.php is absent)
+// Uses getenv() which works in Apache mod_php (unlike $_ENV by default)
+if (!defined('DB_TYPE')) {
+    $envType = getenv('DB_TYPE') ?: '';
+    if (in_array($envType, ['mysql', 'sqlite'])) {
+        define('DB_TYPE', $envType);
+    }
+}
+if (!defined('DB_HOST')) {
+    $envHost = getenv('DB_HOST') ?: '';
+    if ($envHost !== '') define('DB_HOST', $envHost);
+}
+if (!defined('DB_USER')) {
+    $envUser = getenv('DB_USER') ?: '';
+    if ($envUser !== '') define('DB_USER', $envUser);
+}
+if (!defined('DB_PASS')) {
+    $envPass = getenv('DB_PASS');
+    if ($envPass !== false) define('DB_PASS', $envPass);
+}
+
+// Auto-migrate legacy root config.local.php → persistent (outside webroot)
 $legacyConfig = ROOT_PATH . '/config.local.php';
-if (file_exists($legacyConfig) && !file_exists(LOCAL_CONFIG)) {
+if (file_exists($legacyConfig) && $activeConfig === null) {
     $content = file_get_contents($legacyConfig);
     if (!str_contains($content, 'CMS_INSTALL_VERSION')) {
         $content = preg_replace(
@@ -53,24 +85,26 @@ if (file_exists($legacyConfig) && !file_exists(LOCAL_CONFIG)) {
             $content
         );
     }
-    if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
-    file_put_contents(LOCAL_CONFIG, $content);
-    unlink($legacyConfig);
-    require_once LOCAL_CONFIG;
+    $persistentDir = dirname(LOCAL_CONFIG_PERSISTENT);
+    if (!is_dir($persistentDir)) mkdir($persistentDir, 0755, true);
+    file_put_contents(LOCAL_CONFIG_PERSISTENT, $content);
+    @unlink($legacyConfig);
+    require_once LOCAL_CONFIG_PERSISTENT;
+    $activeConfig = LOCAL_CONFIG_PERSISTENT;
 }
 
 // Version mismatch — ask user before booting
 if (defined('CMS_INSTALL_VERSION') && CMS_INSTALL_VERSION !== CMS_VERSION) {
     $vAction = $_POST['vaction'] ?? '';
+    $configPath = $activeConfig ?? LOCAL_CONFIG;
     if ($vAction === 'keep') {
-        $oldPath = LOCAL_CONFIG;
-        $content = file_get_contents($oldPath);
+        $content = file_get_contents($configPath);
         $content = preg_replace(
             "/define\('CMS_INSTALL_VERSION',\s*'[^']*'\);/",
             "define('CMS_INSTALL_VERSION', '" . CMS_VERSION . "');",
             $content
         );
-        file_put_contents($oldPath, $content);
+        file_put_contents($configPath, $content);
         header('Location: ' . $_SERVER['REQUEST_URI']);
         exit;
     }
@@ -81,7 +115,7 @@ if (defined('CMS_INSTALL_VERSION') && CMS_INSTALL_VERSION !== CMS_VERSION) {
             exit('Token inválido. Recarregue a página e tente novamente.');
         }
         unset($_SESSION['fresh_nonce']);
-        if (!unlink(LOCAL_CONFIG)) {
+        if (!unlink($configPath)) {
             http_response_code(500);
             exit('Erro ao remover arquivo de configuração. Verifique permissões.');
         }
@@ -146,10 +180,10 @@ if (!defined('DB_PASS')) define('DB_PASS', '');
 // URLs
 if (defined('SITE_URL')) {
     // already defined in local config
-} elseif (!empty($_ENV['SITE_URL'])) {
-    define('SITE_URL', rtrim($_ENV['SITE_URL'], '/'));
+} elseif ($env = getenv('SITE_URL')) {
+    define('SITE_URL', rtrim($env, '/'));
 } elseif (php_sapi_name() !== 'cli') {
-    $proto = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || ($_SERVER['SERVER_PORT'] == 443) ? 'https' : 'http';
+    $proto = $isHttps ? 'https' : 'http';
     $host = strtolower(trim($_SERVER['HTTP_HOST'] ?? 'localhost'));
     $host = preg_replace('/[^a-z0-9.:\[\]-]/', '', $host);
     define('SITE_URL', $proto . '://' . $host);
@@ -160,21 +194,27 @@ if (!defined('ADMIN_URL')) define('ADMIN_URL', SITE_URL . '/admin');
 if (!defined('UPLOAD_URL')) define('UPLOAD_URL', SITE_URL . '/uploads');
 
 // S3-compatible storage (R2) — env via docker-compose, constants via config.local.php
-if (!defined('S3_ACCESS_KEY')) define('S3_ACCESS_KEY', $_ENV['S3_ACCESS_KEY'] ?? '');
-if (!defined('S3_SECRET_KEY')) define('S3_SECRET_KEY', $_ENV['S3_SECRET_KEY'] ?? '');
-if (!defined('S3_ENDPOINT')) define('S3_ENDPOINT', $_ENV['S3_ENDPOINT'] ?? '');
-if (!defined('S3_REGION')) define('S3_REGION', $_ENV['S3_REGION'] ?? 'auto');
-if (!defined('S3_BUCKET')) define('S3_BUCKET', $_ENV['S3_BUCKET'] ?? '');
-if (!defined('S3_PUBLIC_URL')) define('S3_PUBLIC_URL', $_ENV['S3_PUBLIC_URL'] ?? '');
+if (!defined('S3_ACCESS_KEY')) define('S3_ACCESS_KEY', getenv('S3_ACCESS_KEY') ?: '');
+if (!defined('S3_SECRET_KEY')) define('S3_SECRET_KEY', getenv('S3_SECRET_KEY') ?: '');
+if (!defined('S3_ENDPOINT')) define('S3_ENDPOINT', getenv('S3_ENDPOINT') ?: '');
+if (!defined('S3_REGION')) define('S3_REGION', getenv('S3_REGION') ?: 'auto');
+if (!defined('S3_BUCKET')) define('S3_BUCKET', getenv('S3_BUCKET') ?: '');
+if (!defined('S3_PUBLIC_URL')) define('S3_PUBLIC_URL', getenv('S3_PUBLIC_URL') ?: '');
 
 // Upload limits
 if (!defined('MAX_UPLOAD_SIZE')) define('MAX_UPLOAD_SIZE', 100 * 1024 * 1024);
 if (!defined('ALLOWED_GAME_EXTENSIONS')) define('ALLOWED_GAME_EXTENSIONS', ['zip']);
 if (!defined('ALLOWED_IMAGE_EXTENSIONS')) define('ALLOWED_IMAGE_EXTENSIONS', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
 
-// Admin credentials (seed-only, used by migration_001)
-if (!defined('ADMIN_USERNAME')) define('ADMIN_USERNAME', 'admin');
-if (!defined('ADMIN_PASSWORD_HASH')) define('ADMIN_PASSWORD_HASH', password_hash('admin1234', PASSWORD_DEFAULT));
+// Admin credentials (seed-only, used by migration_001 / dbSeed)
+if (!defined('ADMIN_USERNAME')) {
+    $envUser = getenv('ADMIN_USERNAME') ?: '';
+    define('ADMIN_USERNAME', $envUser !== '' ? $envUser : 'admin');
+}
+if (!defined('ADMIN_PASSWORD_HASH')) {
+    $envPass = getenv('ADMIN_PASSWORD') ?: '';
+    define('ADMIN_PASSWORD_HASH', password_hash($envPass !== '' ? $envPass : 'admin1234', PASSWORD_DEFAULT));
+}
 
 // Site info
 if (!defined('SITE_NAME')) define('SITE_NAME', 'CMS de Jogos');

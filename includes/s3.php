@@ -28,7 +28,8 @@ class S3 {
             $dbVal = getSetting('s3_' . strtolower($suffix));
             if ($dbVal !== '') return $dbVal;
         }
-        if (!empty($_ENV['S3_' . $suffix])) return $_ENV['S3_' . $suffix];
+        $envVal = getenv('S3_' . $suffix);
+        if ($envVal !== false && $envVal !== '') return $envVal;
         return '';
     }
 
@@ -150,7 +151,13 @@ class S3 {
     }
 
     public static function upload($localPath, $s3Name) {
-        if (!file_exists($localPath)) return false;
+        self::loadConfig();
+        self::$uploadError = '';
+        if (!file_exists($localPath)) {
+            self::$uploadError = "Arquivo local não encontrado: {$localPath}";
+            error_log("S3::upload FAILED: local file not found {$localPath}");
+            return false;
+        }
         $size = filesize($localPath);
         $ext = strtolower(pathinfo($s3Name, PATHINFO_EXTENSION));
         $mimeMap = [
@@ -188,35 +195,75 @@ class S3 {
             $httpHeaders[] = "$k: $v";
         }
 
-        $fp = fopen($localPath, 'rb');
-        if (!$fp) return false;
+        $fp = @fopen($localPath, 'rb');
+        if (!$fp) {
+            self::$uploadError = "Falha ao abrir arquivo para leitura: {$localPath}";
+            error_log("S3::upload FAILED: cannot open {$localPath}");
+            return false;
+        }
 
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_PUT            => true,
+            CURLOPT_CUSTOMREQUEST  => 'PUT',
+            CURLOPT_UPLOAD         => true,
             CURLOPT_HTTPHEADER     => $httpHeaders,
             CURLOPT_TIMEOUT        => 120,
             CURLOPT_INFILE         => $fp,
             CURLOPT_INFILESIZE     => $size,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
         ]);
 
         $resp = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
         curl_close($ch);
         fclose($fp);
 
         self::$lastResponseBody = $resp;
 
         if (!in_array($httpCode, [200, 204])) {
-            error_log("S3::upload FAILED: HTTP {$httpCode} for {$s3Name}");
+            $detail = '';
+            if ($resp !== false && $resp !== '') {
+                $xml = @simplexml_load_string($resp);
+                if ($xml && isset($xml->Code) && isset($xml->Message)) {
+                    $detail = (string)$xml->Code . ': ' . (string)$xml->Message;
+                } else {
+                    $detail = substr($resp, 0, 300);
+                }
+            } elseif ($curlErr !== '') {
+                $detail = $curlErr;
+            }
+            $errMsg = "S3::upload FAILED: HTTP {$httpCode} for {$s3Name}";
+            if ($detail !== '') $errMsg .= " — {$detail}";
+            self::$uploadError = $detail ?: "HTTP {$httpCode}";
+            error_log($errMsg);
         }
 
         return in_array($httpCode, [200, 204]);
     }
 
+    private static $downloadError = '';
+    private static $uploadError = '';
+
+    public static function getLastDownloadError() {
+        return self::$downloadError;
+    }
+
+    public static function getLastUploadError() {
+        return self::$uploadError;
+    }
+
     public static function download($s3Name, $localPath) {
+        self::$downloadError = '';
         $dir = dirname($localPath);
-        if (!is_dir($dir)) mkdir($dir, 0755, true);
+        if (!is_dir($dir)) {
+            if (!@mkdir($dir, 0755, true)) {
+                self::$downloadError = "Falha ao criar diretório: {$dir}";
+                error_log("S3::download FAILED to create dir {$dir}");
+                return false;
+            }
+        }
 
         $endpoint = rtrim(self::$cfgEndpoint, '/');
         $uri = '/' . self::$cfgBucket . '/' . ltrim($s3Name, '/');
@@ -238,8 +285,9 @@ class S3 {
         $signature = self::sign('GET', $signPath, $signQuery, $headers, $payloadHash, $amzDate);
         $headers['Authorization'] = $signature;
 
-        $fp = fopen($localPath, 'wb');
+        $fp = @fopen($localPath, 'wb');
         if (!$fp) {
+            self::$downloadError = "Falha ao abrir arquivo para escrita: {$localPath}";
             error_log("S3::download FAILED to open {$localPath} for writing");
             return false;
         }
@@ -256,13 +304,22 @@ class S3 {
             CURLOPT_FILE           => $fp,
             CURLOPT_FOLLOWLOCATION => true,
         ]);
-        curl_exec($ch);
+        $resp = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr = curl_error($ch);
         curl_close($ch);
         fclose($fp);
 
+        if ($resp === false) {
+            @unlink($localPath);
+            self::$downloadError = "Erro de rede: {$curlErr}";
+            error_log("S3::download FAILED for {$s3Name}: curl_error={$curlErr}");
+            return false;
+        }
+
         if ($httpCode !== 200) {
             @unlink($localPath);
+            self::$downloadError = "HTTP {$httpCode}";
             error_log("S3::download FAILED for {$s3Name}: HTTP {$httpCode}");
             return false;
         }
@@ -272,6 +329,11 @@ class S3 {
     public static function fileExists($s3Name) {
         $result = self::exec('HEAD', self::$cfgBucket . '/' . ltrim($s3Name, '/'));
         return $result['code'] === 200;
+    }
+
+    public static function delete($s3Name) {
+        $result = self::exec('DELETE', self::$cfgBucket . '/' . ltrim($s3Name, '/'));
+        return $result['code'] === 204 || $result['code'] === 200;
     }
 
     public static function getUrl($s3Name) {

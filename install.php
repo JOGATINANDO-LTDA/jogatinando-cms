@@ -2,7 +2,7 @@
 
 // Early guard: redirect if already installed (before loading config.php)
 $installDataDir = __DIR__ . '/data';
-if (file_exists($installDataDir . '/.installed') || file_exists(dirname(__DIR__) . '/.installed') || file_exists($installDataDir . '/config.local.php')) {
+if (file_exists($installDataDir . '/config.local.php') || file_exists(dirname(__DIR__) . '/config.local.php')) {
     header('Location: /');
     exit;
 }
@@ -21,21 +21,13 @@ if (file_exists($dataPath . '/.maintenance') || file_exists(dirname(__DIR__) . '
     exit;
 }
 
-// Block if already installed (check parent dir first — survives CI/CD that wipes data/)
-$parentMarker = dirname(__DIR__) . '/.installed';
-if (file_exists($parentMarker)) {
-    header('Location: /');
-    exit;
-}
-
-$installedMarker = $dataPath . '/.installed';
-if (file_exists($installedMarker)) {
-    header('Location: /');
-    exit;
-}
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
+}
+
+// CSRF token
+if (empty($_SESSION['install_csrf'])) {
+    $_SESSION['install_csrf'] = bin2hex(random_bytes(32));
 }
 
 $sqliteDb = defined('DATA_PATH') ? DATA_PATH . '/jogatinando.db' : __DIR__ . '/data/jogatinando.db';
@@ -44,7 +36,7 @@ if (file_exists($sqliteDb) && filesize($sqliteDb) > 4096) {
     exit;
 }
 
-if (file_exists(DATA_PATH . '/config.local.php')) {
+if (file_exists(DATA_PATH . '/config.local.php') || file_exists(dirname(ROOT_PATH) . '/config.local.php')) {
     header('Location: /');
     exit;
 }
@@ -67,7 +59,9 @@ if ($isInstalled) {
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    if ($_POST['action'] === 'sqlite') {
+    if (!isset($_POST['install_csrf']) || $_POST['install_csrf'] !== ($_SESSION['install_csrf'] ?? '')) {
+        $message = 'error:Token de segurança inválido. Recarregue a página e tente novamente.';
+    } elseif ($_POST['action'] === 'sqlite') {
         try {
             dbInit(null, null, null, 'sqlite');
             writeLocalConfig('sqlite');
@@ -75,7 +69,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             session_destroy();
             disableInstallFile();
         } catch (Exception $ex) {
-            $message = 'error: ' . $ex->getMessage();
+            error_log('Install SQLite error: ' . $ex->getMessage());
+            $message = 'error:Erro ao inicializar SQLite. Verifique permissões do diretório data/.';
         }
     } elseif ($_POST['action'] === 'test_mysql') {
         try {
@@ -154,13 +149,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $existingAdminUser = trim($_POST['existing_admin_user'] ?? '');
             $existingAdminPass = $_POST['existing_admin_pass'] ?? '';
 
+            $safeName = str_replace('`', '', $name);
             $dsnNoDb = "mysql:host=$host;port=$port;charset=utf8mb4";
             try {
                 $pdo = new PDO($dsnNoDb, $dbUser, $dbPass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-                $pdo->exec("CREATE DATABASE IF NOT EXISTS `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                $pdo->exec("CREATE DATABASE IF NOT EXISTS `$safeName` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
                 $pdo = null;
             } catch (Exception $_) {}
-            $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
+            $dsn = "mysql:host=$host;port=$port;dbname=$safeName;charset=utf8mb4";
             $mysql = new PDO($dsn, $dbUser, $dbPass, [
                 PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
                 PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
@@ -181,8 +177,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 }
                 $mysql = null;
                 $pdo = new PDO($dsnNoDb, $dbUser, $dbPass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
-                $pdo->exec("DROP DATABASE IF EXISTS `$name`");
-                $pdo->exec("CREATE DATABASE `$name` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+                $pdo->exec("DROP DATABASE IF EXISTS `$safeName`");
+                $pdo->exec("CREATE DATABASE `$safeName` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
                 $pdo = null;
                 $dsn = "mysql:host=$host;port=$port;dbname=$name;charset=utf8mb4";
                 $mysql = new PDO($dsn, $dbUser, $dbPass, [
@@ -220,7 +216,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             writeLocalConfig('mysql', $host, $port, $name, $dbUser, $dbPass);
             disableInstallFile();
         } catch (Exception $ex) {
-            $message = 'error:' . $ex->getMessage();
+            error_log('Install MySQL error: ' . $ex->getMessage());
+            $message = 'error:Erro ao configurar MySQL. Verifique as credenciais e tente novamente.';
         }
     }
 }
@@ -240,8 +237,8 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
     $content .= "}\n";
     if (!is_dir(DATA_PATH)) mkdir(DATA_PATH, 0755, true);
     file_put_contents(DATA_PATH . '/config.local.php', $content);
-    @touch(DATA_PATH . '/.installed');
-    @touch(dirname(ROOT_PATH) . '/.installed');
+    $persistentDir = dirname(ROOT_PATH);
+    file_put_contents($persistentDir . '/config.local.php', $content);
 }
 
 function shouldRemoveInstall() {
@@ -319,6 +316,7 @@ function disableInstallFile() {
             <p>Escolha o tipo de banco de dados para instalação.</p>
             <form method="POST" action="?step=1">
                 <input type="hidden" name="action" value="sqlite">
+                <input type="hidden" name="install_csrf" value="<?= $_SESSION['install_csrf'] ?>">
                 <button type="submit" class="btn btn-gold">SQLite (Simples)</button>
             </form>
             <p style="font-size: 13px; color: oklch(50% 0.02 250); margin-top: -12px; margin-bottom: 16px; text-align: center;">
@@ -339,6 +337,7 @@ function disableInstallFile() {
             </div>
             <p>Configure a conexão com o banco MySQL / MariaDB.</p>
             <form method="POST" action="?step=2">
+                <input type="hidden" name="install_csrf" value="<?= $_SESSION['install_csrf'] ?>">
 
                 <h3 style="color: oklch(68% 0.16 220); font-size: 14px; margin-bottom: 12px;">Conexão MySQL</h3>
                 <div class="form-row">

@@ -14,9 +14,9 @@ if ($uri === '/admin/setup-password') {
 
 
 if ($uri === '/install') {
-    // Early guard: redirect if already installed (avoids exposing installer in iframe contexts)
+    // Early guard: redirect only if config.local.php exists (in data/ or outside webroot)
     $dataDir = __DIR__ . '/data';
-    if (file_exists($dataDir . '/.installed') || file_exists(dirname(__DIR__) . '/.installed') || file_exists($dataDir . '/config.local.php')) {
+    if (file_exists($dataDir . '/config.local.php') || file_exists(dirname(__DIR__) . '/config.local.php')) {
         header('Location: /');
         exit;
     }
@@ -64,6 +64,11 @@ if ($uri === '/admin' || strpos($uri, '/admin/') === 0) {
         $_SERVER['PHP_SELF'] = '/admin/dashboard';
         require $adminDir . '/index.php';
         chdir($oldCwd);
+        exit;
+    }
+
+    if (strpos($relPath, '..') !== false) {
+        http_response_code(404);
         exit;
     }
 

@@ -6,6 +6,48 @@ require_once __DIR__ . '/../includes/header.php';
 
 $db = getDB();
 
+function enqueueFile($localPath, $s3Name, $refTable = '', $refColumn = '', $refId = null) {
+    if (!file_exists($localPath)) return false;
+    try {
+        $existing = dbQueryOne("SELECT id, status FROM sync_queue WHERE s3_name = ?", [$s3Name]);
+        if ($existing) {
+            if ($existing['status'] === 'failed') {
+                dbExec("UPDATE sync_queue SET status='pending', attempts=0, last_error='' WHERE id = ?", [$existing['id']]);
+            }
+            return true;
+        }
+        dbExec("INSERT INTO sync_queue (local_path, s3_name, ref_table, ref_column, ref_id, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
+            [$localPath, $s3Name, $refTable, $refColumn, $refId, date('Y-m-d H:i:s')]);
+        return true;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+function enqueueDir($localDir, $s3Prefix) {
+    if (!is_dir($localDir)) return 0;
+    $count = 0;
+    $it = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($localDir, RecursiveDirectoryIterator::SKIP_DOTS)
+    );
+    foreach ($it as $file) {
+        if (!$file->isFile()) continue;
+        $relPath = substr($file->getPathname(), strlen(rtrim($localDir, '/\\')) + 1);
+        $s3Name = rtrim($s3Prefix, '/') . '/' . str_replace('\\', '/', $relPath);
+        if (enqueueFile($file->getPathname(), $s3Name)) $count++;
+    }
+    return $count;
+}
+
+function syncQueueStats() {
+    try {
+        $row = dbQueryOne("SELECT COUNT(*) as total, SUM(CASE WHEN status='success' THEN 1 ELSE 0 END) as done, SUM(CASE WHEN status='failed' THEN 1 ELSE 0 END) as failed, SUM(CASE WHEN status='pending' THEN 1 ELSE 0 END) as pending FROM sync_queue");
+        return $row ? $row : ['total' => 0, 'done' => 0, 'failed' => 0, 'pending' => 0];
+    } catch (Exception $e) {
+        return ['total' => 0, 'done' => 0, 'failed' => 0, 'pending' => 0];
+    }
+}
+
 function getLocalUploadFiles($dir) {
     $files = [];
     $base = UPLOAD_PATH;
@@ -24,11 +66,32 @@ function getLocalUploadFiles($dir) {
 }
 
 function s3SyncFile($localPath, $s3Name) {
-    return S3::upload($localPath, $s3Name) ? 'uploaded' : 'failed';
+    if (S3::upload($localPath, $s3Name)) return 'uploaded';
+    return 'failed: ' . S3::getLastUploadError();
 }
 
+function syncDirToS3($localDir, $s3Prefix) {
+    if (!is_dir($localDir)) return [];
+    $results = [];
+    $it = new RecursiveIteratorIterator(
+        new RecursiveDirectoryIterator($localDir, RecursiveDirectoryIterator::SKIP_DOTS)
+    );
+    foreach ($it as $file) {
+        if (!$file->isFile()) continue;
+        $relPath = substr($file->getPathname(), strlen($localDir) + 1);
+        $s3Name = rtrim($s3Prefix, '/') . '/' . str_replace('\\', '/', $relPath);
+        $result = s3SyncFile($file->getPathname(), $s3Name);
+        if ($result === 'uploaded') $results[] = "⬆ {$s3Name}";
+        elseif (str_starts_with($result, 'failed')) {
+            $reason = substr($result, 7);
+            $results[] = "❌ {$s3Name} — {$reason}";
+        }
+    }
+    return $results;
+}
+
+$isAjax = ($_POST['ajax'] ?? '') === '1' || ($_GET['ajax'] ?? '') === '1';
 $results = [];
-$activeTab = $_GET['tab'] ?? 'overview';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
@@ -38,18 +101,130 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
-    if ($_POST['action'] === 'sync_images') {
-        $directories = ['thumbnails', 'banners', 'blog', 'avatars', 'platforms'];
-        foreach ($directories as $dir) {
-            $files = getLocalUploadFiles($dir);
-            foreach ($files as $f) {
-                $result = s3SyncFile($f['local'], $f['s3name']);
-                if ($result === 'uploaded') $results[] = "✅ {$f['s3name']}";
-                elseif ($result === 'failed') $results[] = "❌ {$f['s3name']}";
+    if ($_POST['action'] === 'toggle_auto_sync') {
+        setSetting('s3_auto_sync', $_POST['value'] ?? '0');
+        flashMessage('success', 'Auto-sync ' . (($_POST['value'] ?? '0') === '1' ? 'ativado' : 'desativado') . '.');
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/bucket-sync');
+        exit;
+    }
+
+    if ($_POST['action'] === 'toggle_serve_media') {
+        setSetting('s3_serve_media', $_POST['value'] ?? '0');
+        flashMessage('success', 'Servir mídia do S3 ' . (($_POST['value'] ?? '0') === '1' ? 'ativado' : 'desativado') . '.');
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/bucket-sync');
+        exit;
+    }
+
+    if ($_POST['action'] === 'restore_from_s3') {
+        ob_implicit_flush(true);
+        echo "<p style='color:var(--gold);'>Restaurando arquivos do S3...</p>\n";
+        flush();
+        $tables = [
+            ['table' => 'games', 'column' => 'thumbnail_url'],
+            ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
+            ['table' => 'banners', 'column' => 'image_url'],
+            ['table' => 'team_members', 'column' => 'avatar_url'],
+            ['table' => 'testimonials', 'column' => 'avatar_url'],
+            ['table' => 'users', 'column' => 'avatar_url'],
+            ['table' => 'retro_games', 'column' => 'rom_path'],
+            ['table' => 'retro_games', 'column' => 'thumbnail_url'],
+            ['table' => 'game_templates', 'column' => 'thumbnail_url'],
+            ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+            ['table' => 'store_platforms', 'column' => 'logo_path'],
+        ];
+        $restored = 0; $skipped = 0; $failed = 0;
+        $count = 0;
+        $seen = [];
+        foreach ($tables as $t) {
+            $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} != '' AND {$t['column']} IS NOT NULL");
+            foreach ($rows as $row) {
+                $url = $row[$t['column']];
+                if (str_starts_with($url, 'http')) {
+                    $parts = explode('/uploads/', $url, 2);
+                    if (count($parts) < 2) continue;
+                    $suffix = $parts[1];
+                } elseif (str_starts_with($url, '/uploads/')) {
+                    $suffix = substr($url, 9);
+                } else {
+                    continue;
+                }
+                $s3Key = 'uploads/' . $suffix;
+                if (isset($seen[$s3Key])) continue;
+                $seen[$s3Key] = true;
+                $localPath = UPLOAD_PATH . '/' . $suffix;
+                if (file_exists($localPath)) { $skipped++; continue; }
+                $dir = dirname($localPath);
+                if (!is_dir($dir)) @mkdir($dir, 0755, true);
+                if (Storage::downloadFromS3($s3Key, $localPath)) {
+                    $results[] = "⬇ {$s3Key}";
+                    $restored++;
+                } else {
+                    $results[] = "❌ {$s3Key} — Erro de download";
+                    $failed++;
+                }
+                $count++;
+                if ($count % 5 === 0) {
+                    echo "<script>document.getElementById('restore-progress').textContent = '{$restored} restaurados, {$skipped} ignorados, {$failed} falhas';</script>\n";
+                    flush();
+                }
             }
         }
-        if (empty($results)) $results[] = 'Nenhum arquivo novo para sincronizar.';
-        flashMessage('success', count($results) . ' arquivos processados.');
+        foreach (['site_logo_url', 'site_favicon_url'] as $key) {
+            $val = getSetting($key, '');
+            if ($val === '') continue;
+            $parts = explode('/uploads/', $val, 2);
+            if (count($parts) < 2) continue;
+            $suffix = $parts[1];
+            $s3Key = 'uploads/' . $suffix;
+            if (isset($seen[$s3Key])) continue;
+            $seen[$s3Key] = true;
+            $localPath = UPLOAD_PATH . '/' . $suffix;
+            if (file_exists($localPath)) { $skipped++; continue; }
+            $dir = dirname($localPath);
+            if (!is_dir($dir)) @mkdir($dir, 0755, true);
+            if (Storage::downloadFromS3($s3Key, $localPath)) {
+                $results[] = "⬇ {$s3Key}";
+                $restored++;
+            } else {
+                $err = Storage::getS3DownloadError();
+                $results[] = "❌ {$s3Key} — {$err}";
+                $failed++;
+            }
+        }
+        // Restore game dirs from S3
+        $glist = dbQuery("SELECT id, game_path, engine, title FROM games WHERE game_path IS NOT NULL AND game_path != ''");
+        foreach ($glist as $g) {
+            $gameDir = UPLOAD_PATH . '/games/' . $g['game_path'];
+            if (is_dir($gameDir)) { $skipped++; continue; }
+            $s3Prefix = 'uploads/games/' . $g['game_path'] . '/';
+            $s3Files = S3::listFiles($s3Prefix);
+            if (empty($s3Files)) { $failed++; continue; }
+            foreach ($s3Files as $sf) {
+                $rel = substr($sf['key'], strlen($s3Prefix));
+                $localFile = $gameDir . '/' . $rel;
+                $dir = dirname($localFile);
+                if (!is_dir($dir)) @mkdir($dir, 0755, true);
+                if (Storage::downloadFromS3($sf['key'], $localFile)) {
+                    $results[] = "⬇ {$sf['key']}";
+                    $restored++;
+                } else {
+                    $results[] = "❌ {$sf['key']} — Erro de download";
+                    $failed++;
+                }
+                $count++;
+                if ($count % 5 === 0) {
+                    echo "<script>document.getElementById('restore-progress').textContent = '{$restored} restaurados, {$skipped} ignorados, {$failed} falhas';</script>\n";
+                    flush();
+                }
+            }
+        }
+        $results[] = "Restaurados: {$restored}, ignorados (já existem): {$skipped}, falhas: {$failed}.";
+        echo "<p style='color:oklch(75% .15 85);'>Restauração concluída. Recarregando...</p>\n";
+        flush();
+        flashMessage('success', "{$restored} arquivos restaurados do S3.");
+        ob_end_flush();
     }
 
     if ($_POST['action'] === 'sync_games') {
@@ -57,33 +232,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         foreach ($games as $game) {
             $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
             if (!is_dir($gameDir)) continue;
-            $engineSlug = explode('/', $game['game_path'])[0];
-            $gameSlug = explode('/', $game['game_path'])[1] ?? $game['game_path'];
-            $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.zip';
-            if (!S3::fileExists($zipS3Name)) {
-                $tmpZip = UPLOAD_PATH . '/_b2tmp/' . $gameSlug . '.zip';
-                if (!is_dir(dirname($tmpZip))) mkdir(dirname($tmpZip), 0755, true);
-                $zip = new ZipArchive();
-                if ($zip->open($tmpZip, ZipArchive::CREATE) === true) {
-                    $items = scandir($gameDir);
-                    foreach ($items as $item) {
-                        if ($item === '.' || $item === '..') continue;
-                        $itemPath = $gameDir . '/' . $item;
-                        if (is_file($itemPath)) {
-                            $zip->addFile($itemPath, $item);
-                        }
-                    }
-                    $zip->close();
-                    if (S3::upload($tmpZip, $zipS3Name)) {
-                        $results[] = "✅ {$zipS3Name}";
-                    } else {
-                        $results[] = "❌ {$zipS3Name}";
-                    }
-                    unlink($tmpZip);
-                }
-            } else {
-                $results[] = "⏭ {$zipS3Name} (já existe)";
-            }
+            $s3Prefix = 'uploads/games/' . $game['game_path'];
+            $r = syncDirToS3($gameDir, $s3Prefix);
+            array_push($results, ...$r);
+            if (empty($r)) $results[] = "⏭ games/{$game['game_path']} (sem arquivos)";
         }
         flashMessage('success', 'Jogos sincronizados.');
     }
@@ -105,7 +257,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $s3Name = 'uploads/retro/' . $console . '/' . $type . '/' . $file;
                         $result = s3SyncFile($localPath, $s3Name);
                         if ($result === 'uploaded') $results[] = "✅ {$s3Name}";
-                        elseif ($result === 'failed') $results[] = "❌ {$s3Name}";
+                        elseif (str_starts_with($result, 'failed')) {
+                            $reason = substr($result, 7);
+                            $results[] = "❌ {$s3Name} — {$reason}";
+                        }
                     }
                 }
             }
@@ -114,47 +269,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 
     if ($_POST['action'] === 'sync_all') {
+        // Enfileirar imagens
         $directories = ['thumbnails', 'banners', 'blog', 'avatars', 'platforms'];
+        $total = 0;
         foreach ($directories as $dir) {
             $files = getLocalUploadFiles($dir);
             foreach ($files as $f) {
-                $result = s3SyncFile($f['local'], $f['s3name']);
-                if ($result === 'uploaded') $results[] = "⬆ {$f['s3name']}";
-                elseif ($result === 'failed') $results[] = "❌ {$f['s3name']}";
+                if (enqueueFile($f['local'], $f['s3name'])) $total++;
             }
         }
-
+        // Enfileirar jogos
         $games = dbQuery("SELECT id, game_path, engine, title FROM games WHERE game_path IS NOT NULL AND game_path != ''");
         foreach ($games as $game) {
             $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
             if (!is_dir($gameDir)) continue;
-            $engineSlug = explode('/', $game['game_path'])[0];
-            $gameSlug = explode('/', $game['game_path'])[1] ?? $game['game_path'];
-            $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.zip';
-            if (!S3::fileExists($zipS3Name)) {
-                $tmpZip = UPLOAD_PATH . '/_b2tmp/' . $gameSlug . '.zip';
-                if (!is_dir(dirname($tmpZip))) mkdir(dirname($tmpZip), 0755, true);
-                $zip = new ZipArchive();
-                if ($zip->open($tmpZip, ZipArchive::CREATE) === true) {
-                    $items = scandir($gameDir);
-                    foreach ($items as $item) {
-                        if ($item === '.' || $item === '..') continue;
-                        $itemPath = $gameDir . '/' . $item;
-                        if (is_file($itemPath)) { $zip->addFile($itemPath, $item); }
-                    }
-                    $zip->close();
-                    if (S3::upload($tmpZip, $zipS3Name)) {
-                        $results[] = "⬆ {$zipS3Name}";
-                    } else {
-                        $results[] = "❌ {$zipS3Name}";
-                    }
-                    unlink($tmpZip);
-                }
-            } else {
-                $results[] = "⏭ {$zipS3Name} (já existe)";
-            }
+            $s3Prefix = 'uploads/games/' . $game['game_path'];
+            $total += enqueueDir($gameDir, $s3Prefix);
         }
-
+        // Enfileirar ROMs
         $retroBase = UPLOAD_PATH . '/retro';
         if (is_dir($retroBase)) {
             $consoles = scandir($retroBase);
@@ -163,57 +295,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 foreach (['rom', 'rommod'] as $type) {
                     $typeDir = $retroBase . '/' . $console . '/' . $type;
                     if (!is_dir($typeDir)) continue;
-                    $files = scandir($typeDir);
-                    foreach ($files as $file) {
-                        if ($file === '.' || $file === '..') continue;
-                        $localPath = $typeDir . '/' . $file;
-                        if (!is_file($localPath)) continue;
-                        $s3Name = 'uploads/retro/' . $console . '/' . $type . '/' . $file;
-                        $result = s3SyncFile($localPath, $s3Name);
-                        if ($result === 'uploaded') $results[] = "⬆ {$s3Name}";
-                        elseif ($result === 'failed') $results[] = "❌ {$s3Name}";
-                    }
+                    $s3Prefix = 'uploads/retro/' . $console . '/' . $type;
+                    $total += enqueueDir($typeDir, $s3Prefix);
                 }
             }
         }
-
-        $cfg = S3::getResolvedConfig();
-        $publicUrl = $cfg['public_url'];
-        $bucket = $cfg['bucket'];
-        $endpoint = $cfg['endpoint'];
-        $baseUrl = $publicUrl !== '' ? rtrim($publicUrl, '/') : '';
-        if ($baseUrl === '' && $endpoint !== '' && $bucket !== '') {
-            $baseUrl = rtrim($endpoint, '/') . '/' . $bucket;
+        $results[] = "{$total} arquivos enfileirados para sincronização.";
+        if ($isAjax) {
+            ob_end_clean();
+            header('Content-Type: application/json');
+            echo json_encode(['success' => true, 'total' => $total, 'message' => "{$total} arquivos enfileirados."]);
+            exit;
         }
-        if ($baseUrl !== '') {
-            $urlTables = [
-                ['table' => 'games', 'column' => 'thumbnail_url'],
-                ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
-                ['table' => 'banners', 'column' => 'image_url'],
-                ['table' => 'team_members', 'column' => 'avatar_url'],
-                ['table' => 'testimonials', 'column' => 'avatar_url'],
-                ['table' => 'users', 'column' => 'avatar_url'],
-                ['table' => 'retro_games', 'column' => 'rom_path'],
-                ['table' => 'retro_games', 'column' => 'thumbnail_url'],
-                ['table' => 'game_templates', 'column' => 'thumbnail_url'],
-                ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
-                ['table' => 'store_platforms', 'column' => 'logo_path'],
-            ];
-            $updated = 0;
-            foreach ($urlTables as $t) {
-                $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE '/uploads/%'");
-                foreach ($rows as $row) {
-                    $oldUrl = $row[$t['column']];
-                    if (empty($oldUrl)) continue;
-                    $s3Name = 'uploads' . substr($oldUrl, 8);
-                    $newUrl = rtrim($baseUrl, '/') . '/' . ltrim($s3Name, '/');
-                    dbExec("UPDATE {$t['table']} SET {$t['column']} = ? WHERE id = ?", [$newUrl, $row['id']]);
-                    $updated++;
-                }
-            }
-            $results[] = "URLs atualizadas: {$updated} registros.";
-        }
-        flashMessage('success', 'Sincronização completa finalizada.');
+        flashMessage('success', "{$total} arquivos enfileirados.");
     }
 
     if ($_POST['action'] === 'update_db_urls') {
@@ -293,7 +387,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                         $results[] = "⬇ {$s3Name}";
                     } else {
                         $failed++;
-                        $results[] = "❌ Falha ao baixar: {$s3Name}";
+                        $err = Storage::getS3DownloadError();
+                        $results[] = "❌ Falha ao baixar: {$s3Name}" . ($err ? " — {$err}" : '');
                     }
                 }
             }
@@ -346,30 +441,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 
     if ($_POST['action'] === 'process_sync_queue') {
-        $rows = dbQuery("SELECT * FROM sync_queue ORDER BY id ASC");
-        $processed = 0; $failed = 0;
+        $batchSize = 5;
+        $rows = dbQuery("SELECT * FROM sync_queue WHERE status='pending' ORDER BY id ASC LIMIT ?", [$batchSize]);
+        $processed = 0; $failed = 0; $errors = [];
+        $currentFile = '';
         foreach ($rows as $row) {
+            $currentFile = $row['s3_name'];
             if (!file_exists($row['local_path'])) {
                 dbExec("DELETE FROM sync_queue WHERE id = ?", [$row['id']]);
-                continue;
-            }
-            if (S3::fileExists($row['s3_name'])) {
-                dbExec("DELETE FROM sync_queue WHERE id = ?", [$row['id']]);
-                $results[] = "⏭ Já existe no S3: {$row['s3_name']}";
-                continue;
-            }
-            if (S3::upload($row['local_path'], $row['s3_name'])) {
-                dbExec("DELETE FROM sync_queue WHERE id = ?", [$row['id']]);
                 $processed++;
-                $results[] = "✅ {$row['s3_name']}";
+                continue;
+            }
+            // Skip if already exists on S3 (success from previous attempt)
+            if (S3::fileExists($row['s3_name'])) {
+                dbExec("UPDATE sync_queue SET status='success', last_error='' WHERE id = ?", [$row['id']]);
+                $processed++;
+                continue;
+            }
+            $newAttempts = intval($row['attempts']) + 1;
+            if (S3::upload($row['local_path'], $row['s3_name'])) {
+                dbExec("UPDATE sync_queue SET status='success', attempts=?, last_error='' WHERE id = ?", [$newAttempts, $row['id']]);
+                $processed++;
             } else {
+                $err = S3::getLastUploadError();
+                if ($newAttempts >= 3) {
+                    dbExec("UPDATE sync_queue SET status='failed', attempts=?, last_error=? WHERE id = ?", [$newAttempts, $err, $row['id']]);
+                } else {
+                    dbExec("UPDATE sync_queue SET attempts=?, last_error=? WHERE id = ?", [$newAttempts, $err, $row['id']]);
+                }
                 $failed++;
-                $results[] = "❌ Falha: {$row['s3_name']}";
+                $errors[] = "{$row['s3_name']}: {$err}";
             }
         }
-        $queueCount = getSyncQueueCount();
-        $results[] = "Fila processada: {$processed} sincronizados, {$failed} falhas. Restam {$queueCount} pendentes.";
-        flashMessage('success', "Fila processada: {$processed} arquivos sincronizados.");
+        $stats = syncQueueStats();
+        if ($isAjax) {
+            ob_end_clean();
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'processed' => $processed,
+                'failed' => $failed,
+                'remaining' => intval($stats['pending']),
+                'total' => intval($stats['total']),
+                'done' => intval($stats['done']),
+                'current_file' => $currentFile,
+                'errors' => $errors,
+            ]);
+            exit;
+        }
+        $results[] = "Batch: {$processed} sincronizados, {$failed} falhas. Restam {$stats['pending']} pendentes.";
+        flashMessage('success', "Batch processado: {$processed} arquivos sincronizados.");
+    }
+
+    if ($_POST['action'] === 'sync_status') {
+        $stats = syncQueueStats();
+        if ($isAjax) {
+            ob_end_clean();
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'total' => intval($stats['total']),
+                'done' => intval($stats['done']),
+                'failed' => intval($stats['failed']),
+                'pending' => intval($stats['pending']),
+            ]);
+            exit;
+        }
+        $results[] = "Status: {$stats['done']} concluídos, {$stats['pending']} pendentes, {$stats['failed']} falhas.";
+    }
+
+    if ($_POST['action'] === 'retry_failed') {
+        dbExec("UPDATE sync_queue SET status='pending', attempts=0, last_error='' WHERE status='failed'");
+        $stats = syncQueueStats();
+        if ($isAjax) {
+            ob_end_clean();
+            header('Content-Type: application/json');
+            echo json_encode([
+                'success' => true,
+                'total' => intval($stats['total']),
+                'pending' => intval($stats['pending']),
+                'done' => intval($stats['done']),
+            ]);
+            exit;
+        }
+        $results[] = "Falhas reenfileiradas.";
+        flashMessage('success', 'Falhas reenfileiradas.');
     }
 
     if ($_POST['action'] === 'clean_images') {
@@ -437,10 +593,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
             if (!is_dir($gameDir)) { $skipped++; continue; }
             $total++;
-            $engineSlug = explode('/', $game['game_path'])[0];
-            $gameSlug = explode('/', $game['game_path'])[1] ?? $game['game_path'];
-            $zipS3Name = 'zips/' . $engineSlug . '/' . $gameSlug . '.zip';
-            if (S3::fileExists($zipS3Name)) {
+            $s3Prefix = 'uploads/games/' . $game['game_path'] . '/';
+            if (!empty(S3::listFiles($s3Prefix))) {
                 $it = new RecursiveDirectoryIterator($gameDir, RecursiveDirectoryIterator::SKIP_DOTS);
                 $files = new RecursiveIteratorIterator($it, RecursiveIteratorIterator::CHILD_FIRST);
                 foreach ($files as $f) {
@@ -455,12 +609,170 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $results[] = "❌ Falha ao remover diretório {$game['game_path']}";
                 }
             } else {
-                $results[] = "⏭ {$game['title']} (ZIP não encontrado no S3)";
+                $results[] = "⏭ {$game['title']} (diretório não encontrado no S3)";
                 $skipped++;
             }
         }
         $results[] = "Resumo: {$deleted} diretórios removidos, {$skipped} ignorados.";
         flashMessage('success', "{$deleted} diretórios de jogos removidos.");
+    }
+
+    if ($_POST['action'] === 'check_integrity') {
+        $tables = [
+            ['table' => 'games', 'column' => 'thumbnail_url'],
+            ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
+            ['table' => 'banners', 'column' => 'image_url'],
+            ['table' => 'team_members', 'column' => 'avatar_url'],
+            ['table' => 'testimonials', 'column' => 'avatar_url'],
+            ['table' => 'users', 'column' => 'avatar_url'],
+            ['table' => 'retro_games', 'column' => 'rom_path'],
+            ['table' => 'retro_games', 'column' => 'thumbnail_url'],
+            ['table' => 'game_templates', 'column' => 'thumbnail_url'],
+            ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+            ['table' => 'store_platforms', 'column' => 'logo_path'],
+        ];
+        $prefixes = ['uploads/thumbnails/', 'uploads/banners/', 'uploads/blog/', 'uploads/avatars/', 'uploads/platforms/', 'uploads/retro/', 'uploads/games/'];
+        $s3Files = [];
+        foreach ($prefixes as $prefix) {
+            $files = S3::listFiles($prefix);
+            foreach ($files as $f) {
+                $s3Files[$f['key']] = $f;
+            }
+        }
+
+        $referenced = [];
+        foreach ($tables as $t) {
+            $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%' OR {$t['column']} LIKE '/uploads/%'");
+            foreach ($rows as $row) {
+                $parts = explode('/uploads/', $row[$t['column']], 2);
+                if (isset($parts[1])) {
+                    $referenced['uploads/' . $parts[1]] = true;
+                }
+            }
+        }
+        foreach (['site_logo_url', 'site_favicon_url'] as $key) {
+            $val = getSetting($key, '');
+            if ($val === '') continue;
+            $parts = explode('/uploads/', $val, 2);
+            if (isset($parts[1])) {
+                $referenced['uploads/' . $parts[1]] = true;
+            }
+        }
+
+        // game_templates.game_path → S3 key
+        $tmplPaths = dbQuery("SELECT game_path FROM game_templates WHERE game_path IS NOT NULL AND game_path != ''");
+        foreach ($tmplPaths as $tp) {
+            if (str_starts_with($tp['game_path'], '/uploads/')) {
+                $parts = explode('/uploads/', $tp['game_path'], 2);
+                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
+            } elseif (str_starts_with($tp['game_path'], 'http')) {
+                $parts = explode('/uploads/', $tp['game_path'], 2);
+                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
+            }
+        }
+
+        $orphans = [];
+        $broken = [];
+        $orphanSize = 0;
+        foreach ($s3Files as $key => $info) {
+            if (!isset($referenced[$key])) {
+                $orphans[] = ['key' => $key, 'size' => $info['size']];
+                $orphanSize += $info['size'];
+            }
+        }
+        foreach ($referenced as $key => $v) {
+            if (!isset($s3Files[$key])) {
+                $broken[] = $key;
+            }
+        }
+
+        $results[] = "📋 Verificação de integridade:";
+        $results[] = "Total de objetos no S3: " . count($s3Files);
+        $results[] = "Total de referências no BD: " . count($referenced);
+        $results[] = "Órfãos no S3 (sem referência no BD): " . count($orphans) . " (~" . number_format($orphanSize / 1024 / 1024, 1) . " MB)";
+        foreach (array_slice($orphans, 0, 50) as $o) {
+            $results[] = "  🟠 {$o['key']} (" . number_format($o['size']) . " B)";
+        }
+        if (count($orphans) > 50) $results[] = "  ... e mais " . (count($orphans) - 50) . " órfãos.";
+
+        $results[] = "Referências quebradas (no BD mas sem objeto no S3): " . count($broken);
+        foreach (array_slice($broken, 0, 50) as $k) {
+            $results[] = "  🔴 {$k}";
+        }
+        if (count($broken) > 50) $results[] = "  ... e mais " . (count($broken) - 50) . " quebradas.";
+        flashMessage('success', "Verificação concluída: " . count($orphans) . " órfãos no S3, " . count($broken) . " referências quebradas.");
+    }
+
+    if ($_POST['action'] === 'clean_orphans_s3') {
+        $tables = [
+            ['table' => 'games', 'column' => 'thumbnail_url'],
+            ['table' => 'blog_posts', 'column' => 'thumbnail_url'],
+            ['table' => 'banners', 'column' => 'image_url'],
+            ['table' => 'team_members', 'column' => 'avatar_url'],
+            ['table' => 'testimonials', 'column' => 'avatar_url'],
+            ['table' => 'users', 'column' => 'avatar_url'],
+            ['table' => 'retro_games', 'column' => 'rom_path'],
+            ['table' => 'retro_games', 'column' => 'thumbnail_url'],
+            ['table' => 'game_templates', 'column' => 'thumbnail_url'],
+            ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
+            ['table' => 'store_platforms', 'column' => 'logo_path'],
+        ];
+        $prefixes = ['uploads/thumbnails/', 'uploads/banners/', 'uploads/blog/', 'uploads/avatars/', 'uploads/platforms/', 'uploads/retro/', 'uploads/games/'];
+        $s3Files = [];
+        foreach ($prefixes as $prefix) {
+            $files = S3::listFiles($prefix);
+            foreach ($files as $f) {
+                $s3Files[$f['key']] = $f;
+            }
+        }
+
+        $referenced = [];
+        foreach ($tables as $t) {
+            $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%' OR {$t['column']} LIKE '/uploads/%'");
+            foreach ($rows as $row) {
+                $parts = explode('/uploads/', $row[$t['column']], 2);
+                if (isset($parts[1])) {
+                    $referenced['uploads/' . $parts[1]] = true;
+                }
+            }
+        }
+        foreach (['site_logo_url', 'site_favicon_url'] as $key) {
+            $val = getSetting($key, '');
+            if ($val === '') continue;
+            $parts = explode('/uploads/', $val, 2);
+            if (isset($parts[1])) {
+                $referenced['uploads/' . $parts[1]] = true;
+            }
+        }
+
+        // game_templates.game_path → S3 key
+        $tmplPaths = dbQuery("SELECT game_path FROM game_templates WHERE game_path IS NOT NULL AND game_path != ''");
+        foreach ($tmplPaths as $tp) {
+            if (str_starts_with($tp['game_path'], '/uploads/')) {
+                $parts = explode('/uploads/', $tp['game_path'], 2);
+                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
+            } elseif (str_starts_with($tp['game_path'], 'http')) {
+                $parts = explode('/uploads/', $tp['game_path'], 2);
+                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
+            }
+        }
+
+        $deleted = 0; $failed = 0; $skipped = 0;
+        foreach ($s3Files as $key => $info) {
+            if (!isset($referenced[$key])) {
+                if (S3::delete($key)) {
+                    $results[] = "🗑 {$key}";
+                    $deleted++;
+                } else {
+                    $results[] = "❌ Falha ao deletar: {$key}";
+                    $failed++;
+                }
+            } else {
+                $skipped++;
+            }
+        }
+        $results[] = "Limpeza concluída: {$deleted} deletados, {$failed} falhas, {$skipped} ignorados (referenciados).";
+        flashMessage('success', "{$deleted} objetos órfãos removidos do S3.");
     }
 }
 
@@ -486,19 +798,19 @@ if (is_dir($retroBase)) {
 }
 $localGames = count(dbQuery("SELECT id FROM games WHERE game_path IS NOT NULL AND game_path != ''"));
 
-$s3Images = 0; $s3Roms = 0; $s3Zips = 0;
+$s3Images = 0; $s3Roms = 0; $s3Games = 0;
 if ($s3Configured) {
     $s3Images = count(S3::listFiles('uploads/thumbnails/')) + count(S3::listFiles('uploads/banners/')) + count(S3::listFiles('uploads/blog/')) + count(S3::listFiles('uploads/avatars/')) + count(S3::listFiles('uploads/platforms/'));
     $s3Roms = count(S3::listFiles('uploads/retro/'));
-    $s3Zips = count(S3::listFiles('zips/'));
+    $s3Games = count(S3::listFiles('uploads/games/'));
 }
 
-$syncQueueCount = getSyncQueueCount();
+$syncQueueStats = syncQueueStats();
 ?>
 
 <div class="page-header">
     <h1>⬆ Sincronizar com Cloudflare R2 (S3)</h1>
-    <p style="color: var(--muted);">Envia todos os arquivos de upload para o bucket S3 (Cloudflare R2) e atualiza as URLs no banco de dados.</p>
+    <p style="color: var(--muted);">Gerencia arquivos entre o servidor local e o bucket S3 (Cloudflare R2).</p>
 </div>
 
 <?php if (!$s3Configured): ?>
@@ -514,6 +826,11 @@ define('S3_PUBLIC_URL', 'https://pub-xxxxx.r2.dev');</pre>
 <?php else: ?>
 <?= renderFlash() ?>
 
+<?php
+$autoSync = getSetting('s3_auto_sync', '0');
+$serveMedia = getSetting('s3_serve_media', '0');
+?>
+
 <div class="card" style="margin-bottom: 24px;">
     <div class="card-body">
         <h3 style="margin-bottom: 16px;">📊 Status</h3>
@@ -525,94 +842,154 @@ define('S3_PUBLIC_URL', 'https://pub-xxxxx.r2.dev');</pre>
             </div>
             <div class="stat-box" style="background: oklch(12% 0.02 260); padding: 16px; border-radius: 8px; border: 1px solid var(--border); text-align:center;">
                 <div style="font-size: 28px; font-weight: 800; color: var(--gold);"><?= $localGames ?></div>
-                <div style="font-size: 13px; color: var(--muted);">Jogos (ZIPs)</div>
-                <div style="font-size: 12px; color: oklch(65% 0.18 145);"><?= $s3Zips ?> no S3</div>
+                <div style="font-size: 13px; color: var(--muted);">Jogos (local)</div>
+                <div style="font-size: 12px; color: oklch(65% 0.18 145);"><?= $s3Games ?> no S3</div>
             </div>
             <div class="stat-box" style="background: oklch(12% 0.02 260); padding: 16px; border-radius: 8px; border: 1px solid var(--border); text-align:center;">
                 <div style="font-size: 28px; font-weight: 800; color: var(--gold);"><?= $localRoms ?></div>
                 <div style="font-size: 13px; color: var(--muted);">ROMs (local)</div>
                 <div style="font-size: 12px; color: oklch(65% 0.18 145);"><?= $s3Roms ?> no S3</div>
             </div>
+            <div class="stat-box sync-queue-stat" style="background: oklch(12% 0.02 260); padding: 16px; border-radius: 8px; border: 1px solid var(--border); text-align:center;">
+                <div id="queue-total" style="font-size: 28px; font-weight: 800; color: var(--gold);"><?= $syncQueueStats['total'] ?></div>
+                <div style="font-size: 13px; color: var(--muted);">Fila de Sync</div>
+                <div id="queue-sub" style="font-size: 12px; color: oklch(65% 0.18 145);"><?= $syncQueueStats['done'] ?> ok, <?= $syncQueueStats['pending'] ?> pend, <?= $syncQueueStats['failed'] ?> falhas</div>
+            </div>
         </div>
     </div>
 </div>
 
-<?php if ($syncQueueCount > 0): ?>
 <div class="card" style="margin-bottom: 24px; border-color: oklch(55% 0.12 85 / 0.3);">
+    <div class="card-body">
+        <h3 style="margin-bottom: 12px;">Configurações</h3>
+        <div style="display: flex; gap: 32px; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <form method="POST" id="form-auto-sync" style="display:contents;">
+                    <?= csrfField() ?>
+                    <input type="hidden" name="action" value="toggle_auto_sync">
+                    <input type="hidden" name="value" value="<?= $autoSync === '1' ? '0' : '1' ?>">
+                </form>
+                <div onclick="document.getElementById('form-auto-sync').submit()" style="width: 44px; height: 24px; border-radius: 12px; background: <?= $autoSync === '1' ? 'oklch(75% 0.15 85)' : 'oklch(30% 0.02 260)' ?>; position: relative; transition: background 0.2s;">
+                    <div style="width: 20px; height: 20px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: <?= $autoSync === '1' ? '22px' : '2px' ?>; transition: left 0.2s;"></div>
+                </div>
+                <span style="font-size: 14px;"><strong>Auto-sync</strong><br><span style="font-size: 12px; color: var(--muted);">Upload automático ao criar/editar</span></span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <form method="POST" id="form-serve-media" style="display:contents;">
+                    <?= csrfField() ?>
+                    <input type="hidden" name="action" value="toggle_serve_media">
+                    <input type="hidden" name="value" value="<?= $serveMedia === '1' ? '0' : '1' ?>">
+                </form>
+                <div onclick="document.getElementById('form-serve-media').submit()" style="width: 44px; height: 24px; border-radius: 12px; background: <?= $serveMedia === '1' ? 'oklch(75% 0.15 85)' : 'oklch(30% 0.02 260)' ?>; position: relative; transition: background 0.2s;">
+                    <div style="width: 20px; height: 20px; border-radius: 50%; background: #fff; position: absolute; top: 2px; left: <?= $serveMedia === '1' ? '22px' : '2px' ?>; transition: left 0.2s;"></div>
+                </div>
+                <span style="font-size: 14px;"><strong>Servir do S3</strong><br><span style="font-size: 12px; color: var(--muted);">Frontend carrega mídia direto do S3</span></span>
+            </label>
+        </div>
+    </div>
+</div>
+
+<?php if ($syncQueueStats['total'] > 0): ?>
+<div class="card" id="queue-card" style="margin-bottom: 24px; border-color: oklch(55% 0.12 85 / 0.3);">
     <div class="card-body" style="display: flex; align-items: center; justify-content: space-between; gap: 16px;">
         <div>
-            <strong style="color: var(--gold); font-size: 15px;">📦 Fila de Sincronização</strong>
+            <strong style="color: var(--gold); font-size: 15px;">Fila de Sincronização</strong>
             <div style="font-size: 13px; color: var(--muted); margin-top: 4px;">
-                <?= $syncQueueCount ?> arquivo(s) aguardando sincronização com o S3.
-                Arquivos enviados antes da configuração do S3 serão processados agora.
+                <span id="queue-text"><?= $syncQueueStats['pending'] ?> pendente(s), <?= $syncQueueStats['done'] ?> concluído(s), <?= $syncQueueStats['failed'] ?> falha(s).</span>
             </div>
         </div>
-        <form method="POST" id="sync-queue-form">
-            <?= csrfField() ?>
-            <input type="hidden" name="action" value="process_sync_queue">
-            <button type="submit" class="btn btn-gold" style="white-space: nowrap;">📤 Processar Fila</button>
-        </form>
+        <div style="display: flex; gap: 8px;">
+            <button id="process-queue-btn" class="btn btn-gold" style="white-space: nowrap;">Processar Fila</button>
+            <?php if ($syncQueueStats['failed'] > 0): ?>
+            <button id="retry-queue-btn" class="btn btn-outline" style="white-space: nowrap; color: oklch(75% 0.15 85); border-color: oklch(55% 0.12 85);">Reenfileirar Falhas</button>
+            <?php endif; ?>
+        </div>
     </div>
 </div>
 <?php endif; ?>
 
-<div id="sync-actions" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px;">
-    <form method="POST">
+<div id="csrf-data" style="display:none;" data-token="<?= getCSRFToken() ?>"></div>
+
+<div style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px;">
+    <form method="POST" id="sync-all-form">
         <?= csrfField() ?>
         <input type="hidden" name="action" value="sync_all">
-        <button type="submit" class="btn btn-gold" style="font-weight:700;">⬆ Sincronizar Tudo</button>
+        <input type="hidden" name="ajax" value="1">
+        <button type="button" id="sync-all-btn" class="btn btn-gold" style="font-weight:700;"> Sincronizar Tudo</button>
     </form>
     <form method="POST">
         <?= csrfField() ?>
-        <input type="hidden" name="action" value="sync_images">
-        <button type="submit" class="btn btn-gold">⬆ Sincronizar Imagens</button>
+        <input type="hidden" name="action" value="restore_from_s3">
+        <button type="submit" class="btn btn-gold" style="background: oklch(55% 0.18 195);"> Restaurar do S3</button>
     </form>
     <form method="POST">
         <?= csrfField() ?>
-        <input type="hidden" name="action" value="sync_games">
-        <button type="submit" class="btn btn-gold">⬆ Sincronizar Jogos</button>
+        <input type="hidden" name="action" value="check_integrity">
+        <button type="submit" class="btn btn-outline" style="color: oklch(75% 0.18 195); border-color: oklch(55% 0.12 195);"> Verificar Integridade</button>
     </form>
     <form method="POST">
         <?= csrfField() ?>
-        <input type="hidden" name="action" value="sync_roms">
-        <button type="submit" class="btn btn-gold">⬆ Sincronizar ROMs</button>
-    </form>
-    <form method="POST">
-        <?= csrfField() ?>
-        <input type="hidden" name="action" value="fix_broken_urls">
-        <button type="submit" class="btn btn-outline" style="color: oklch(75% 0.15 85); border-color: oklch(55% 0.12 85);">🔧 Corrigir URLs Quebradas</button>
-    </form>
-    <form method="POST">
-        <?= csrfField() ?>
-        <input type="hidden" name="action" value="update_db_urls">
-        <button type="submit" class="btn btn-outline" style="color: oklch(75% 0.15 85); border-color: oklch(55% 0.12 85);">🔄 Atualizar URLs no BD</button>
-    </form>
-    <form method="POST">
-        <?= csrfField() ?>
-        <input type="hidden" name="action" value="revert_db_urls">
-        <button type="submit" class="btn btn-outline" style="color: oklch(55% 0.20 25); border-color: oklch(55% 0.20 25);">↩️ Reverter URLs + Baixar do S3</button>
+        <input type="hidden" name="action" value="clean_orphans_s3">
+        <button type="submit" class="btn btn-outline" style="color: oklch(65% 0.20 35); border-color: oklch(55% 0.20 35);"> Limpar órfãos do S3</button>
     </form>
 </div>
 
-<hr style="border: none; border-top: 1px solid oklch(22% 0.025 260); margin: 24px 0;">
-<h3 style="margin-bottom: 16px; color: oklch(60% 0.012 250);">🧹 Limpar Arquivos Locais</h3>
-<p style="font-size: 13px; color: oklch(50% 0.02 260); margin-bottom: 16px;">Remove arquivos locais que já existem no S3. Para recuperar, use "Reverter URLs + Baixar do S3". Jogos são re-extraídos do S3 automaticamente no primeiro acesso após "Reverter".</p>
-<div id="clean-actions" style="display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 24px;">
-        <?= csrfField() ?>
-        <input type="hidden" name="action" value="clean_images">
-        <button type="submit" class="btn btn-outline" style="color: oklch(65% 0.18 145); border-color: oklch(65% 0.18 145);">🧹 Limpar Imagens</button>
-    </form>
-    <form method="POST" onsubmit="return confirm('Remover diretórios de jogos extraídos que já possuem ZIP no S3? Eles serão re-extraídos automaticamente ao jogar.')">
-        <?= csrfField() ?>
-        <input type="hidden" name="action" value="clean_games">
-        <button type="submit" class="btn btn-outline" style="color: oklch(65% 0.18 145); border-color: oklch(65% 0.18 145);">🧹 Limpar Jogos</button>
-    </form>
-    <form method="POST" onsubmit="return confirm('Remover ROMs locais que já existem no S3?')">
-        <?= csrfField() ?>
-        <input type="hidden" name="action" value="clean_roms">
-        <button type="submit" class="btn btn-outline" style="color: oklch(65% 0.18 145); border-color: oklch(65% 0.18 145);">🧹 Limpar ROMs</button>
-    </form>
-</div>
+<details style="margin-bottom: 24px;">
+    <summary style="cursor: pointer; color: var(--muted); font-size: 13px;">Avançado</summary>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
+        <form method="POST">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="sync_images">
+            <button type="submit" class="btn btn-outline"> Sync Imagens</button>
+        </form>
+        <form method="POST">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="sync_games">
+            <button type="submit" class="btn btn-outline"> Sync Jogos</button>
+        </form>
+        <form method="POST">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="sync_roms">
+            <button type="submit" class="btn btn-outline"> Sync ROMs</button>
+        </form>
+        <form method="POST">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="fix_broken_urls">
+            <button type="submit" class="btn btn-outline" style="color: oklch(75% 0.15 85); border-color: oklch(55% 0.12 85);"> Corrigir URLs</button>
+        </form>
+        <form method="POST">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="update_db_urls">
+            <button type="submit" class="btn btn-outline"> URLs para S3</button>
+        </form>
+        <form method="POST">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="revert_db_urls">
+            <button type="submit" class="btn btn-outline" style="color: oklch(55% 0.20 25); border-color: oklch(55% 0.20 25);"> URLs Local</button>
+        </form>
+    </div>
+</details>
+
+<details style="margin-bottom: 24px;">
+    <summary style="cursor: pointer; color: var(--muted); font-size: 13px;">Limpar Arquivos Locais</summary>
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; margin-top: 12px;">
+        <form method="POST">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="clean_images">
+            <button type="submit" class="btn btn-outline" style="color: oklch(65% 0.18 145); border-color: oklch(65% 0.18 145);"> Limpar Imagens</button>
+        </form>
+        <form method="POST" onsubmit="return confirm('Remover diretrios de jogos extraos que j possuem ZIP no S3? Eles sero re-extraos automaticamente ao jogar.')">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="clean_games">
+            <button type="submit" class="btn btn-outline" style="color: oklch(65% 0.18 145); border-color: oklch(65% 0.18 145);"> Limpar Jogos</button>
+        </form>
+        <form method="POST" onsubmit="return confirm('Remover ROMs locais que j existem no S3?')">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="clean_roms">
+            <button type="submit" class="btn btn-outline" style="color: oklch(65% 0.18 145); border-color: oklch(65% 0.18 145);"> Limpar ROMs</button>
+        </form>
+    </div>
+</details>
 <?php endif; ?>
 
 <?php if (!empty($results)): ?>
@@ -628,10 +1005,27 @@ define('S3_PUBLIC_URL', 'https://pub-xxxxx.r2.dev');</pre>
 </div>
 <?php endif; ?>
 
-<div id="sync-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;flex-direction:column;">
-    <div style="width:48px;height:48px;border:4px solid oklch(75% 0.15 85);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;margin-bottom:16px;"></div>
-    <div style="color:#fff;font-size:18px;font-weight:600;">Sincronizando...</div>
-    <div style="color:oklch(70% 0.01 250);font-size:14px;margin-top:8px;">Isso pode levar alguns minutos. Não feche a página.</div>
+<div id="sync-overlay" style="display:none;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.8);z-index:9999;align-items:center;justify-content:center;flex-direction:column;padding:24px;">
+    <div style="background:oklch(15% 0.02 260);border:1px solid var(--border);border-radius:12px;padding:32px;max-width:560px;width:100%;">
+        <h3 style="margin-bottom:16px;text-align:center;">Sincronizando com S3</h3>
+        <div id="sync-progress-bar" style="width:100%;height:10px;background:oklch(25% 0.02 260);border-radius:5px;overflow:hidden;margin-bottom:12px;">
+            <div id="sync-progress-fill" style="width:0%;height:100%;background:oklch(75% 0.15 85);border-radius:5px;transition:width 0.3s;"></div>
+        </div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;color:var(--muted);margin-bottom:8px;">
+            <span id="sync-progress-text">0 / 0</span>
+            <span id="sync-file-text">—</span>
+        </div>
+        <div id="sync-counts" style="display:flex;gap:16px;justify-content:center;font-size:13px;margin-bottom:12px;">
+            <span>✅ <span id="sync-done">0</span></span>
+            <span>⏳ <span id="sync-pending">0</span></span>
+            <span>❌ <span id="sync-failed-count">0</span></span>
+        </div>
+        <div id="sync-errors" style="max-height:120px;overflow-y:auto;font-size:12px;color:oklch(65% 0.20 35);margin-bottom:12px;display:none;"></div>
+        <div style="display:flex;gap:8px;justify-content:center;">
+            <button id="sync-stop-btn" class="btn btn-outline" style="font-size:13px;">Fechar</button>
+            <button id="sync-retry-btn" class="btn btn-gold" style="font-size:13px;display:none;">Reenfileirar Falhas</button>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -639,24 +1033,196 @@ define('S3_PUBLIC_URL', 'https://pub-xxxxx.r2.dev');</pre>
 </style>
 
 <script>
+var csrfToken = document.getElementById('csrf-data') ? document.getElementById('csrf-data').getAttribute('data-token') : '';
+var syncRunning = false;
+var syncStopped = false;
+
+function updateQueueUI(stats) {
+    var el = document.getElementById('queue-total');
+    if (el) el.textContent = stats.total;
+    var sub = document.getElementById('queue-sub');
+    if (sub) sub.textContent = stats.done + ' ok, ' + stats.pending + ' pend, ' + stats.failed + ' falhas';
+    var txt = document.getElementById('queue-text');
+    if (txt) txt.textContent = stats.pending + ' pendente(s), ' + stats.done + ' concluído(s), ' + stats.failed + ' falha(s).';
+    document.getElementById('sync-done').textContent = stats.done;
+    document.getElementById('sync-pending').textContent = stats.pending;
+    document.getElementById('sync-failed-count').textContent = stats.failed;
+    var total = parseInt(stats.total) || 0;
+    if (total > 0) {
+        var pct = Math.round((parseInt(stats.done) + parseInt(stats.failed)) / total * 100);
+        document.getElementById('sync-progress-fill').style.width = pct + '%';
+        document.getElementById('sync-progress-text').textContent = (parseInt(stats.done) + parseInt(stats.failed)) + ' / ' + total;
+    }
+    if (stats.total > 0) {
+        var card = document.getElementById('queue-card');
+        if (!card) {
+            // recreate queue card if it was removed
+        }
+    }
+}
+
+function fetchQueueStatus() {
+    var fd = new FormData();
+    fd.append('action', 'sync_status');
+    fd.append('csrf_token', csrfToken);
+    fd.append('ajax', '1');
+    return fetch(window.location.href, { method: 'POST', body: fd }).then(function(r) { return r.json(); });
+}
+
+function processQueueBatch() {
+    if (syncStopped) {
+        syncRunning = false;
+        return Promise.resolve();
+    }
+    var fd = new FormData();
+    fd.append('action', 'process_sync_queue');
+    fd.append('csrf_token', csrfToken);
+    fd.append('ajax', '1');
+    return fetch(window.location.href, { method: 'POST', body: fd }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.current_file) {
+            document.getElementById('sync-file-text').textContent = data.current_file.split('/').pop();
+        }
+        if (data.errors && data.errors.length > 0) {
+            var errDiv = document.getElementById('sync-errors');
+            errDiv.style.display = 'block';
+            data.errors.forEach(function(e) {
+                var d = document.createElement('div');
+                d.textContent = '❌ ' + e;
+                errDiv.appendChild(d);
+            });
+        }
+        return fetchQueueStatus().then(function(stats) {
+            updateQueueUI(stats);
+            if (parseInt(stats.pending) > 0 && !syncStopped) {
+                return processQueueBatch();
+            } else {
+                syncRunning = false;
+                if (parseInt(stats.failed) > 0) {
+                    document.getElementById('sync-retry-btn').style.display = 'inline-block';
+                }
+                if (parseInt(stats.pending) === 0 && parseInt(stats.total) > 0) {
+                    document.getElementById('sync-file-text').textContent = 'Concluído!';
+                }
+                return stats;
+            }
+        });
+    }).catch(function(err) {
+        syncRunning = false;
+        document.getElementById('sync-file-text').textContent = 'Erro: ' + err.message;
+        return null;
+    });
+}
+
+function startSync() {
+    syncRunning = true;
+    syncStopped = false;
+    document.getElementById('sync-overlay').style.display = 'flex';
+    document.getElementById('sync-errors').style.display = 'none';
+    document.getElementById('sync-errors').innerHTML = '';
+    document.getElementById('sync-retry-btn').style.display = 'none';
+    document.getElementById('sync-file-text').textContent = 'Enfileirando...';
+
+    // Step 1: Enqueue all files via sync_all
+    var fd = new FormData();
+    fd.append('action', 'sync_all');
+    fd.append('csrf_token', csrfToken);
+    fd.append('ajax', '1');
+    fetch(window.location.href, { method: 'POST', body: fd }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+            document.getElementById('sync-file-text').textContent = data.total + ' arquivos enfileirados.';
+            return fetchQueueStatus();
+        } else {
+            syncRunning = false;
+            document.getElementById('sync-file-text').textContent = 'Erro ao enfileirar.';
+        }
+    }).then(function(stats) {
+        if (stats) {
+            updateQueueUI(stats);
+            return processQueueBatch();
+        }
+    });
+}
+
+function retryFailed() {
+    var fd = new FormData();
+    fd.append('action', 'retry_failed');
+    fd.append('csrf_token', csrfToken);
+    fd.append('ajax', '1');
+    document.getElementById('sync-retry-btn').style.display = 'none';
+    document.getElementById('sync-errors').innerHTML = '';
+    document.getElementById('sync-errors').style.display = 'none';
+    fetch(window.location.href, { method: 'POST', body: fd }).then(function(r) { return r.json(); }).then(function(data) {
+        if (data.success) {
+            return fetchQueueStatus().then(function(stats) {
+                updateQueueUI(stats);
+                if (parseInt(stats.pending) > 0) {
+                    processQueueBatch();
+                }
+            });
+        }
+    });
+}
+
+// Button handlers
+document.getElementById('sync-all-btn').addEventListener('click', function() {
+    if (syncRunning) return;
+    if (!confirm('Enfileirar todos os arquivos locais para sincronização?\n\nIsso irá enfileirar imagens, jogos e ROMs para upload ao S3.')) return;
+    startSync();
+});
+
+document.getElementById('process-queue-btn').addEventListener('click', function() {
+    if (syncRunning) return;
+    syncStopped = false;
+    syncRunning = true;
+    document.getElementById('sync-overlay').style.display = 'flex';
+    document.getElementById('sync-errors').style.display = 'none';
+    document.getElementById('sync-errors').innerHTML = '';
+    document.getElementById('sync-retry-btn').style.display = 'none';
+    processQueueBatch();
+});
+
+var retryBtn = document.getElementById('retry-queue-btn');
+if (retryBtn) {
+    retryBtn.addEventListener('click', function() {
+        if (syncRunning) return;
+        retryFailed();
+    });
+}
+
+document.getElementById('sync-retry-btn').addEventListener('click', function() {
+    retryFailed();
+});
+
+document.getElementById('sync-stop-btn').addEventListener('click', function() {
+    syncStopped = true;
+    syncRunning = false;
+    document.getElementById('sync-overlay').style.display = 'none';
+});
+
+// Confirm dialogs for non-AJAX forms
 var confirmMsgs = {
-    sync_all: 'Executar sincronização completa?\n\n1. ⬆ Enviar imagens\n2. ⬆ Enviar ZIPs dos jogos\n3. ⬆ Enviar ROMs\n4. 🔄 Atualizar URLs para S3\n\nIsso pode levar alguns minutos.',
+    sync_all: 'Executar sincronização completa?\n\nIsso pode levar alguns minutos.',
     sync_images: 'Enviar imagens para o S3 (R2)?',
-    sync_games: 'Recriar e enviar ZIPs dos jogos para o S3?',
+    sync_games: 'Enviar jogos para o S3?',
     sync_roms: 'Enviar ROMs para o S3?',
+    restore_from_s3: 'Restaurar arquivos do S3?\n\nBaixa do S3 todos os arquivos referenciados no banco que não existem localmente.',
     fix_broken_urls: 'Corrigir URLs mal formadas no banco de dados?',
     update_db_urls: 'Atualizar todas as URLs do BD para apontar para o S3?',
     revert_db_urls: 'Baixar TODOS os arquivos do S3 e reverter URLs para local (/uploads/...)?\nArquivos que já existem localmente serão ignorados.',
     clean_images: 'Remover imagens locais que já existem no S3?',
-    clean_games: 'Remover diretórios de jogos extraídos que já possuem ZIP no S3?\nEles serão re-extraídos automaticamente ao jogar.',
+    clean_games: 'Remover diretórios de jogos extraídos que já estão no S3?',
     clean_roms: 'Remover ROMs locais que já existem no S3?',
     process_sync_queue: 'Enviar arquivos pendentes da fila para o S3?',
+    check_integrity: 'Verificar integridade das referências entre BD e S3?\n\nLista objetos no S3, compara com URLs do BD, mostra órfãos e quebrados.',
+    clean_orphans_s3: 'Remover objetos órfãos do S3?\n\nIsso deletará TODOS os objetos do bucket que não têm referência no banco de dados.',
 };
-document.querySelectorAll('#sync-actions form, #clean-actions form, #sync-queue-form').forEach(function(f) {
+document.querySelectorAll('form[method="POST"]').forEach(function(f) {
     f.addEventListener('submit', function(e) {
-        var action = this.querySelector('input[name="action"]').value;
-        var msg = confirmMsgs[action] || 'Confirmar?';
-        if (!confirm(msg)) {
+        var inp = this.querySelector('input[name="action"]');
+        if (!inp) return;
+        if (inp.value === 'sync_all') return; // handled by AJAX
+        var msg = confirmMsgs[inp.value] || '';
+        if (msg && !confirm(msg)) {
             e.preventDefault();
             return;
         }

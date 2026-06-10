@@ -1,5 +1,11 @@
 # Jogatinando CMS — Agent Guide
 
+## Regras do Agente (fortes, não negociáveis)
+
+1. **Idioma**: Responda APENAS em português do Brasil. Nunca use inglês ou outros idiomas.
+2. **Commit proibido sem autorização explícita**: Nunca faça commit, push, ou qualquer operação de escrita no repositório remoto a menos que o usuário diga EXATAMENTE a palavra "commit" no mesmo contexto.
+3. **Um commit por vez**: Cada permissão de "commit" vale APENAS para o commit atual. Depois de executado, você DEVE esperar um novo "commit" explícito para o próximo. Mesmo que o commit anterior tenha passado, não assuma permissão para o seguinte.
+
 ## Project
 
 PHP 8.2 + SQLite/MySQL CMS for Jogatinando game studio website. Flat-file PHP, no framework, no Composer.

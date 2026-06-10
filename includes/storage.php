@@ -17,14 +17,14 @@ class Storage {
         if (!is_dir($dir)) {
             mkdir($dir, 0755, true);
         }
+        if (copy($sourcePath, $destPath)) {
+            @unlink($sourcePath);
+            return true;
+        }
         if (is_uploaded_file($sourcePath)) {
             return move_uploaded_file($sourcePath, $destPath);
         }
         if (rename($sourcePath, $destPath)) {
-            return true;
-        }
-        if (copy($sourcePath, $destPath)) {
-            unlink($sourcePath);
             return true;
         }
         return false;
@@ -121,8 +121,15 @@ class Storage {
     }
 
     public static function downloadFromS3($s3Name, $localPath) {
-        if (!self::isS3Configured()) return false;
+        if (!self::isS3Configured()) {
+            error_log("Storage::downloadFromS3: S3 not configured");
+            return false;
+        }
         return S3::download($s3Name, $localPath);
+    }
+
+    public static function getS3DownloadError() {
+        return S3::getLastDownloadError();
     }
 
     public static function extractFromS3Zip($zipS3Name, $destRelDir) {
@@ -144,6 +151,25 @@ class Storage {
         $zip = new ZipArchive();
         $res = $zip->open($tmpZip);
         if ($res !== true) { unlink($tmpZip); return false; }
+
+        $opsys = null;
+        $attr = 0;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (strpos($name, '..') !== false || strpos($name, '/') === 0) {
+                $zip->close();
+                unlink($tmpZip);
+                return false;
+            }
+            if ($zip->getExternalAttributesIndex($i, $opsys, $attr) && $opsys === ZipArchive::OPSYS_UNIX) {
+                $unixMode = ($attr >> 16) & 0xFFFF;
+                if (($unixMode & 0120000) === 0120000) {
+                    $zip->close();
+                    unlink($tmpZip);
+                    return false;
+                }
+            }
+        }
 
         $zip->extractTo($destDir);
         $zip->close();

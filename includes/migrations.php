@@ -250,25 +250,49 @@ function migration_005($db, $type) {
             }
         }
     } catch (Exception $e) {}
+}
 
+function migration_032($db, $type) {
     try {
         if ($type === 'mysql') {
-            $db->exec("ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active' AFTER role_id");
-        } else {
-            $cols = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
-            if (!in_array('status', $cols)) {
-                $db->exec("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+            $cols = $db->query("SHOW COLUMNS FROM sync_queue LIKE 'status'")->fetch();
+            if (!$cols) {
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'pending' AFTER created_at");
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN attempts INT NOT NULL DEFAULT 0 AFTER status");
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN last_error TEXT DEFAULT '' AFTER attempts");
             }
+        } else {
+            $cols = $db->query("PRAGMA table_info(sync_queue)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('status', $cols)) {
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'");
+            }
+            if (!in_array('attempts', $cols)) {
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0");
+            }
+            if (!in_array('last_error', $cols)) {
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN last_error TEXT DEFAULT ''");
+            }
+            $db->exec("UPDATE sync_queue SET status='pending' WHERE status IS NULL OR status=''");
         }
     } catch (Exception $e) {}
+}
 
+function migration_033($db, $type) {
     try {
         if ($type === 'mysql') {
-            $db->exec("ALTER TABLE users ADD COLUMN setup_token VARCHAR(64) DEFAULT NULL AFTER status");
-            $db->exec("ALTER TABLE users ADD COLUMN setup_token_expires DATETIME DEFAULT NULL AFTER setup_token");
+            // Ensure status column exists (migration_005 was corrupted and lost it)
+            $cols = $db->query("SHOW COLUMNS FROM users LIKE 'status'")->fetch();
+            if (!$cols) {
+                $db->exec("ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active'");
+            }
+            $db->exec("ALTER TABLE users ADD COLUMN setup_token VARCHAR(64) DEFAULT NULL");
+            $db->exec("ALTER TABLE users ADD COLUMN setup_token_expires DATETIME DEFAULT NULL");
         } else {
             $cols = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
             if (!in_array('setup_token', $cols)) {
+                if (!in_array('status', $cols)) {
+                    $db->exec("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+                }
                 $db->exec("ALTER TABLE users ADD COLUMN setup_token TEXT DEFAULT NULL");
                 $db->exec("ALTER TABLE users ADD COLUMN setup_token_expires TEXT DEFAULT NULL");
             }
@@ -718,7 +742,9 @@ function migration_018($db, $type) {
             }
         }
     } catch (Exception $e) {}
-    $db->prepare("UPDATE users SET email_verified_at = created_at WHERE status = 'active' AND email_verified_at IS NULL")->execute();
+    try {
+        $db->prepare("UPDATE users SET email_verified_at = created_at WHERE email_verified_at IS NULL")->execute();
+    } catch (Exception $e) {}
 }
 
 function migration_019($db, $type) {
@@ -1149,6 +1175,67 @@ function migration_030($db, $type) {
                 ref_id INTEGER DEFAULT NULL,
                 created_at TEXT DEFAULT (datetime('now'))
             )");
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_031($db, $type) {
+    // Settings for S3 auto-sync and serve-media
+    try {
+        $stmtCheck = $db->prepare("SELECT COUNT(*) FROM site_settings WHERE key = ?");
+        $stmtInsert = $db->prepare("INSERT INTO site_settings (`key`, `value`) VALUES (?, ?)");
+        $set = function($key, $val) use ($stmtCheck, $stmtInsert) {
+            $stmtCheck->execute([$key]);
+            if (!$stmtCheck->fetchColumn()) {
+                $stmtInsert->execute([$key, $val]);
+            }
+        };
+        $set('s3_auto_sync', '0');
+        $set('s3_serve_media', '0');
+    } catch (Exception $e) {}
+
+    // Normalize all media URLs to relative /uploads/... paths
+    $columns = [
+        ['games', 'thumbnail_url'],
+        ['blog_posts', 'thumbnail_url'],
+        ['banners', 'image_url'],
+        ['team_members', 'avatar_url'],
+        ['testimonials', 'avatar_url'],
+        ['users', 'avatar_url'],
+        ['game_templates', 'thumbnail_url'],
+        ['retro_consoles', 'thumbnail_url'],
+        ['retro_games', 'thumbnail_url'],
+        ['store_platforms', 'logo_path'],
+    ];
+
+    foreach ($columns as $col) {
+        try {
+            $q = $db->prepare("SELECT id, {$col[1]} FROM {$col[0]} WHERE {$col[1]} LIKE ?");
+            $q->execute(['http%']);
+            $u = $db->prepare("UPDATE {$col[0]} SET {$col[1]} = ? WHERE id = ?");
+            foreach ($q as $row) {
+                $url = $row[$col[1]];
+                $pos = strpos($url, '/uploads/');
+                if ($pos !== false) {
+                    $u->execute([substr($url, $pos), $row['id']]);
+                }
+            }
+        } catch (Exception $e) {}
+    }
+
+    // Normalize site_logo_url and site_favicon_url
+    try {
+        $s = $db->prepare("SELECT value FROM site_settings WHERE key = ?");
+        $u = $db->prepare("UPDATE site_settings SET value = ? WHERE key = ?");
+        foreach (['site_logo_url', 'site_favicon_url'] as $key) {
+            $s->execute([$key]);
+            $row = $s->fetch(PDO::FETCH_ASSOC);
+            if ($row && str_starts_with($row['value'] ?? '', 'http')) {
+                $pos = strpos($row['value'], '/uploads/');
+                if ($pos !== false) {
+                    $u->execute([substr($row['value'], $pos), $key]);
+                }
+            }
         }
     } catch (Exception $e) {}
 }

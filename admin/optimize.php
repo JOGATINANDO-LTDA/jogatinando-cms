@@ -20,6 +20,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif ($action === 'optimize_single') {
         $gamePath = $_POST['game_path'] ?? '';
         if ($gamePath) {
+            if (strpos($gamePath, '..') !== false || !preg_match('/^[a-zA-Z0-9\/_-]+$/', $gamePath)) {
+                flashMessage('error', 'Caminho de jogo inválido.');
+                header('Location: ' . ADMIN_URL . '/optimize');
+                exit;
+            }
             $results = [optimizeGame($gamePath)];
             $message = ['type' => 'success', 'results' => $results];
         }

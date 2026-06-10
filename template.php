@@ -57,7 +57,7 @@ $siteName = getSetting('site_name', SITE_NAME);
     <section class="theater-section">
         <div class="theater-container">
             <div class="theater-player" style="aspect-ratio:16/9;background:#0a0a12;display:flex;align-items:center;justify-content:center;border:2px solid var(--border-gold);border-radius:var(--radius-lg);overflow:hidden">
-                <img src="<?= e($template['thumbnail_url']) ?>" alt="<?= e($template['title']) ?>" style="max-width:100%;max-height:100%;object-fit:contain">
+                <img src="<?= e(mediaUrl($template['thumbnail_url'])) ?>" alt="<?= e($template['title']) ?>" style="max-width:100%;max-height:100%;object-fit:contain">
             </div>
         </div>
     </section>
@@ -112,8 +112,8 @@ $siteName = getSetting('site_name', SITE_NAME);
                         <h3>Galeria</h3>
                         <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin-top:8px">
                             <?php foreach ($gallery as $img): ?>
-                            <a href="<?= e($img) ?>" target="_blank" style="display:block;border-radius:8px;overflow:hidden;border:2px solid var(--border);transition:border-color .2s">
-                                <img src="<?= e($img) ?>" alt="Gallery" style="width:100%;height:130px;object-fit:cover;display:block">
+                            <a href="<?= e(mediaUrl($img)) ?>" target="_blank" style="display:block;border-radius:8px;overflow:hidden;border:2px solid var(--border);transition:border-color .2s">
+                                <img src="<?= e(mediaUrl($img)) ?>" alt="Gallery" style="width:100%;height:130px;object-fit:cover;display:block">
                             </a>
                             <?php endforeach; ?>
                         </div>
@@ -176,7 +176,7 @@ $siteName = getSetting('site_name', SITE_NAME);
                     <?php if ($template['thumbnail_url']): ?>
                     <div class="sidebar-card">
                         <h3>Preview</h3>
-                        <img src="<?= e($template['thumbnail_url']) ?>" alt="<?= e($template['title']) ?>" class="sidebar-thumb">
+                        <img src="<?= e(mediaUrl($template['thumbnail_url'])) ?>" alt="<?= e($template['title']) ?>" class="sidebar-thumb">
                     </div>
                     <?php endif; ?>
 

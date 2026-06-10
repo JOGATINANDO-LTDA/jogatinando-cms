@@ -34,8 +34,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($result['success']) {
                 $image_url = $result['url'];
                 if (!empty($oldImage)) {
-                    $oldPath = UPLOAD_PATH . str_replace('/uploads', '', $oldImage);
-                    if (file_exists($oldPath)) @unlink($oldPath);
+                    $relPath = str_replace(UPLOAD_URL . '/', '', $oldImage);
+                    if (strpos($relPath, '..') === false) {
+                        $oldPath = UPLOAD_PATH . '/' . $relPath;
+                        if (file_exists($oldPath)) @unlink($oldPath);
+                    }
                 }
             } else {
                 flashMessage('error', $result['message']);

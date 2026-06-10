@@ -3,8 +3,25 @@
  * Authentication helpers
  */
 
+function clearSession() {
+    $_SESSION = [];
+    session_destroy();
+}
+
 function isLoggedIn() {
-    return isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true;
+    if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) return false;
+    $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    $expectedUa = $_SESSION['admin_user_agent'] ?? '';
+    if ($expectedUa !== '' && $ua !== '' && $expectedUa !== hash('sha256', $ua)) {
+        clearSession();
+        return false;
+    }
+    $absoluteTimeout = 28800;
+    if (isset($_SESSION['admin_login_time']) && (time() - $_SESSION['admin_login_time']) > $absoluteTimeout) {
+        clearSession();
+        return false;
+    }
+    return true;
 }
 
 function requireLogin() {
@@ -61,6 +78,8 @@ function login($username, $password) {
                 $_SESSION['admin_permissions'][$key] = (bool)$val;
             }
         }
+        $_SESSION['admin_user_agent'] = hash('sha256', $_SERVER['HTTP_USER_AGENT'] ?? '');
+        $_SESSION['admin_login_time'] = time();
         session_regenerate_id(true);
         return true;
     }
@@ -173,10 +192,7 @@ function isSmtpConfigured() {
 }
 
 function redirectOrError($msg, $detail) {
-    // Only redirect to installer if system is truly not installed
-    // (config.local.php doesn't exist). If config exists but DB is broken,
-    // show error page instead — avoids redirect loop.
-    if (file_exists(ROOT_PATH . '/install.php') && !file_exists(DATA_PATH . '/config.local.php')) {
+    if (file_exists(ROOT_PATH . '/install.php')) {
         header('Location: /install');
         exit;
     }
@@ -218,16 +234,8 @@ function requireInstalled() {
     }
 }
 
-function clearSession() {
-    $_SESSION = [];
-    $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-            || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
-    setcookie(session_name(), '', time() - 42000, '/', '', $isHttps, true);
-    session_destroy();
-}
-
 function logout() {
-    clearSession();
+    session_destroy();
     header('Location: ' . ADMIN_URL . '/login');
     exit;
 }

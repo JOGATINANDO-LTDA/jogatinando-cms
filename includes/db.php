@@ -125,7 +125,12 @@ function dbMigrate($db, $type = null) {
         if ($version > $currentVersion) {
             $func = 'migration_' . str_pad($version, 3, '0', STR_PAD_LEFT);
             if (function_exists($func)) {
-                $func($db, $type);
+                try {
+                    $func($db, $type);
+                } catch (Exception $e) {
+                    error_log("Migration {$version} ({$name}) failed: " . $e->getMessage());
+                    continue;
+                }
                 $stmt = $db->prepare("INSERT INTO schema_version (version, name) VALUES (?, ?)");
                 $stmt->execute([$version, $name]);
             }
@@ -164,8 +169,11 @@ function getMigrationList() {
           27 => 'add_team_member_user_id',
            28 => 'add_aspect_ratio_to_games',
             29 => 'add_iframe_width_height_to_games',
-            30 => 'create_sync_queue',
-    ];
+             30 => 'create_sync_queue',
+             31 => 'normalize_media_urls_s3_settings',
+             32 => 'add_sync_queue_retry',
+             33 => 'add_user_setup_token_fields',
+     ];
 }
 
 function dbInit($dsn = null, $user = null, $pass = null, $type = null) {

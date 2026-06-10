@@ -76,16 +76,15 @@ FileETag None
 RewriteRule ^favicon\.ico$ /assets/svg/logo.svg [L]
 
 # Force trailing slash for admin directory (avoids mod_dir double-redirect on mobile)
-RewriteRule ^admin$ admin/ [R=301,L]
+# router.php already handles /admin (no slash) correctly — no 301 needed
+# RewriteRule ^admin$ admin/ [R=301,L]
 
 # Serve existing files and directories directly (CSS, JS, uploads, install.php, etc.)
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d
 RewriteRule ^ - [L]
 
-# Admin pretty URL → .php direto (evita bug do router com query string em manutenção)
-RewriteCond %{DOCUMENT_ROOT}/admin/$1.php -f
-RewriteRule ^admin/(.+)$ admin/$1.php [L]
+# Tudo vai via router.php (que chama requireLogin)
 
 # Everything else → router.php (admin routing, game player, homepage)
 RewriteRule ^(.*)$ router.php [L,QSA]

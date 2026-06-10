@@ -162,7 +162,7 @@ $routeEngineSlug = function ($value) {
                         <a href="<?= e($gameUrl) ?>" class="catalog-card">
                             <div class="catalog-thumb">
                                 <?php if (!empty($g['thumbnail_url'])): ?>
-                                    <img src="<?= e($g['thumbnail_url']) ?>" alt="<?= e($g['title']) ?>">
+                                    <img src="<?= e(mediaUrl($g['thumbnail_url'])) ?>" alt="<?= e($g['title']) ?>">
                                 <?php else: ?>
                                     <div class="catalog-thumb-placeholder"><?= e($g['engine_icon'] ?? getEngineIcon($g['engine'])) ?></div>
                                 <?php endif; ?>

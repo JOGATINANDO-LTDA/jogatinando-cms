@@ -85,7 +85,7 @@ $availableLetters = array_column($letterRows, 'letter');
         <div class="container">
             <div class="section-title catalog-title">
                 <?php if (!empty($console['thumbnail_url'])): ?>
-                    <img src="<?= e($console['thumbnail_url']) ?>" alt="<?= e($console['name']) ?>" style="width:80px;height:80px;border-radius:12px;object-fit:cover;margin:0 auto 12px;border:2px solid var(--gold);box-shadow:0 0 20px var(--gold-glow)">
+                    <img src="<?= e(mediaUrl($console['thumbnail_url'])) ?>" alt="<?= e($console['name']) ?>" style="width:80px;height:80px;border-radius:12px;object-fit:cover;margin:0 auto 12px;border:2px solid var(--gold);box-shadow:0 0 20px var(--gold-glow)">
                 <?php else: ?>
                     <div style="font-size:56px;margin-bottom:8px"><?= e($console['icon'] ?? '🎮') ?></div>
                 <?php endif; ?>
@@ -142,7 +142,7 @@ $availableLetters = array_column($letterRows, 'letter');
                         <a href="/retro/<?= e($consoleSlug) ?>/<?= e($game['slug']) ?>" class="catalog-card">
                             <div class="catalog-thumb">
                                 <?php if (!empty($game['thumbnail_url'])): ?>
-                                    <img src="<?= e($game['thumbnail_url']) ?>" alt="<?= e($game['title']) ?>">
+                                    <img src="<?= e(mediaUrl($game['thumbnail_url'])) ?>" alt="<?= e($game['title']) ?>">
                                 <?php else: ?>
                                     <div class="catalog-thumb-placeholder">🎮</div>
                                 <?php endif; ?>
