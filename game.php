@@ -43,7 +43,12 @@ if ($isExterno) {
         $gameUrl = $externalUrl;
         $parts = parse_url($gameUrl);
         $port = isset($parts['port']) ? ':' . $parts['port'] : '';
-        $frameOrigin = ($parts['scheme'] ?? 'https') . '://' . ($parts['host'] ?? '') . $port;
+        $host = $parts['host'] ?? '';
+        if (!filter_var($host, FILTER_VALIDATE_DOMAIN, FILTER_FLAG_HOSTNAME) && !filter_var($host, FILTER_VALIDATE_IP)) {
+            $frameOrigin = "'self'";
+        } else {
+            $frameOrigin = ($parts['scheme'] ?? 'https') . '://' . $host . $port;
+        }
     }
 } elseif ($isWebPlayable && $game['game_path']) {
     $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];

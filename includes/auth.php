@@ -9,7 +9,19 @@ function clearSession() {
 }
 
 function isLoggedIn() {
-    return isset($_SESSION['admin_logged_in']) && $_SESSION['admin_logged_in'] === true;
+    if (!isset($_SESSION['admin_logged_in']) || $_SESSION['admin_logged_in'] !== true) return false;
+    $ua = $_SERVER['HTTP_USER_AGENT'] ?? '';
+    $expectedUa = $_SESSION['admin_user_agent'] ?? '';
+    if ($expectedUa !== '' && $ua !== '' && $expectedUa !== hash('sha256', $ua)) {
+        clearSession();
+        return false;
+    }
+    $absoluteTimeout = 28800;
+    if (isset($_SESSION['admin_login_time']) && (time() - $_SESSION['admin_login_time']) > $absoluteTimeout) {
+        clearSession();
+        return false;
+    }
+    return true;
 }
 
 function requireLogin() {
@@ -66,6 +78,8 @@ function login($username, $password) {
                 $_SESSION['admin_permissions'][$key] = (bool)$val;
             }
         }
+        $_SESSION['admin_user_agent'] = hash('sha256', $_SERVER['HTTP_USER_AGENT'] ?? '');
+        $_SESSION['admin_login_time'] = time();
         session_regenerate_id(true);
         return true;
     }

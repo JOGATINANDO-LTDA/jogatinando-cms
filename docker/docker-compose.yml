@@ -14,10 +14,10 @@ services:
       - SITE_URL=http://localhost:8080
       - DB_TYPE=mysql
       - DB_HOST=db
-      - DB_USER=cms_user
-      - DB_PASS=cms_pass2024
-      - ADMIN_USERNAME=sorameshi
-      - ADMIN_PASSWORD=lotus10
+      - DB_USER=${DB_USER:-cms_user}
+      - DB_PASS=${DB_PASS:-cms_pass2024}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-sorameshi}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-lotus10}
       # S3-compatible storage (Cloudflare R2) — preencha docker/.env ou export
       - S3_ACCESS_KEY=${S3_ACCESS_KEY:-}
       - S3_SECRET_KEY=${S3_SECRET_KEY:-}
@@ -41,7 +41,7 @@ services:
     ports:
       - "3307:3306"
     environment:
-      MYSQL_ROOT_PASSWORD: root_cms2024
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root_cms2024}
     volumes:
       - cms-mysql:/var/lib/mysql
       - ./mysql-init.sql:/docker-entrypoint-initdb.d/01-grant.sql

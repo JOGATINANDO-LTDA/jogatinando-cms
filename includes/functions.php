@@ -44,13 +44,18 @@ function sendSmtpMail($to, $subject, $body, $from = null, $fromName = null) {
         fwrite($fp, $cmd . "\r\n");
     };
 
+    $hostname = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $hostname = preg_replace('/[^a-zA-Z0-9\.\-_:]/', '', $hostname);
+    if ($hostname === '') $hostname = 'localhost';
+    $sanitize = function($v) { return str_replace(["\r", "\n"], '', $v); };
+
     $banner = $read($fp);
-    $write($fp, "EHLO " . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    $write($fp, "EHLO " . $hostname);
     $ehloResp = $read($fp);
     $write($fp, "STARTTLS");
     $starttlsResp = $read($fp);
     stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT);
-    $write($fp, "EHLO " . ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+    $write($fp, "EHLO " . $hostname);
     $ehlo2Resp = $read($fp);
     $write($fp, "AUTH LOGIN");
     $authLoginResp = $read($fp);
@@ -63,6 +68,12 @@ function sendSmtpMail($to, $subject, $body, $from = null, $fromName = null) {
         fclose($fp);
         return false;
     }
+
+    $to = $sanitize($to);
+    $fromAddr = $sanitize($fromAddr);
+    $fromLbl = $sanitize($fromLbl);
+    $subject = $sanitize($subject);
+    $body = $sanitize($body);
 
     $write($fp, "MAIL FROM: <$fromAddr>");
     $mailFromResp = $read($fp);
@@ -190,6 +201,11 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
     }
 
     $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+
+    if (in_array($ext, ['jpg', 'jpeg', 'png', 'gif', 'webp']) && $file['size'] > 10 * 1024 * 1024) {
+        error_log('uploadFile: imagem excede 10MB ' . $file['size']);
+        return ['success' => false, 'message' => 'Imagens devem ter no máximo 10MB.'];
+    }
     if (!in_array($ext, $allowedExtensions)) {
         error_log('uploadFile: extensão rejeitada .' . $ext);
         return ['success' => false, 'message' => 'Extensão não permitida: .' . $ext];

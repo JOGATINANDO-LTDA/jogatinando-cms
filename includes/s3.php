@@ -28,7 +28,8 @@ class S3 {
             $dbVal = getSetting('s3_' . strtolower($suffix));
             if ($dbVal !== '') return $dbVal;
         }
-        if (!empty($_ENV['S3_' . $suffix])) return $_ENV['S3_' . $suffix];
+        $envVal = getenv('S3_' . $suffix);
+        if ($envVal !== false && $envVal !== '') return $envVal;
         return '';
     }
 
@@ -209,8 +210,8 @@ class S3 {
             CURLOPT_TIMEOUT        => 120,
             CURLOPT_INFILE         => $fp,
             CURLOPT_INFILESIZE     => $size,
-            CURLOPT_SSL_VERIFYPEER => false,
-            CURLOPT_SSL_VERIFYHOST => 0,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
         ]);
 
         $resp = curl_exec($ch);

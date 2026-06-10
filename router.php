@@ -67,6 +67,11 @@ if ($uri === '/admin' || strpos($uri, '/admin/') === 0) {
         exit;
     }
 
+    if (strpos($relPath, '..') !== false) {
+        http_response_code(404);
+        exit;
+    }
+
     $target = $adminDir . '/' . $relPath;
 
     if (substr($relPath, -4) === '.php') {

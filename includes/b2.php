@@ -31,9 +31,8 @@ class B2 {
             $dbVal = getSetting('b2_' . strtolower($suffix));
             if ($dbVal !== '') return $dbVal;
         }
-        if (!empty($_ENV['B2_' . $suffix])) {
-            return $_ENV['B2_' . $suffix];
-        }
+        $envVal = getenv('B2_' . $suffix);
+        if ($envVal !== false && $envVal !== '') return $envVal;
         return '';
     }
 

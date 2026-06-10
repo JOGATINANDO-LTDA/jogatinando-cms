@@ -152,6 +152,25 @@ class Storage {
         $res = $zip->open($tmpZip);
         if ($res !== true) { unlink($tmpZip); return false; }
 
+        $opsys = null;
+        $attr = 0;
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+            $name = $zip->getNameIndex($i);
+            if (strpos($name, '..') !== false || strpos($name, '/') === 0) {
+                $zip->close();
+                unlink($tmpZip);
+                return false;
+            }
+            if ($zip->getExternalAttributesIndex($i, $opsys, $attr) && $opsys === ZipArchive::OPSYS_UNIX) {
+                $unixMode = ($attr >> 16) & 0xFFFF;
+                if (($unixMode & 0120000) === 0120000) {
+                    $zip->close();
+                    unlink($tmpZip);
+                    return false;
+                }
+            }
+        }
+
         $zip->extractTo($destDir);
         $zip->close();
         unlink($tmpZip);

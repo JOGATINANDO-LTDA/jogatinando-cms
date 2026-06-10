@@ -161,8 +161,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $results[] = "⬇ {$s3Key}";
                     $restored++;
                 } else {
-                    $err = Storage::getS3DownloadError();
-                    $results[] = "❌ {$s3Key} — {$err}";
+                    $results[] = "❌ {$s3Key} — Erro de download";
                     $failed++;
                 }
                 $count++;
@@ -211,8 +210,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $results[] = "⬇ {$sf['key']}";
                     $restored++;
                 } else {
-                    $err = Storage::getS3DownloadError();
-                    $results[] = "❌ {$sf['key']} — {$err}";
+                    $results[] = "❌ {$sf['key']} — Erro de download";
                     $failed++;
                 }
                 $count++;

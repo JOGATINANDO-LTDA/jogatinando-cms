@@ -125,7 +125,12 @@ function dbMigrate($db, $type = null) {
         if ($version > $currentVersion) {
             $func = 'migration_' . str_pad($version, 3, '0', STR_PAD_LEFT);
             if (function_exists($func)) {
-                $func($db, $type);
+                try {
+                    $func($db, $type);
+                } catch (Exception $e) {
+                    error_log("Migration {$version} ({$name}) failed: " . $e->getMessage());
+                    continue;
+                }
                 $stmt = $db->prepare("INSERT INTO schema_version (version, name) VALUES (?, ?)");
                 $stmt->execute([$version, $name]);
             }
