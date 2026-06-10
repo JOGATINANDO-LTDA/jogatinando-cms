@@ -167,6 +167,7 @@ function getMigrationList() {
              30 => 'create_sync_queue',
              31 => 'normalize_media_urls_s3_settings',
              32 => 'add_sync_queue_retry',
+             33 => 'add_user_setup_token_fields',
      ];
 }
 

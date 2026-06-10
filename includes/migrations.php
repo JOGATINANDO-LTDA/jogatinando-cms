@@ -276,16 +276,23 @@ function migration_032($db, $type) {
         }
     } catch (Exception $e) {}
 }
-        }
-    } catch (Exception $e) {}
 
+function migration_033($db, $type) {
     try {
         if ($type === 'mysql') {
-            $db->exec("ALTER TABLE users ADD COLUMN setup_token VARCHAR(64) DEFAULT NULL AFTER status");
-            $db->exec("ALTER TABLE users ADD COLUMN setup_token_expires DATETIME DEFAULT NULL AFTER setup_token");
+            // Ensure status column exists (migration_005 was corrupted and lost it)
+            $cols = $db->query("SHOW COLUMNS FROM users LIKE 'status'")->fetch();
+            if (!$cols) {
+                $db->exec("ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active'");
+            }
+            $db->exec("ALTER TABLE users ADD COLUMN setup_token VARCHAR(64) DEFAULT NULL");
+            $db->exec("ALTER TABLE users ADD COLUMN setup_token_expires DATETIME DEFAULT NULL");
         } else {
             $cols = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
             if (!in_array('setup_token', $cols)) {
+                if (!in_array('status', $cols)) {
+                    $db->exec("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+                }
                 $db->exec("ALTER TABLE users ADD COLUMN setup_token TEXT DEFAULT NULL");
                 $db->exec("ALTER TABLE users ADD COLUMN setup_token_expires TEXT DEFAULT NULL");
             }
@@ -735,7 +742,9 @@ function migration_018($db, $type) {
             }
         }
     } catch (Exception $e) {}
-    $db->prepare("UPDATE users SET email_verified_at = created_at WHERE status = 'active' AND email_verified_at IS NULL")->execute();
+    try {
+        $db->prepare("UPDATE users SET email_verified_at = created_at WHERE email_verified_at IS NULL")->execute();
+    } catch (Exception $e) {}
 }
 
 function migration_019($db, $type) {

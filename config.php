@@ -49,8 +49,29 @@ if (file_exists(LOCAL_CONFIG_PERSISTENT)) {
 }
 
 if (!defined('INSTALL_LOCK')) {
-    $envLock = $_ENV['INSTALL_LOCK'] ?? '';
+    $envLock = getenv('INSTALL_LOCK') ?: '';
     define('INSTALL_LOCK', $envLock === '1' || $envLock === 'true');
+}
+
+// DB config from environment (fallback when config.local.php is absent)
+// Uses getenv() which works in Apache mod_php (unlike $_ENV by default)
+if (!defined('DB_TYPE')) {
+    $envType = getenv('DB_TYPE') ?: '';
+    if (in_array($envType, ['mysql', 'sqlite'])) {
+        define('DB_TYPE', $envType);
+    }
+}
+if (!defined('DB_HOST')) {
+    $envHost = getenv('DB_HOST') ?: '';
+    if ($envHost !== '') define('DB_HOST', $envHost);
+}
+if (!defined('DB_USER')) {
+    $envUser = getenv('DB_USER') ?: '';
+    if ($envUser !== '') define('DB_USER', $envUser);
+}
+if (!defined('DB_PASS')) {
+    $envPass = getenv('DB_PASS');
+    if ($envPass !== false) define('DB_PASS', $envPass);
 }
 
 // Auto-migrate legacy root config.local.php → persistent (outside webroot)
@@ -159,8 +180,8 @@ if (!defined('DB_PASS')) define('DB_PASS', '');
 // URLs
 if (defined('SITE_URL')) {
     // already defined in local config
-} elseif (!empty($_ENV['SITE_URL'])) {
-    define('SITE_URL', rtrim($_ENV['SITE_URL'], '/'));
+} elseif ($env = getenv('SITE_URL')) {
+    define('SITE_URL', rtrim($env, '/'));
 } elseif (php_sapi_name() !== 'cli') {
     $proto = $isHttps ? 'https' : 'http';
     $host = strtolower(trim($_SERVER['HTTP_HOST'] ?? 'localhost'));
@@ -185,9 +206,15 @@ if (!defined('MAX_UPLOAD_SIZE')) define('MAX_UPLOAD_SIZE', 100 * 1024 * 1024);
 if (!defined('ALLOWED_GAME_EXTENSIONS')) define('ALLOWED_GAME_EXTENSIONS', ['zip']);
 if (!defined('ALLOWED_IMAGE_EXTENSIONS')) define('ALLOWED_IMAGE_EXTENSIONS', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
 
-// Admin credentials (seed-only, used by migration_001)
-if (!defined('ADMIN_USERNAME')) define('ADMIN_USERNAME', 'admin');
-if (!defined('ADMIN_PASSWORD_HASH')) define('ADMIN_PASSWORD_HASH', password_hash('admin1234', PASSWORD_DEFAULT));
+// Admin credentials (seed-only, used by migration_001 / dbSeed)
+if (!defined('ADMIN_USERNAME')) {
+    $envUser = getenv('ADMIN_USERNAME') ?: '';
+    define('ADMIN_USERNAME', $envUser !== '' ? $envUser : 'admin');
+}
+if (!defined('ADMIN_PASSWORD_HASH')) {
+    $envPass = getenv('ADMIN_PASSWORD') ?: '';
+    define('ADMIN_PASSWORD_HASH', password_hash($envPass !== '' ? $envPass : 'admin1234', PASSWORD_DEFAULT));
+}
 
 // Site info
 if (!defined('SITE_NAME')) define('SITE_NAME', 'CMS de Jogos');

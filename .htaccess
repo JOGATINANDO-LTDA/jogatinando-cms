@@ -76,7 +76,8 @@ FileETag None
 RewriteRule ^favicon\.ico$ /assets/svg/logo.svg [L]
 
 # Force trailing slash for admin directory (avoids mod_dir double-redirect on mobile)
-RewriteRule ^admin$ admin/ [R=301,L]
+# router.php already handles /admin (no slash) correctly — no 301 needed
+# RewriteRule ^admin$ admin/ [R=301,L]
 
 # Serve existing files and directories directly (CSS, JS, uploads, install.php, etc.)
 RewriteCond %{REQUEST_FILENAME} -f [OR]
