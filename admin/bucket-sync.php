@@ -95,6 +95,12 @@ $results = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
+        if ($isAjax) {
+            ob_end_clean();
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => 'CSRF inválido. Recarregue a página.']);
+            exit;
+        }
         flashMessage('error', 'Token inválido.');
         ob_end_clean();
         header('Location: ' . ADMIN_URL . '/bucket-sync');
@@ -269,45 +275,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 
     if ($_POST['action'] === 'sync_all') {
-        // Enfileirar imagens
-        $directories = ['thumbnails', 'banners', 'blog', 'avatars', 'platforms'];
-        $total = 0;
-        foreach ($directories as $dir) {
-            $files = getLocalUploadFiles($dir);
-            foreach ($files as $f) {
-                if (enqueueFile($f['local'], $f['s3name'])) $total++;
-            }
-        }
-        // Enfileirar jogos
-        $games = dbQuery("SELECT id, game_path, engine, title FROM games WHERE game_path IS NOT NULL AND game_path != ''");
-        foreach ($games as $game) {
-            $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
-            if (!is_dir($gameDir)) continue;
-            $s3Prefix = 'uploads/games/' . $game['game_path'];
-            $total += enqueueDir($gameDir, $s3Prefix);
-        }
-        // Enfileirar ROMs
-        $retroBase = UPLOAD_PATH . '/retro';
-        if (is_dir($retroBase)) {
-            $consoles = scandir($retroBase);
-            foreach ($consoles as $console) {
-                if ($console === '.' || $console === '..') continue;
-                foreach (['rom', 'rommod'] as $type) {
-                    $typeDir = $retroBase . '/' . $console . '/' . $type;
-                    if (!is_dir($typeDir)) continue;
-                    $s3Prefix = 'uploads/retro/' . $console . '/' . $type;
-                    $total += enqueueDir($typeDir, $s3Prefix);
+        try {
+            $directories = ['thumbnails', 'banners', 'blog', 'avatars', 'platforms'];
+            $total = 0;
+            foreach ($directories as $dir) {
+                $files = getLocalUploadFiles($dir);
+                foreach ($files as $f) {
+                    if (enqueueFile($f['local'], $f['s3name'])) $total++;
                 }
             }
+            $games = dbQuery("SELECT id, game_path, engine, title FROM games WHERE game_path IS NOT NULL AND game_path != ''");
+            foreach ($games as $game) {
+                $gameDir = UPLOAD_PATH . '/games/' . $game['game_path'];
+                if (!is_dir($gameDir)) continue;
+                $s3Prefix = 'uploads/games/' . $game['game_path'];
+                $total += enqueueDir($gameDir, $s3Prefix);
+            }
+            $retroBase = UPLOAD_PATH . '/retro';
+            if (is_dir($retroBase)) {
+                $consoles = scandir($retroBase);
+                foreach ($consoles as $console) {
+                    if ($console === '.' || $console === '..') continue;
+                    foreach (['rom', 'rommod'] as $type) {
+                        $typeDir = $retroBase . '/' . $console . '/' . $type;
+                        if (!is_dir($typeDir)) continue;
+                        $s3Prefix = 'uploads/retro/' . $console . '/' . $type;
+                        $total += enqueueDir($typeDir, $s3Prefix);
+                    }
+                }
+            }
+            $results[] = "{$total} arquivos enfileirados para sincronização.";
+            if ($isAjax) {
+                ob_end_clean();
+                header('Content-Type: application/json');
+                echo json_encode(['success' => true, 'total' => $total, 'message' => "{$total} arquivos enfileirados."]);
+                exit;
+            }
+            flashMessage('success', "{$total} arquivos enfileirados.");
+        } catch (Exception $e) {
+            if ($isAjax) {
+                ob_end_clean();
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                exit;
+            }
+            throw $e;
         }
-        $results[] = "{$total} arquivos enfileirados para sincronização.";
-        if ($isAjax) {
-            ob_end_clean();
-            header('Content-Type: application/json');
-            echo json_encode(['success' => true, 'total' => $total, 'message' => "{$total} arquivos enfileirados."]);
-            exit;
-        }
-        flashMessage('success', "{$total} arquivos enfileirados.");
     }
 
     if ($_POST['action'] === 'update_db_urls') {
@@ -441,91 +454,120 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
 
     if ($_POST['action'] === 'process_sync_queue') {
-        $batchSize = 5;
-        $rows = dbQuery("SELECT * FROM sync_queue WHERE status='pending' ORDER BY id ASC LIMIT ?", [$batchSize]);
-        $processed = 0; $failed = 0; $errors = [];
-        $currentFile = '';
-        foreach ($rows as $row) {
-            $currentFile = $row['s3_name'];
-            if (!file_exists($row['local_path'])) {
-                dbExec("DELETE FROM sync_queue WHERE id = ?", [$row['id']]);
-                $processed++;
-                continue;
-            }
-            // Skip if already exists on S3 (success from previous attempt)
-            if (S3::fileExists($row['s3_name'])) {
-                dbExec("UPDATE sync_queue SET status='success', last_error='' WHERE id = ?", [$row['id']]);
-                $processed++;
-                continue;
-            }
-            $newAttempts = intval($row['attempts']) + 1;
-            if (S3::upload($row['local_path'], $row['s3_name'])) {
-                dbExec("UPDATE sync_queue SET status='success', attempts=?, last_error='' WHERE id = ?", [$newAttempts, $row['id']]);
-                $processed++;
-            } else {
-                $err = S3::getLastUploadError();
-                if ($newAttempts >= 3) {
-                    dbExec("UPDATE sync_queue SET status='failed', attempts=?, last_error=? WHERE id = ?", [$newAttempts, $err, $row['id']]);
-                } else {
-                    dbExec("UPDATE sync_queue SET attempts=?, last_error=? WHERE id = ?", [$newAttempts, $err, $row['id']]);
+        try {
+            $batchSize = 5;
+            $rows = dbQuery("SELECT * FROM sync_queue WHERE status='pending' ORDER BY id ASC LIMIT ?", [$batchSize]);
+            $processed = 0; $failed = 0; $errors = [];
+            $currentFile = '';
+            foreach ($rows as $row) {
+                $currentFile = $row['s3_name'];
+                if (!file_exists($row['local_path'])) {
+                    dbExec("DELETE FROM sync_queue WHERE id = ?", [$row['id']]);
+                    $processed++;
+                    continue;
                 }
-                $failed++;
-                $errors[] = "{$row['s3_name']}: {$err}";
+                if (S3::fileExists($row['s3_name'])) {
+                    dbExec("UPDATE sync_queue SET status='success', last_error='' WHERE id = ?", [$row['id']]);
+                    $processed++;
+                    continue;
+                }
+                $newAttempts = intval($row['attempts']) + 1;
+                if (S3::upload($row['local_path'], $row['s3_name'])) {
+                    dbExec("UPDATE sync_queue SET status='success', attempts=?, last_error='' WHERE id = ?", [$newAttempts, $row['id']]);
+                    $processed++;
+                } else {
+                    $err = S3::getLastUploadError();
+                    if ($newAttempts >= 3) {
+                        dbExec("UPDATE sync_queue SET status='failed', attempts=?, last_error=? WHERE id = ?", [$newAttempts, $err, $row['id']]);
+                    } else {
+                        dbExec("UPDATE sync_queue SET attempts=?, last_error=? WHERE id = ?", [$newAttempts, $err, $row['id']]);
+                    }
+                    $failed++;
+                    $errors[] = "{$row['s3_name']}: {$err}";
+                }
             }
+            $stats = syncQueueStats();
+            if ($isAjax) {
+                ob_end_clean();
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'processed' => $processed,
+                    'failed' => $failed,
+                    'remaining' => intval($stats['pending']),
+                    'total' => intval($stats['total']),
+                    'done' => intval($stats['done']),
+                    'current_file' => $currentFile,
+                    'errors' => $errors,
+                ]);
+                exit;
+            }
+            $results[] = "Batch: {$processed} sincronizados, {$failed} falhas. Restam {$stats['pending']} pendentes.";
+            flashMessage('success', "Batch processado: {$processed} arquivos sincronizados.");
+        } catch (Exception $e) {
+            if ($isAjax) {
+                ob_end_clean();
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                exit;
+            }
+            throw $e;
         }
-        $stats = syncQueueStats();
-        if ($isAjax) {
-            ob_end_clean();
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => true,
-                'processed' => $processed,
-                'failed' => $failed,
-                'remaining' => intval($stats['pending']),
-                'total' => intval($stats['total']),
-                'done' => intval($stats['done']),
-                'current_file' => $currentFile,
-                'errors' => $errors,
-            ]);
-            exit;
-        }
-        $results[] = "Batch: {$processed} sincronizados, {$failed} falhas. Restam {$stats['pending']} pendentes.";
-        flashMessage('success', "Batch processado: {$processed} arquivos sincronizados.");
     }
 
     if ($_POST['action'] === 'sync_status') {
-        $stats = syncQueueStats();
-        if ($isAjax) {
-            ob_end_clean();
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => true,
-                'total' => intval($stats['total']),
-                'done' => intval($stats['done']),
-                'failed' => intval($stats['failed']),
-                'pending' => intval($stats['pending']),
-            ]);
-            exit;
+        try {
+            $stats = syncQueueStats();
+            if ($isAjax) {
+                ob_end_clean();
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'total' => intval($stats['total']),
+                    'done' => intval($stats['done']),
+                    'failed' => intval($stats['failed']),
+                    'pending' => intval($stats['pending']),
+                ]);
+                exit;
+            }
+            $results[] = "Status: {$stats['done']} concluídos, {$stats['pending']} pendentes, {$stats['failed']} falhas.";
+        } catch (Exception $e) {
+            if ($isAjax) {
+                ob_end_clean();
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                exit;
+            }
+            throw $e;
         }
-        $results[] = "Status: {$stats['done']} concluídos, {$stats['pending']} pendentes, {$stats['failed']} falhas.";
     }
 
     if ($_POST['action'] === 'retry_failed') {
-        dbExec("UPDATE sync_queue SET status='pending', attempts=0, last_error='' WHERE status='failed'");
-        $stats = syncQueueStats();
-        if ($isAjax) {
-            ob_end_clean();
-            header('Content-Type: application/json');
-            echo json_encode([
-                'success' => true,
-                'total' => intval($stats['total']),
-                'pending' => intval($stats['pending']),
-                'done' => intval($stats['done']),
-            ]);
-            exit;
+        try {
+            dbExec("UPDATE sync_queue SET status='pending', attempts=0, last_error='' WHERE status='failed'");
+            $stats = syncQueueStats();
+            if ($isAjax) {
+                ob_end_clean();
+                header('Content-Type: application/json');
+                echo json_encode([
+                    'success' => true,
+                    'total' => intval($stats['total']),
+                    'pending' => intval($stats['pending']),
+                    'done' => intval($stats['done']),
+                ]);
+                exit;
+            }
+            $results[] = "Falhas reenfileiradas.";
+            flashMessage('success', 'Falhas reenfileiradas.');
+        } catch (Exception $e) {
+            if ($isAjax) {
+                ob_end_clean();
+                header('Content-Type: application/json');
+                echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+                exit;
+            }
+            throw $e;
         }
-        $results[] = "Falhas reenfileiradas.";
-        flashMessage('success', 'Falhas reenfileiradas.');
     }
 
     if ($_POST['action'] === 'clean_images') {
@@ -1028,6 +1070,16 @@ $serveMedia = getSetting('s3_serve_media', '0');
     </div>
 </div>
 
+<div id="sync-badge" style="display:none;position:fixed;bottom:24px;right:24px;z-index:9998;background:oklch(15% 0.02 260);border:1px solid oklch(55% 0.12 85);border-radius:12px;padding:12px 16px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,0.5);min-width:200px;">
+    <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:12px;height:12px;border:2px solid oklch(75% 0.15 85);border-top-color:transparent;border-radius:50%;animation:spin 1s linear infinite;flex-shrink:0;"></div>
+        <div style="flex:1;">
+            <div style="font-size:13px;font-weight:600;color:oklch(75% 0.15 85);">Sincronizando</div>
+            <div id="sync-badge-text" style="font-size:11px;color:var(--muted);">0 / 0</div>
+        </div>
+    </div>
+</div>
+
 <style>
 @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -1036,6 +1088,68 @@ $serveMedia = getSetting('s3_serve_media', '0');
 var csrfToken = document.getElementById('csrf-data') ? document.getElementById('csrf-data').getAttribute('data-token') : '';
 var syncRunning = false;
 var syncStopped = false;
+var syncCompleted = false;
+var badgeTimer = null;
+
+function updateBadgeStats() {
+    var totalEl = document.getElementById('queue-total');
+    var subEl = document.getElementById('queue-sub');
+    if (totalEl && subEl) {
+        showBadge(subEl.textContent);
+    }
+}
+
+function showBadge(text) {
+    var badge = document.getElementById('sync-badge');
+    var badgeText = document.getElementById('sync-badge-text');
+    if (!badge) return;
+    if (text && badgeText) badgeText.textContent = text;
+    badge.style.display = 'block';
+}
+
+function hideBadge() {
+    var badge = document.getElementById('sync-badge');
+    if (!badge) return;
+    badge.style.display = 'none';
+    if (badgeTimer) { clearTimeout(badgeTimer); badgeTimer = null; }
+}
+
+function updateQueueUI(stats) {
+    var el = document.getElementById('queue-total');
+    if (el) el.textContent = stats.total;
+    var sub = document.getElementById('queue-sub');
+    if (sub) sub.textContent = stats.done + ' ok, ' + stats.pending + ' pend, ' + stats.failed + ' falhas';
+    var txt = document.getElementById('queue-text');
+    if (txt) txt.textContent = stats.pending + ' pendente(s), ' + stats.done + ' concluído(s), ' + stats.failed + ' falha(s).';
+    document.getElementById('sync-done').textContent = stats.done;
+    document.getElementById('sync-pending').textContent = stats.pending;
+    document.getElementById('sync-failed-count').textContent = stats.failed;
+    var total = parseInt(stats.total) || 0;
+    var done = parseInt(stats.done) || 0;
+    var failed = parseInt(stats.failed) || 0;
+    if (total > 0) {
+        var pct = Math.round((done + failed) / total * 100);
+        document.getElementById('sync-progress-fill').style.width = pct + '%';
+        document.getElementById('sync-progress-text').textContent = (done + failed) + ' / ' + total;
+    }
+    if (stats.total > 0) {
+        var card = document.getElementById('queue-card');
+        if (!card) {
+            // recreate queue card if it was removed
+        }
+    }
+}
+
+function parseJSON(r) {
+    var ct = r.headers.get('content-type') || '';
+    if (ct.indexOf('application/json') === -1) {
+        return r.text().then(function(text) {
+            var preview = text.substring(0, 200);
+            throw new Error('Resposta inesperada (HTML). Preview: ' + preview);
+        });
+    }
+    return r.json();
+}
 
 function updateQueueUI(stats) {
     var el = document.getElementById('queue-total');
@@ -1066,7 +1180,7 @@ function fetchQueueStatus() {
     fd.append('action', 'sync_status');
     fd.append('csrf_token', csrfToken);
     fd.append('ajax', '1');
-    return fetch(window.location.href, { method: 'POST', body: fd }).then(function(r) { return r.json(); });
+    return fetch(window.location.href, { method: 'POST', body: fd }).then(parseJSON);
 }
 
 function processQueueBatch() {
@@ -1078,7 +1192,7 @@ function processQueueBatch() {
     fd.append('action', 'process_sync_queue');
     fd.append('csrf_token', csrfToken);
     fd.append('ajax', '1');
-    return fetch(window.location.href, { method: 'POST', body: fd }).then(function(r) { return r.json(); }).then(function(data) {
+    return fetch(window.location.href, { method: 'POST', body: fd }).then(parseJSON).then(function(data) {
         if (data.current_file) {
             document.getElementById('sync-file-text').textContent = data.current_file.split('/').pop();
         }
@@ -1097,11 +1211,16 @@ function processQueueBatch() {
                 return processQueueBatch();
             } else {
                 syncRunning = false;
-                if (parseInt(stats.failed) > 0) {
-                    document.getElementById('sync-retry-btn').style.display = 'inline-block';
-                }
-                if (parseInt(stats.pending) === 0 && parseInt(stats.total) > 0) {
-                    document.getElementById('sync-file-text').textContent = 'Concluído!';
+                syncCompleted = true;
+                hideBadge();
+                updateBadgeStats();
+                var btn = document.getElementById('sync-stop-btn');
+                if (btn) {
+                    var retryBtn = document.getElementById('sync-retry-btn');
+                    btn.textContent = 'Fechar';
+                    btn.classList.remove('btn-outline');
+                    btn.classList.add('btn-gold');
+                    if (retryBtn) retryBtn.style.display = parseInt(stats.failed) > 0 ? 'inline-block' : 'none';
                 }
                 return stats;
             }
@@ -1116,30 +1235,47 @@ function processQueueBatch() {
 function startSync() {
     syncRunning = true;
     syncStopped = false;
+    syncCompleted = false;
+    hideBadge();
     document.getElementById('sync-overlay').style.display = 'flex';
     document.getElementById('sync-errors').style.display = 'none';
     document.getElementById('sync-errors').innerHTML = '';
+    var stopBtn = document.getElementById('sync-stop-btn');
+    if (stopBtn) {
+        stopBtn.textContent = 'Fechar';
+        stopBtn.classList.remove('btn-gold');
+        stopBtn.classList.add('btn-outline');
+    }
     document.getElementById('sync-retry-btn').style.display = 'none';
     document.getElementById('sync-file-text').textContent = 'Enfileirando...';
 
-    // Step 1: Enqueue all files via sync_all
     var fd = new FormData();
     fd.append('action', 'sync_all');
     fd.append('csrf_token', csrfToken);
     fd.append('ajax', '1');
-    fetch(window.location.href, { method: 'POST', body: fd }).then(function(r) { return r.json(); }).then(function(data) {
+    fetch(window.location.href, { method: 'POST', body: fd }).then(parseJSON).then(function(data) {
         if (data.success) {
             document.getElementById('sync-file-text').textContent = data.total + ' arquivos enfileirados.';
             return fetchQueueStatus();
         } else {
             syncRunning = false;
-            document.getElementById('sync-file-text').textContent = 'Erro ao enfileirar.';
+            var msg = data.error || 'Erro ao enfileirar.';
+            document.getElementById('sync-file-text').textContent = msg;
+            var errDiv = document.getElementById('sync-errors');
+            errDiv.style.display = 'block';
+            errDiv.textContent = '❌ ' + msg;
         }
     }).then(function(stats) {
         if (stats) {
             updateQueueUI(stats);
             return processQueueBatch();
         }
+    }).catch(function(err) {
+        syncRunning = false;
+        document.getElementById('sync-file-text').textContent = 'Erro: ' + err.message;
+        var errDiv = document.getElementById('sync-errors');
+        errDiv.style.display = 'block';
+        errDiv.textContent = '❌ ' + err.message;
     });
 }
 
@@ -1151,7 +1287,7 @@ function retryFailed() {
     document.getElementById('sync-retry-btn').style.display = 'none';
     document.getElementById('sync-errors').innerHTML = '';
     document.getElementById('sync-errors').style.display = 'none';
-    fetch(window.location.href, { method: 'POST', body: fd }).then(function(r) { return r.json(); }).then(function(data) {
+    fetch(window.location.href, { method: 'POST', body: fd }).then(parseJSON).then(function(data) {
         if (data.success) {
             return fetchQueueStatus().then(function(stats) {
                 updateQueueUI(stats);
@@ -1159,27 +1295,41 @@ function retryFailed() {
                     processQueueBatch();
                 }
             });
+        } else {
+            var errDiv = document.getElementById('sync-errors');
+            errDiv.style.display = 'block';
+            errDiv.textContent = '❌ ' + (data.error || 'Erro ao reenfileirar.');
         }
+    }).catch(function(err) {
+        var errDiv = document.getElementById('sync-errors');
+        errDiv.style.display = 'block';
+        errDiv.textContent = '❌ ' + err.message;
     });
 }
 
 // Button handlers
-document.getElementById('sync-all-btn').addEventListener('click', function() {
-    if (syncRunning) return;
-    if (!confirm('Enfileirar todos os arquivos locais para sincronização?\n\nIsso irá enfileirar imagens, jogos e ROMs para upload ao S3.')) return;
-    startSync();
-});
+var syncAllBtn = document.getElementById('sync-all-btn');
+if (syncAllBtn) {
+    syncAllBtn.addEventListener('click', function() {
+        if (syncRunning) return;
+        if (!confirm('Enfileirar todos os arquivos locais para sincronização?\n\nIsso irá enfileirar imagens, jogos e ROMs para upload ao S3.')) return;
+        startSync();
+    });
+}
 
-document.getElementById('process-queue-btn').addEventListener('click', function() {
-    if (syncRunning) return;
-    syncStopped = false;
-    syncRunning = true;
-    document.getElementById('sync-overlay').style.display = 'flex';
-    document.getElementById('sync-errors').style.display = 'none';
-    document.getElementById('sync-errors').innerHTML = '';
-    document.getElementById('sync-retry-btn').style.display = 'none';
-    processQueueBatch();
-});
+var processQueueBtn = document.getElementById('process-queue-btn');
+if (processQueueBtn) {
+    processQueueBtn.addEventListener('click', function() {
+        if (syncRunning) return;
+        syncStopped = false;
+        syncRunning = true;
+        document.getElementById('sync-overlay').style.display = 'flex';
+        document.getElementById('sync-errors').style.display = 'none';
+        document.getElementById('sync-errors').innerHTML = '';
+        document.getElementById('sync-retry-btn').style.display = 'none';
+        processQueueBatch();
+    });
+}
 
 var retryBtn = document.getElementById('retry-queue-btn');
 if (retryBtn) {
@@ -1189,15 +1339,28 @@ if (retryBtn) {
     });
 }
 
-document.getElementById('sync-retry-btn').addEventListener('click', function() {
-    retryFailed();
-});
+var syncRetryBtn = document.getElementById('sync-retry-btn');
+if (syncRetryBtn) {
+    syncRetryBtn.addEventListener('click', function() {
+        retryFailed();
+    });
+}
 
-document.getElementById('sync-stop-btn').addEventListener('click', function() {
-    syncStopped = true;
-    syncRunning = false;
-    document.getElementById('sync-overlay').style.display = 'none';
-});
+var syncStopBtn = document.getElementById('sync-stop-btn');
+if (syncStopBtn) {
+    syncStopBtn.addEventListener('click', function() {
+        document.getElementById('sync-overlay').style.display = 'none';
+        updateBadgeStats();
+    });
+}
+
+var syncBadge = document.getElementById('sync-badge');
+if (syncBadge) {
+    syncBadge.addEventListener('click', function() {
+        document.getElementById('sync-overlay').style.display = 'flex';
+        hideBadge();
+    });
+}
 
 // Confirm dialogs for non-AJAX forms
 var confirmMsgs = {
