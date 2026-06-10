@@ -26,15 +26,23 @@ function isLoggedIn() {
 
 function requireLogin() {
     if (!isLoggedIn()) {
-        $redirect = isset($_SERVER['REQUEST_URI']) ? '?redirect=' . urlencode($_SERVER['REQUEST_URI']) : '';
-        header('Location: ' . ADMIN_URL . '/login' . $redirect);
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        if (strpos($uri, '/admin/login') === 0) {
+            header('Location: ' . ADMIN_URL . '/login');
+        } else {
+            header('Location: ' . ADMIN_URL . '/login?redirect=' . urlencode($uri));
+        }
         exit;
     }
     $timeout = 1800;
     if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity']) > $timeout) {
         clearSession();
-        $redirect = isset($_SERVER['REQUEST_URI']) ? '?redirect=' . urlencode($_SERVER['REQUEST_URI']) : '';
-        header('Location: ' . ADMIN_URL . '/login' . $redirect);
+        $uri = $_SERVER['REQUEST_URI'] ?? '';
+        if (strpos($uri, '/admin/login') === 0) {
+            header('Location: ' . ADMIN_URL . '/login');
+        } else {
+            header('Location: ' . ADMIN_URL . '/login?redirect=' . urlencode($uri));
+        }
         exit;
     }
     $_SESSION['admin_last_activity'] = time();
@@ -192,7 +200,7 @@ function isSmtpConfigured() {
 }
 
 function redirectOrError($msg, $detail) {
-    if (file_exists(ROOT_PATH . '/install.php')) {
+    if (file_exists(ROOT_PATH . '/install.php') && !file_exists(DATA_PATH . '/config.local.php') && !file_exists(dirname(ROOT_PATH) . '/config.local.php')) {
         header('Location: /install');
         exit;
     }
@@ -235,7 +243,7 @@ function requireInstalled() {
 }
 
 function logout() {
-    session_destroy();
+    clearSession();
     header('Location: ' . ADMIN_URL . '/login');
     exit;
 }
