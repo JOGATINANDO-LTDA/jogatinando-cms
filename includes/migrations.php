@@ -250,15 +250,32 @@ function migration_005($db, $type) {
             }
         }
     } catch (Exception $e) {}
+}
 
+function migration_032($db, $type) {
     try {
         if ($type === 'mysql') {
-            $db->exec("ALTER TABLE users ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'active' AFTER role_id");
-        } else {
-            $cols = $db->query("PRAGMA table_info(users)")->fetchAll(PDO::FETCH_COLUMN, 1);
-            if (!in_array('status', $cols)) {
-                $db->exec("ALTER TABLE users ADD COLUMN status TEXT NOT NULL DEFAULT 'active'");
+            $cols = $db->query("SHOW COLUMNS FROM sync_queue LIKE 'status'")->fetch();
+            if (!$cols) {
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'pending' AFTER created_at");
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN attempts INT NOT NULL DEFAULT 0 AFTER status");
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN last_error TEXT DEFAULT '' AFTER attempts");
             }
+        } else {
+            $cols = $db->query("PRAGMA table_info(sync_queue)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('status', $cols)) {
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN status TEXT NOT NULL DEFAULT 'pending'");
+            }
+            if (!in_array('attempts', $cols)) {
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN attempts INTEGER NOT NULL DEFAULT 0");
+            }
+            if (!in_array('last_error', $cols)) {
+                $db->exec("ALTER TABLE sync_queue ADD COLUMN last_error TEXT DEFAULT ''");
+            }
+            $db->exec("UPDATE sync_queue SET status='pending' WHERE status IS NULL OR status=''");
+        }
+    } catch (Exception $e) {}
+}
         }
     } catch (Exception $e) {}
 

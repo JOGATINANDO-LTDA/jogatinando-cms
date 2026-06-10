@@ -165,8 +165,9 @@ function getMigrationList() {
            28 => 'add_aspect_ratio_to_games',
             29 => 'add_iframe_width_height_to_games',
              30 => 'create_sync_queue',
-            31 => 'normalize_media_urls_s3_settings',
-    ];
+             31 => 'normalize_media_urls_s3_settings',
+             32 => 'add_sync_queue_retry',
+     ];
 }
 
 function dbInit($dsn = null, $user = null, $pass = null, $type = null) {

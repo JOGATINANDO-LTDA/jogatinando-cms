@@ -316,9 +316,14 @@ function deleteFile($path) {
 function enqueueSync($localPath, $s3Name, $refTable = '', $refColumn = '', $refId = null) {
     if (empty($localPath) || empty($s3Name)) return;
     try {
-        $existing = dbQueryOne("SELECT id FROM sync_queue WHERE s3_name = ?", [$s3Name]);
-        if ($existing) return;
-        dbExec("INSERT INTO sync_queue (local_path, s3_name, ref_table, ref_column, ref_id, created_at) VALUES (?, ?, ?, ?, ?, ?)",
+        $existing = dbQueryOne("SELECT id, status FROM sync_queue WHERE s3_name = ?", [$s3Name]);
+        if ($existing) {
+            if ($existing['status'] === 'failed') {
+                dbExec("UPDATE sync_queue SET status='pending', attempts=0, last_error='' WHERE id = ?", [$existing['id']]);
+            }
+            return;
+        }
+        dbExec("INSERT INTO sync_queue (local_path, s3_name, ref_table, ref_column, ref_id, status, created_at) VALUES (?, ?, ?, ?, ?, 'pending', ?)",
             [$localPath, $s3Name, $refTable, $refColumn, $refId, date('Y-m-d H:i:s')]);
     } catch (Exception $e) {}
 }
