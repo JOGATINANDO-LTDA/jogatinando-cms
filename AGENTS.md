@@ -45,6 +45,8 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 
 > **MySQL auto-create DB**: O install.php conecta primeiro ao MySQL sem database (`CREATE DATABASE IF NOT EXISTS \`$name\``) antes de rodar dbInit. Funciona se o usuário tiver privilégio CREATE. No Docker, `cms_user` não tem — usar database `cms_db` (já existe).
 
+> **Admin credentials**: Em `config.php`, os env vars `ADMIN_USERNAME` e `ADMIN_PASSWORD` do Docker Compose só afetam **MySQL**. Quando `DB_TYPE=sqlite` (via `config.local.php` do install), as credenciais padrão `admin`/`admin1234` são usadas independentemente dos env vars. Isso garante que SQLite sempre use `admin`/`admin1234` mesmo dentro do container Docker.
+
 > **Migrações automáticas**: `dbMigrate()` roda em toda conexão PDO. Se o schema do banco estiver desatualizado, as migrações são aplicadas automaticamente sem perder dados.
 
 ## Architecture
