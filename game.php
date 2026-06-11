@@ -237,9 +237,9 @@ if ($isExterno) {
             const player = document.getElementById('theaterPlayer');
             const fsBtn = document.getElementById('theaterFsBtn');
             const gameUrl = iframe.dataset.src;
-            const fallbackUrl = '<?= e($fallbackUrl) ?>';
+            const fallbackUrl = <?= json_encode($fallbackUrl) ?>;
             const useProxy = <?= ($useProxy && $isExterno) ? 'true' : 'false' ?>;
-            const orientation = '<?= $orientation ?>';
+            const orientation = <?= json_encode($orientation) ?>;
 
             let fallbackTimer = null;
 

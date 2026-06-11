@@ -255,6 +255,7 @@ class S3 {
     }
 
     public static function download($s3Name, $localPath) {
+        self::loadConfig();
         self::$downloadError = '';
         $dir = dirname($localPath);
         if (!is_dir($dir)) {
@@ -327,11 +328,13 @@ class S3 {
     }
 
     public static function fileExists($s3Name) {
+        self::loadConfig();
         $result = self::exec('HEAD', self::$cfgBucket . '/' . ltrim($s3Name, '/'));
         return $result['code'] === 200;
     }
 
     public static function delete($s3Name) {
+        self::loadConfig();
         $result = self::exec('DELETE', self::$cfgBucket . '/' . ltrim($s3Name, '/'));
         return $result['code'] === 204 || $result['code'] === 200;
     }
@@ -394,8 +397,9 @@ class S3 {
     }
 
     public static function listFiles($prefix = '') {
+        self::loadConfig();
         $uri = self::$cfgBucket;
-        if ($prefix !== '') $uri .= '?prefix=' . urlencode($prefix);
+        if ($prefix !== '') $uri .= '?prefix=' . rawurlencode($prefix);
         $result = self::exec('GET', $uri);
         if ($result['code'] !== 200) return [];
         $xml = self::parseS3Xml($result['body']);

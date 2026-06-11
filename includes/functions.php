@@ -358,7 +358,8 @@ function urlToS3Name($url) {
         return 'uploads' . substr($url, 8);
     }
 
-    $publicUrl = getSetting('s3_public_url', '');
+    $cfg = class_exists('S3') ? S3::getResolvedConfig() : [];
+    $publicUrl = $cfg['public_url'] ?? getSetting('s3_public_url', '');
     if ($publicUrl !== '' && str_starts_with($url, rtrim($publicUrl, '/'))) {
         $after = substr($url, strlen(rtrim($publicUrl, '/')));
         $after = ltrim($after, '/');
@@ -367,8 +368,8 @@ function urlToS3Name($url) {
         }
     }
 
-    $endpoint = getSetting('s3_endpoint', '');
-    $bucket = getSetting('s3_bucket', '');
+    $endpoint = $cfg['endpoint'] ?? getSetting('s3_endpoint', '');
+    $bucket = $cfg['bucket'] ?? getSetting('s3_bucket', '');
     if ($endpoint !== '' && $bucket !== '' && str_contains($url, rtrim($endpoint, '/'))) {
         $parts = explode(rtrim($endpoint, '/') . '/' . $bucket . '/', $url, 2);
         if (isset($parts[1])) return $parts[1];
@@ -435,9 +436,11 @@ function revertS3Urls() {
 
 function _revertS3BaseUrls() {
     $bases = [];
-    $pub = getSetting('s3_public_url', '');
+    $cfg = class_exists('S3') ? S3::getResolvedConfig() : [];
+    $pub = $cfg['public_url'] ?? getSetting('s3_public_url', '');
     if ($pub !== '') $bases[] = rtrim($pub, '/');
-    if (defined('S3_ENDPOINT') && S3_ENDPOINT) $bases[] = rtrim(S3_ENDPOINT, '/');
+    $endpoint = $cfg['endpoint'] ?? (defined('S3_ENDPOINT') ? S3_ENDPOINT : '');
+    if ($endpoint !== '') $bases[] = rtrim($endpoint, '/');
     return $bases;
 }
 

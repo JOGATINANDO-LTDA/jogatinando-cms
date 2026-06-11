@@ -23,6 +23,13 @@ if (!$user) { flashMessage('error', 'Usuário não encontrado.'); ob_end_clean()
 $isSelf = ((int)$id === $currentUserId);
 $isEditingMaster = ((int)$id === 1);
 
+// Rate limiting para alteração de senha
+$pwAttempts = &$_SESSION['pw_change_attempts'];
+$pwLockout = &$_SESSION['pw_change_lockout'];
+if (!isset($pwAttempts)) $pwAttempts = 0;
+$maxPwAttempts = 5;
+$pwLockoutDuration = 900; // 15 min
+
 if (!$isSelf && $currentUserId !== 1) {
     $stmt = $db->prepare("SELECT l.id FROM users u LEFT JOIN roles r ON u.role_id = r.id LEFT JOIN levels l ON r.level_id = l.id WHERE u.id = ?");
     $stmt->execute([$id]);
@@ -50,6 +57,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if ($existing) { flashMessage('error', 'Este nome de usuário já existe.'); }
             else {
                 $changePassword = isset($_POST['change_password']) && $_POST['new_password'] !== '';
+                if ($changePassword) {
+                    if ($pwLockout > time()) {
+                        flashMessage('error', 'Muitas tentativas de alteração de senha. Tente novamente em ' . ceil(($pwLockout - time()) / 60) . ' min.');
+                        ob_end_clean(); header('Location: ' . ADMIN_URL . '/user-edit?id=' . $id); exit;
+                    }
+                    $pwAttempts++;
+                    if ($pwAttempts >= $maxPwAttempts) {
+                        $pwLockout = time() + $pwLockoutDuration;
+                        $pwAttempts = 0;
+                        flashMessage('error', 'Muitas tentativas de alteração de senha. Tente novamente em 15 minutos.');
+                        ob_end_clean(); header('Location: ' . ADMIN_URL . '/user-edit?id=' . $id); exit;
+                    }
+                }
                 $roleChanged = false;
 
                 if (!$isEditingMaster && $roleId > 0) {
@@ -66,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $db->prepare("UPDATE users SET username = ?, email = ? WHERE id = ?")->execute([$username, $email, $id]);
                     if ($changePassword) {
                         $hash = password_hash($_POST['new_password'], PASSWORD_DEFAULT);
+                        $pwAttempts = 0;
                         $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$hash, $id]);
                     }
                     if ($email !== $user['email']) {
@@ -81,6 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $db->prepare("UPDATE users SET username = ?, email = ? WHERE id = ?")->execute([$username, $email, $id]);
                     if ($changePassword) {
                         $hash = password_hash($_POST['new_password'], PASSWORD_DEFAULT);
+                        $pwAttempts = 0;
                         $db->prepare("UPDATE users SET password_hash = ? WHERE id = ?")->execute([$hash, $id]);
                     }
                     if (!$isSelf) {
