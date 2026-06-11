@@ -1,5 +1,9 @@
 RewriteEngine On
 
+# Catch browser-cached 301 redirects com path do servidor (mod_dir errado)
+RewriteCond %{REQUEST_URI} ^/var/www/html/(.*)$ [NC]
+RewriteRule ^ /%1 [R=302,L]
+
 # Upload limits (Apache mod_php only)
 <IfModule mod_php.c>
     php_value post_max_size 110M
@@ -16,6 +20,12 @@ RewriteEngine On
 # === COMPRESSÃO GZIP ===
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/css text/javascript application/javascript application/json image/svg+xml text/xml application/xml
+</IfModule>
+
+# === UTF-8 CHARSET PARA CSS/JS (previne corrupção de emoji) ===
+<IfModule mod_mime.c>
+    AddCharset utf-8 .css
+    AddCharset utf-8 .js
 </IfModule>
 
 # === CACHE DE ARQUIVOS ESTÁTICOS ===
@@ -75,9 +85,8 @@ FileETag None
 # Redirect /favicon.ico to SVG (avoids 404 on browser auto-request)
 RewriteRule ^favicon\.ico$ /assets/svg/logo.svg [L]
 
-# Force trailing slash for admin directory (avoids mod_dir double-redirect on mobile)
-# router.php already handles /admin (no slash) correctly — no 301 needed
-# RewriteRule ^admin$ admin/ [R=301,L]
+# Força trailing slash pro /admin com 302 (mod_dir usa 301 que navegador cacheia)
+RewriteRule ^admin$ /admin/ [R=302,L]
 
 # Serve existing files and directories directly (CSS, JS, uploads, install.php, etc.)
 RewriteCond %{REQUEST_FILENAME} -f [OR]

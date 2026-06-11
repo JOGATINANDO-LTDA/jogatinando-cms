@@ -1,4 +1,4 @@
-﻿<?php
+?<?php
 ob_start();
 $pageTitle = 'Jogos';
 $requiredPerm = 'perm_games';
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
-        flashMessage('error', 'Token de seguranÃ§a invÃ¡lido.');
+        flashMessage('error', 'Token de segurança inválido.');
         ob_end_clean();
         session_write_close();
         header('Location: ' . ADMIN_URL . '/games');
@@ -107,7 +107,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (empty($title)) {
-            flashMessage('error', 'TÃ­tulo Ã© obrigatÃ³rio.');
+            flashMessage('error', 'Título é obrigatório.');
             ob_end_clean();
             session_write_close();
             header('Location: ' . ADMIN_URL . '/games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
@@ -115,7 +115,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if ($game_type === 'externo' && empty($external_url)) {
-            flashMessage('error', 'URL Externa Ã© obrigatÃ³ria para jogos do tipo Externo.');
+            flashMessage('error', 'URL Externa é obrigatória para jogos do tipo Externo.');
             ob_end_clean();
             session_write_close();
             header('Location: ' . ADMIN_URL . '/games?action=' . ($id > 0 ? "edit&id=$id" : 'new'));
@@ -177,7 +177,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 deleteFile($game['thumbnail_url']);
             }
             dbDelete('games', $id);
-            flashMessage('success', 'Jogo excluÃ­do.');
+            flashMessage('success', 'Jogo excluído.');
         }
         ob_end_clean();
         header('Location: ' . ADMIN_URL . '/games');
@@ -188,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $game = dbQueryOne("SELECT g.active, COALESCE(e.active, 0) as engine_active FROM games g LEFT JOIN engines e ON g.engine = e.name WHERE g.id = ?", [$id]);
         if ($game) {
             if (!$game['engine_active']) {
-                flashMessage('error', 'Engine inativa â€” ative a engine antes de alterar o status do jogo.');
+                flashMessage('error', 'Engine inativa — ative a engine antes de alterar o status do jogo.');
             } else {
                 dbExec("UPDATE games SET active = ? WHERE id = ?", [1 - $game['active'], $id]);
             }
@@ -206,7 +206,7 @@ if ($action === 'new' || $action === 'edit') {
         $gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM game_links gl JOIN store_platforms p ON gl.platform_id = p.id WHERE gl.game_id = ? ORDER BY gl.sort_order", [$id]);
     }
     if ($action === 'edit' && !$game) {
-        flashMessage('error', 'Jogo nÃ£o encontrado.');
+        flashMessage('error', 'Jogo não encontrado.');
         header('Location: ' . ADMIN_URL . '/games');
         exit;
     }
@@ -214,14 +214,14 @@ if ($action === 'new' || $action === 'edit') {
     <div class="card">
         <div class="card-header">
             <h2 class="card-title"><?= $action === 'new' ? 'Novo Jogo' : 'Editar Jogo' ?></h2>
-            <a href="games" class="btn btn-outline btn-sm">â† Voltar</a>
+            <a href="games" class="btn btn-outline btn-sm">← Voltar</a>
         </div>
         <div class="card-body">
         <!-- Server capabilities -->
         <?php try { ?>
         <div class="server-status">
             <span class="status-item <?= class_exists('ZipArchive') ? 'ok' : 'fail' ?>">
-                <?= class_exists('ZipArchive') ? 'âœ…' : 'âŒ' ?> ZIP
+                <?= class_exists('ZipArchive') ? '✅' : '❌' ?> ZIP
             </span>
             <?php
             $postMax = @ini_get('post_max_size');
@@ -237,7 +237,7 @@ if ($action === 'new' || $action === 'edit') {
             }
             ?>
             <span class="status-item <?= $postMaxBytes >= 104857600 ? 'ok' : 'warn' ?>">
-                <?= $postMaxBytes >= 104857600 ? 'âœ…' : 'âš ï¸' ?> Limite: <?= e($postMax ?: 'N/A') ?>
+                <?= $postMaxBytes >= 104857600 ? '✅' : '⚠️' ?> Limite: <?= e($postMax ?: 'N/A') ?>
             </span>
         </div>
         <?php } catch (Throwable $e) { /* silently skip server status */ } ?>
@@ -258,11 +258,11 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
             </div>
 
-            <h3 class="form-section-title">InformaÃ§Ãµes BÃ¡sicas</h3>
+            <h3 class="form-section-title">Informações Básicas</h3>
 
             <div class="form-row">
                 <div class="form-group">
-                    <label for="title">TÃ­tulo do Jogo *</label>
+                    <label for="title">Título do Jogo *</label>
                     <input type="text" id="title" name="title" value="<?= e($game['title'] ?? '') ?>" required>
                 </div>
                 <div class="form-group">
@@ -284,7 +284,7 @@ if ($action === 'new' || $action === 'edit') {
             </div>
 
             <div class="form-group">
-                <label for="description">DescriÃ§Ã£o</label>
+                <label for="description">Descrição</label>
                 <textarea id="description" name="description" rows="4"><?= e($game['description'] ?? '') ?></textarea>
             </div>
 
@@ -307,7 +307,7 @@ if ($action === 'new' || $action === 'edit') {
                     <div class="form-group" style="flex:2">
                         <label for="external_url">URL do Site do Jogo *</label>
                         <input type="url" id="external_url" name="external_url" value="<?= e($game['external_url'] ?? '') ?>" placeholder="https://exemplo.com.br">
-                        <div class="field-hint">URL completa do site onde o jogo roda. SerÃ¡ exibido via iframe. Jogos externos nÃ£o tÃªm upload de arquivo.</div>
+                        <div class="field-hint">URL completa do site onde o jogo roda. Será exibido via iframe. Jogos externos não têm upload de arquivo.</div>
                     </div>
                 </div>
                 <div class="form-row">
@@ -320,9 +320,9 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
                 <div class="form-row" id="repoUrlRow" style="<?= ($game['is_open_source'] ?? 0) ? '' : 'display:none' ?>">
                     <div class="form-group" style="flex:2">
-                        <label for="repo_url">URL do RepositÃ³rio</label>
+                        <label for="repo_url">URL do Repositório</label>
                         <input type="url" id="repo_url" name="repo_url" value="<?= e($game['repo_url'] ?? '') ?>" placeholder="https://github.com/usuario/repositorio">
-                        <div class="field-hint">Link para GitHub, GitLab ou outro repositÃ³rio</div>
+                        <div class="field-hint">Link para GitHub, GitLab ou outro repositório</div>
                     </div>
                 </div>
                 <div class="form-row">
@@ -339,7 +339,7 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
             </div>
 
-            <h3 class="form-section-title">MÃ­dia</h3>
+            <h3 class="form-section-title">Mídia</h3>
 
             <div class="form-row">
                 <div class="form-group">
@@ -350,7 +350,7 @@ if ($action === 'new' || $action === 'edit') {
                             <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                         </div>
                         <div class="upload-text">Clique ou arraste uma imagem</div>
-                        <div class="upload-hint">JPG, PNG, WebP â€” mÃ¡x <?= e($postMax ?: '30M') ?></div>
+                        <div class="upload-hint">JPG, PNG, WebP — máx <?= e($postMax ?: '30M') ?></div>
                     </div>
                     <?php if (!empty($game['thumbnail_url'])): ?>
                         <img src="<?= e($game['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail">
@@ -364,20 +364,20 @@ if ($action === 'new' || $action === 'edit') {
                             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </div>
                         <div class="upload-text">Upload do arquivo do jogo</div>
-                        <div class="upload-hint">ZIP â€” HTML exportado â€” mÃ¡x <?= e($postMax ?: '30M') ?></div>
+                        <div class="upload-hint">ZIP — HTML exportado — máx <?= e($postMax ?: '30M') ?></div>
                     </div>
                     <div class="file-selected" id="gameArchiveInfo" style="display:none">
                         <span class="file-name" id="gameArchiveName"></span>
                         <span class="file-size" id="gameArchiveSize"></span>
-                        <button type="button" class="file-remove" id="gameArchiveRemove">âœ•</button>
+                        <button type="button" class="file-remove" id="gameArchiveRemove">✕</button>
                     </div>
                     <?php if (!empty($game['game_path'])): ?>
-                        <p style="margin-top:8px;font-size:13px;color:var(--muted)">ðŸ“Ž <?= e($game['game_path']) ?> (envie outro para substituir)</p>
+                        <p style="margin-top:8px;font-size:13px;color:var(--muted)">📎 <?= e($game['game_path']) ?> (envie outro para substituir)</p>
                     <?php endif; ?>
                 </div>
             </div>
 
-            <h3 class="form-section-title">ConfiguraÃ§Ãµes</h3>
+            <h3 class="form-section-title">Configurações</h3>
 
             <div class="form-row">
                 <div class="form-group">
@@ -391,7 +391,7 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-group">
                     <div class="toggle-group" style="margin-top:28px">
                         <input type="checkbox" id="is_web_playable" name="is_web_playable" <?= ($game['is_web_playable'] ?? 1) ? 'checked' : '' ?>>
-                        <label for="is_web_playable">JogÃ¡vel no navegador</label>
+                        <label for="is_web_playable">Jogável no navegador</label>
                     </div>
                     <div class="field-hint" style="margin-top:4px">Marque se o jogo roda na nossa plataforma (HTML5 upload ou link externo via iframe)</div>
                 </div>
@@ -412,13 +412,13 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
             </div>
 
-            <h3 class="form-section-title" id="gameLinksSection">Links de DistribuiÃ§Ã£o</h3>
+            <h3 class="form-section-title" id="gameLinksSection">Links de Distribuição</h3>
             <div id="gameLinksContainer">
-                <div class="field-hint" style="margin-bottom:12px">Links para lojas onde o jogo pode ser adquirido ou baixado. Funciona independente de ser jogÃ¡vel no navegador.</div>
+                <div class="field-hint" style="margin-bottom:12px">Links para lojas onde o jogo pode ser adquirido ou baixado. Funciona independente de ser jogável no navegador.</div>
                 <div style="display:flex;gap:8px;margin-bottom:8px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase">
                     <div style="flex:0 0 30%">Plataforma</div>
                     <div style="flex:0 0 50%">URL do Link</div>
-                    <div style="flex:0 0 20%;text-align:center">AÃ§Ã£o</div>
+                    <div style="flex:0 0 20%;text-align:center">Ação</div>
                 </div>
                 <div id="gameLinksList">
                     <?php
@@ -432,7 +432,7 @@ if ($action === 'new' || $action === 'edit') {
                                 <?php if (!empty($gl['use_logo']) && !empty($gl['logo_path'])): ?>
                                     <img src="<?= logoImgSrc($gl['logo_path']) ?>" alt="" class="platform-thumb" style="height:18px;width:auto;flex-shrink:0">
                                 <?php else: ?>
-                                    <span class="platform-thumb" style="font-size:18px;flex-shrink:0"><?= e($gl['platform_icon'] ?? 'ðŸ›’') ?></span>
+                                    <span class="platform-thumb" style="font-size:18px;flex-shrink:0"><?= e($gl['platform_icon'] ?? '🛒') ?></span>
                                 <?php endif; ?>
                                 <select name="link_platform[]" style="width:100%">
                                     <option value="">Selecione...</option>
@@ -446,7 +446,7 @@ if ($action === 'new' || $action === 'edit') {
                             <input type="url" name="link_url[]" value="<?= e($gl['url']) ?>" placeholder="https://..." style="width:100%">
                         </div>
                         <div style="flex:0 0 20%;text-align:center;padding-bottom:2px">
-                            <button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">ðŸ—‘ï¸ Excluir</button>
+                            <button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">🗑️ Excluir</button>
                         </div>
                     </div>
                     <?php
@@ -601,7 +601,7 @@ if ($action === 'new' || $action === 'edit') {
 
     function createLinkRow(platformId, url) {
         let selectHtml = '<select name="link_platform[]"><option value="">Selecione...</option>';
-        let thumbHtml = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">🛒</span>';
+        let thumbHtml = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">?</span>';
         platforms.forEach(p => {
             selectHtml += '<option value="' + escHtml(p.id) + '" ' + (p.id == platformId ? 'selected' : '') + '>' + escHtml(p.name) + '</option>';
             if (p.id == platformId) {
@@ -616,7 +616,7 @@ if ($action === 'new' || $action === 'edit') {
             '<div style="display:flex;align-items:center;gap:6px">' + thumbHtml + selectHtml + '</div>' +
             '</div>' +
             '<div class="form-group" style="flex:0 0 50%;margin-bottom:0"><input type="url" name="link_url[]" value="' + escHtml(url) + '" placeholder="https://..." style="width:100%"></div>' +
-            '<div style="flex:0 0 20%;text-align:center;padding-bottom:2px"><button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">🗑️ Excluir</button></div>' +
+            '<div style="flex:0 0 20%;text-align:center;padding-bottom:2px"><button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">?? Excluir</button></div>' +
         '</div>';
     }
 
@@ -646,7 +646,7 @@ if ($action === 'new' || $action === 'edit') {
                     thumb.outerHTML = `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">${selected.icon}</span>`;
                 }
             } else {
-                thumb.outerHTML = `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">ðŸ›’</span>`;
+                thumb.outerHTML = `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">🛒</span>`;
             }
         }
     });
@@ -676,14 +676,14 @@ if ($action === 'new' || $action === 'edit') {
                 <table>
                     <thead>
                         <tr>
-                            <th>TÃ­tulo</th>
+                            <th>Título</th>
                             <th>Tipo</th>
                             <th>Engine</th>
-                            <th class="hide-tablet">Detalhes</th>
+                            <th class="hide-tablet">Descrição</th>
                             <th>Status</th>
-                            <th class="hide-mobile">OtimizaÃ§Ã£o</th>
+                            <th class="hide-mobile">Otimização</th>
                             <th class="hide-mobile">Criado</th>
-                            <th>AÃ§Ãµes</th>
+                            <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -701,15 +701,17 @@ if ($action === 'new' || $action === 'edit') {
                             </td>
                             <td><span class="badge" style="background:<?= getEngineColor($g['engine']) ?>;color:#fff;font-weight:600;text-transform:none;letter-spacing:normal;font-size:10px"><?= getEngineIcon($g['engine']) ?> <?= e($g['engine']) ?></span></td>
                             <td class="hide-tablet">
-                                <?php if (($g['game_type'] ?? '') === 'externo'): ?>
-                                    ðŸŒ <?= e($g['external_url'] ? mb_strimwidth($g['external_url'], 0, 40, '...') : 'â€”') ?>
+                                <?php $desc = trim($g['description'] ?? ''); ?>
+                                <?php if ($desc !== ''): ?>
+                                    <span class="desc-full" style="display:none"><?= e($desc) ?></span>
+                                    <button onclick="openDescModal('<?= e($g['title']) ?>', this)" class="btn btn-text btn-sm" title="Ver descrição completa">📄</button>
                                 <?php else: ?>
-                                    ðŸ“¦ <?= $g['game_path'] ? e($g['game_path']) : 'â€”' ?>
+                                    <span style="color:var(--muted)">—</span>
                                 <?php endif; ?>
                             </td>
                             <td>
                                 <?php if (!$g['engine_active']): ?>
-                                    <span class="badge badge-inactive" title="Engine inativa â€” jogo nÃ£o aparece para os usuÃ¡rios" style="cursor:help">âš™ï¸ Engine Inativa</span>
+                                    <span class="badge badge-inactive" title="Engine inativa — jogo não aparece para os usuários" style="cursor:help">⚙️ Engine Inativa</span>
                                 <?php elseif ($g['active']): ?>
                                     <span class="badge badge-active">Ativo</span>
                                 <?php else: ?>
@@ -722,12 +724,12 @@ if ($action === 'new' || $action === 'edit') {
                             <td class="hide-mobile">
                                 <?php if ($g['game_path']): ?>
                                     <?php if (!empty($g['optimized_at'])): ?>
-                                        <span class="badge badge-optimized">âœ… <?= date('d/m/Y', strtotime($g['optimized_at'])) ?></span>
+                                        <span class="badge badge-optimized">✅ <?= date('d/m/Y', strtotime($g['optimized_at'])) ?></span>
                                     <?php else: ?>
-                                        <span class="badge badge-pending">â³ Pendente</span>
+                                        <span class="badge badge-pending">⏳ Pendente</span>
                                     <?php endif; ?>
                                 <?php else: ?>
-                                    â€”
+                                    —
                                 <?php endif; ?>
                             </td>
                             <td class="hide-mobile"><?= timeAgo($g['created_at']) ?></td>
@@ -738,27 +740,52 @@ if ($action === 'new' || $action === 'edit') {
                                     <input type="hidden" name="action" value="toggle">
                                     <input type="hidden" name="id" value="<?= $g['id'] ?>">
                                     <?= csrfField() ?>
-                                    <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $g['active'] ? 'Desativar' : 'Ativar' ?>"><?= $g['active'] ? 'ðŸ”´' : 'ðŸŸ¢' ?></button>
+                                    <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $g['active'] ? 'Desativar' : 'Ativar' ?>"><?= $g['active'] ? '🔴' : '🟢' ?></button>
                                 </form>
                                 <?php else: ?>
-                                <span class="btn btn-outline btn-sm btn-icon" style="opacity:0.4;cursor:not-allowed" title="Jogo com engine inativa â€” ative a engine primeiro">ðŸ”’</span>
+                                <span class="btn btn-outline btn-sm btn-icon" style="opacity:0.4;cursor:not-allowed" title="Jogo com engine inativa — ative a engine primeiro">🔒</span>
                                 <?php endif; ?>
-                                <a href="games?action=edit&id=<?= $g['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">âœï¸</a>
-                                <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este jogo? O arquivo ZIP tambÃ©m serÃ¡ removido.')">
+                                <a href="games?action=edit&id=<?= $g['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
+                                <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este jogo? O arquivo ZIP também será removido.')">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="id" value="<?= $g['id'] ?>">
                                     <?= csrfField() ?>
-                                    <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">ðŸ—‘ï¸</button>
+                                    <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button>
                                 </form>
                             </td>
                             <?php else: ?>
-                            <td class="actions"><span style="color:var(--muted);font-size:12px">Somente visualizaÃ§Ã£o</span></td>
+                            <td class="actions"><span style="color:var(--muted);font-size:12px">Somente visualização</span></td>
                             <?php endif; ?>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
+
+            <!-- Modal de descrição -->
+            <div class="desc-modal-overlay" id="descModalOverlay" style="display:none" onclick="if(event.target===this)closeDescModal()">
+                <div class="desc-modal">
+                    <div class="desc-modal-header">
+                        <strong class="desc-modal-title" id="descModalTitle"></strong>
+                        <button onclick="closeDescModal()" class="btn btn-sm" style="padding:4px 10px;font-size:16px;line-height:1" title="Fechar">✕</button>
+                    </div>
+                    <div class="desc-modal-body" id="descModalBody"></div>
+                </div>
+            </div>
+            <script>
+            function openDescModal(title, btn) {
+                var desc = btn.parentNode.querySelector('.desc-full').textContent;
+                document.getElementById('descModalTitle').textContent = title;
+                document.getElementById('descModalBody').textContent = desc;
+                document.getElementById('descModalOverlay').style.display = 'flex';
+            }
+            function closeDescModal() {
+                document.getElementById('descModalOverlay').style.display = 'none';
+            }
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape') closeDescModal();
+            });
+            </script>
         <?php endif; ?>
     </div>
     <?php
