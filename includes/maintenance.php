@@ -22,6 +22,7 @@ function isMaintenanceActive() {
 function renderMaintenancePage() {
     $siteName = defined('SITE_NAME') ? SITE_NAME : 'Jogatinando';
     http_response_code(503);
+    header('Content-Type: text/html; charset=utf-8');
     header('Retry-After: 3600');
     ?><!DOCTYPE html>
 <html lang="pt-BR">

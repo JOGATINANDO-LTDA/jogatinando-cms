@@ -3,6 +3,7 @@
 error_reporting(E_ALL & ~E_DEPRECATED & ~E_STRICT & ~E_NOTICE);
 ini_set('display_errors', 0);
 ini_set('log_errors', 1);
+ini_set('default_charset', 'UTF-8');
 
 $isHttps = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
         || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] === 'https');
@@ -28,6 +29,7 @@ session_set_cookie_params([
     'samesite' => 'Lax',
 ]);
 session_start();
+header('Content-Type: text/html; charset=utf-8');
 
 if (!defined('UPLOAD_PATH')) define('UPLOAD_PATH', ROOT_PATH . '/uploads');
 if (!defined('DB_PATH')) define('DB_PATH', DATA_PATH . '/jogatinando.db');

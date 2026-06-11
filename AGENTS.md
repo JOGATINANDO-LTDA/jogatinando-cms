@@ -3,8 +3,9 @@
 ## Regras do Agente (fortes, não negociáveis)
 
 1. **Idioma**: Responda APENAS em português do Brasil. Nunca use inglês ou outros idiomas.
-2. **Commit proibido sem autorização explícita**: Nunca faça commit, push, ou qualquer operação de escrita no repositório remoto a menos que o usuário diga EXATAMENTE a palavra "commit" no mesmo contexto.
-3. **Um commit por vez**: Cada permissão de "commit" vale APENAS para o commit atual. Depois de executado, você DEVE esperar um novo "commit" explícito para o próximo. Mesmo que o commit anterior tenha passado, não assuma permissão para o seguinte.
+2. **Sistema operacional**: Sempre use Windows 11 com PowerShell padrão (Windows PowerShell 5.1, não PowerShell 7/PowerShell Core). Nunca use comandos bash, sh, zsh ou sintaxe de terminal Linux/macOS. Use cmdlets PowerShell (`Get-ChildItem`, `Set-Content`, `Test-Path`, etc.), não comandos Unix (`ls`, `cat`, `chmod`, `grep`, etc.).
+3. **Commit proibido sem autorização explícita**: Nunca faça commit, push, ou qualquer operação de escrita no repositório remoto a menos que o usuário diga EXATAMENTE a palavra "commit" no mesmo contexto.
+4. **Um commit por vez**: Cada permissão de "commit" vale APENAS para o commit atual. Depois de executado, você DEVE esperar um novo "commit" explícito para o próximo. Mesmo que o commit anterior tenha passado, não assuma permissão para o seguinte.
 
 ## Project
 
