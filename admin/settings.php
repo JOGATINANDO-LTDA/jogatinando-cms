@@ -96,8 +96,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     $settings = [
         'site_name' => trim($_POST['site_name']),
         'site_tagline' => trim($_POST['site_tagline']),
-        'hero_title' => trim($_POST['hero_title']),
-        'hero_subtitle' => trim($_POST['hero_subtitle']),
         'contact_email' => trim($_POST['contact_email']),
         'contact_whatsapp' => trim($_POST['contact_whatsapp']),
         'youtube_url' => trim($_POST['youtube_url']),
@@ -333,7 +331,7 @@ function _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom,
 }
 
 $settings = [];
-$keys = ['site_name', 'site_tagline', 'hero_title', 'hero_subtitle', 'contact_email', 'contact_whatsapp', 'youtube_url', 'twitch_url', 'blog_url', 'footer_description', 'contact_recipient', 'maintenance_mode'];
+$keys = ['site_name', 'site_tagline', 'contact_email', 'contact_whatsapp', 'youtube_url', 'twitch_url', 'blog_url', 'footer_description', 'contact_recipient', 'maintenance_mode'];
 foreach ($keys as $key) {
     $settings[$key] = getSetting($key, '');
 }
@@ -455,8 +453,11 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
         </div>
 
         <h3 class="form-section-title">Hero / Banner Principal</h3>
-        <div class="form-group"><label for="hero_title">Título do Hero (HTML permitido)</label><textarea id="hero_title" name="hero_title" rows="2"><?= e($settings['hero_title']) ?></textarea></div>
-        <div class="form-group"><label for="hero_subtitle">Subtítulo do Hero</label><textarea id="hero_subtitle" name="hero_subtitle" rows="3"><?= e($settings['hero_subtitle']) ?></textarea></div>
+        <p style="font-size:13px;color:oklch(60% 0.012 250);margin-bottom:16px;">
+            O título e subtítulo do Hero são definidos <strong>individualmente em cada banner</strong> na seção
+            <a href="/admin/banners" style="color:oklch(75% 0.15 85);">Banners</a>.
+            Quando não há banners cadastrados, mensagens padrão são exibidas automaticamente.
+        </p>
 
         <h3 class="form-section-title">Contato</h3>
         <div class="form-row">

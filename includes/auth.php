@@ -27,22 +27,20 @@ function isLoggedIn() {
 function requireLogin() {
     if (!isLoggedIn()) {
         $uri = $_SERVER['REQUEST_URI'] ?? '';
-        if (strpos($uri, '/admin/login') === 0) {
-            header('Location: ' . ADMIN_URL . '/login');
-        } else {
-            header('Location: ' . ADMIN_URL . '/login?redirect=' . urlencode($uri));
+        if (strpos($uri, '/admin/login') !== 0) {
+            $_SESSION['login_redirect'] = $uri;
         }
+        header('Location: ' . ADMIN_URL . '/login');
         exit;
     }
     $timeout = 1800;
     if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity']) > $timeout) {
         clearSession();
         $uri = $_SERVER['REQUEST_URI'] ?? '';
-        if (strpos($uri, '/admin/login') === 0) {
-            header('Location: ' . ADMIN_URL . '/login');
-        } else {
-            header('Location: ' . ADMIN_URL . '/login?redirect=' . urlencode($uri));
+        if (strpos($uri, '/admin/login') !== 0) {
+            $_SESSION['login_redirect'] = $uri;
         }
+        header('Location: ' . ADMIN_URL . '/login');
         exit;
     }
     $_SESSION['admin_last_activity'] = time();

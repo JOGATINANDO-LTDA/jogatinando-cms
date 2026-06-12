@@ -567,16 +567,7 @@ $footerDescription = getSetting('footer_description', '');
     </div>
 
     <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-grid">
-                <div class="footer-brand">
-                    <div class="logo">
-                        <div class="logo-shield">
-<img src="<?= siteLogoUrl() ?>" alt="Logo">
-                </div>
-            </div>
-        </footer>
+    <?php require_once __DIR__ . '/includes/footer-front.php'; ?>
 
     <script src="<?= assetUrl('/assets/js/main.js') ?>"></script>
     <script>

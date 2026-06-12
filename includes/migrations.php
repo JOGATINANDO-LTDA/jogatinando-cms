@@ -1067,8 +1067,6 @@ function dbSeed($db, $type) {
     $defaults = [
         ['site_name', SITE_NAME],
         ['site_tagline', SITE_TAGLINE],
-        ['hero_title', 'Crie, Gerencie e Publique <span class="gold">Seus Jogos</span>'],
-        ['hero_subtitle', 'Sistema completo para gerenciar seu portfólio de jogos digitais. Publique em qualquer engine e compartilhe com o mundo.'],
         ['contact_email', 'contato@exemplo.com.br'],
         ['contact_whatsapp', ''],
         ['youtube_url', ''],

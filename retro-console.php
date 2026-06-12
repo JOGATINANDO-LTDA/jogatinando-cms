@@ -171,14 +171,7 @@ $availableLetters = array_column($letterRows, 'letter');
         </div>
     </main>
 
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-bottom" style="border-top:0;padding-top:0">
-                <p>&copy; <?= date('Y') ?> <?= e($siteName) ?>. Todos os direitos reservados.</p>
-                <p><a href="/retro">Voltar para retro</a></p>
-            </div>
-        </div>
-    </footer>
+    <?php require_once __DIR__ . '/includes/footer-front.php'; ?>
 
     <script src="<?= assetUrl('/assets/js/main.js') ?>"></script>
 </body>

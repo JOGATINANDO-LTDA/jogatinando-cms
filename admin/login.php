@@ -39,17 +39,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (login($username, $password)) {
                 unset($_SESSION['login_attempts'], $_SESSION['login_lockout']);
                 @unlink($ipLockFile);
-                $redirect = $_GET['redirect'] ?? '';
-                $allowed = false;
-                if ($redirect) {
-                    $parts = parse_url($redirect);
-                    if (!isset($parts['host'])) {
-                        $allowed = true;
-                    } elseif ($parts['host'] === ($_SERVER['HTTP_HOST'] ?? '')) {
-                        $allowed = true;
-                    }
-                }
-                if ($allowed) {
+                $redirect = $_SESSION['login_redirect'] ?? '';
+                unset($_SESSION['login_redirect']);
+                if ($redirect && strpos($redirect, '/admin') === 0) {
                     header('Location: ' . $redirect);
                 } else {
                     header('Location: ' . ADMIN_URL . '/dashboard');

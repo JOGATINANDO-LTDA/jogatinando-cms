@@ -209,12 +209,6 @@ $siteName = getSetting('site_name', SITE_NAME);
     </section>
 
     <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-bottom">
-                <p>&copy; <?= date('Y') ?> <?= e($siteName) ?>. Todos os direitos reservados.</p>
-            </div>
-        </div>
-    </footer>
+    <?php require_once __DIR__ . '/includes/footer-front.php'; ?>
 </body>
 </html>

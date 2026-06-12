@@ -301,5 +301,6 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-i
     });
     </script>
     <?php endif; ?>
+    <?php require_once __DIR__ . '/includes/footer-front.php'; ?>
 </body>
 </html>
