@@ -1,4 +1,4 @@
-?<?php
+<?php
 ob_start();
 $pageTitle = 'Jogos';
 $requiredPerm = 'perm_games';
