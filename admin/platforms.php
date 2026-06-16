@@ -32,7 +32,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             try {
                 if ($useLogo && isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
-                    $uploadResult = uploadFile($_FILES['logo'], 'platforms', ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg']);
+                    $uploadResult = uploadFile($_FILES['logo'], 'platforms', ['png', 'jpg', 'jpeg', 'gif', 'webp']);
                     if ($uploadResult['success']) {
                         if ($logoPath) deleteFile(UPLOAD_PATH . '/' . $logoPath);
                         $logoPath = ltrim($uploadResult['url'], '/');
@@ -105,10 +105,12 @@ if ($action === 'new' || $action === 'edit') {
             <a href="platforms" class="btn btn-outline btn-sm">← Voltar</a>
         </div>
         <div class="card-body">
-        <form method="POST" enctype="multipart/form-data">
+        <form method="POST" class="form-grid form-grid-limited" enctype="multipart/form-data">
             <input type="hidden" name="action" value="save">
             <?php if ($id > 0): ?><input type="hidden" name="id" value="<?= $id ?>"><?php endif; ?>
             <?= csrfField() ?>
+
+            <h3 class="form-section-title">Identificação</h3>
 
             <div class="form-row">
                 <div class="form-group">
@@ -118,8 +120,11 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-group">
                     <label for="slug">Slug (deixe em branco para gerar automático)</label>
                     <input type="text" id="slug" name="slug" value="<?= e($platform['slug'] ?? '') ?>" placeholder="Ex: steam">
+                    <div class="field-hint">Identificador usado em URLs. Se ficar vazio, será gerado automaticamente.</div>
                 </div>
             </div>
+
+            <h3 class="form-section-title">Configurações</h3>
 
             <div class="form-row">
                 <div class="form-group">
@@ -130,6 +135,7 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-group">
                     <label for="sort_order">Ordem</label>
                     <input type="number" id="sort_order" name="sort_order" value="<?= (int)($platform['sort_order'] ?? 0) ?>">
+                    <div class="field-hint">Ordem de exibição nos links de jogos.</div>
                 </div>
             </div>
 
@@ -143,21 +149,25 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
             </div>
 
-            <div id="logoUploadRow" style="<?= ($platform['use_logo'] ?? 0) ? '' : 'display:none' ?>">
+            <h3 class="form-section-title">Logo</h3>
+
+            <div id="logoUploadRow" class="<?= ($platform['use_logo'] ?? 0) ? '' : 'hidden' ?>">
                 <div class="form-row">
                     <div class="form-group">
-                        <label for="logo">Logo (PNG recomendado)</label>
-                        <input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml">
-                        <div class="field-hint">Dimensões recomendadas: 32x32px. Máximo: 500KB.</div>
+                        <label for="logo">Logo</label>
+                        <div class="file-upload">
+                            <input type="file" id="logo" name="logo" accept="image/png,image/jpeg,image/gif,image/webp">
+                            <div class="upload-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+                            <div class="upload-text">Upload da logo da marca</div>
+                            <div class="upload-hint">PNG, JPG, WebP ou GIF. Máximo: 500KB.</div>
+                        </div>
                     </div>
                 </div>
                 <?php if (!empty($platform['logo_path'])): ?>
                 <div class="form-row">
                     <div class="form-group">
                         <label>Logo atual</label>
-                        <div>
-                            <img src="<?= logoImgSrc($platform['logo_path']) ?>" alt="Logo" style="height:32px;width:auto;border:1px solid var(--border);border-radius:4px;background:var(--bg-input);padding:4px">
-                        </div>
+                        <img src="<?= logoImgSrc($platform['logo_path']) ?>" class="preview-img" alt="Logo">
                     </div>
                 </div>
                 <?php endif; ?>
@@ -183,7 +193,7 @@ if ($action === 'new' || $action === 'edit') {
         var logoRow = document.getElementById('logoUploadRow');
         if (useLogo && logoRow) {
             useLogo.addEventListener('change', function() {
-                logoRow.style.display = this.checked ? '' : 'none';
+                logoRow.classList.toggle('hidden', !this.checked);
             });
         }
     })();
@@ -220,13 +230,15 @@ if ($action === 'new' || $action === 'edit') {
                         <?php foreach ($platforms as $p): ?>
                         <tr>
                             <td>
-                                <span style="display:inline-flex;align-items:center;gap:8px">
+                                <span class="platform-name">
                                     <?php if (!empty($p['use_logo']) && !empty($p['logo_path'])): ?>
-                                        <img src="<?= logoImgSrc($p['logo_path']) ?>" alt="<?= e($p['name']) ?>" style="height:20px;width:auto">
+                                        <span class="platform-thumb">
+                                            <img src="<?= logoImgSrc($p['logo_path']) ?>" alt="<?= e($p['name']) ?>">
+                                        </span>
                                     <?php else: ?>
-                                        <span style="font-size:20px"><?= e($p['icon'] ?? '🛒') ?></span>
+                                        <span class="platform-thumb"><span class="emoji"><?= e($p['icon'] ?? '🛒') ?></span></span>
                                     <?php endif; ?>
-                                    <span style="font-weight:600;color:var(--fg)"><?= e($p['name']) ?></span>
+                                    <span><?= e($p['name']) ?></span>
                                 </span>
                             </td>
                             <td><code><?= e($p['slug']) ?></code></td>
@@ -239,14 +251,14 @@ if ($action === 'new' || $action === 'edit') {
                                 <?php endif; ?>
                             </td>
                             <td class="actions">
-                                <form method="POST" style="display:inline">
+                                <form method="POST">
                                     <input type="hidden" name="action" value="toggle">
                                     <input type="hidden" name="id" value="<?= $p['id'] ?>">
                                     <?= csrfField() ?>
                                     <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $p['active'] ? 'Desativar' : 'Ativar' ?>"><?= $p['active'] ? '🔴' : '🟢' ?></button>
                                 </form>
                                 <a href="platforms?action=edit&id=<?= $p['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
-                                <form method="POST" style="display:inline" onsubmit="return confirm('Excluir plataforma <?= e($p['name']) ?>?')">
+                                <form method="POST" onsubmit="return confirm('Excluir plataforma <?= e($p['name']) ?>?')">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="id" value="<?= $p['id'] ?>">
                                     <?= csrfField() ?>

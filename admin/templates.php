@@ -365,33 +365,35 @@ if ($action === 'new' || $action === 'edit') {
 
             <h3 class="form-section-title">Mídia</h3>
 
-            <div class="form-group">
-                <label>Thumbnail</label>
-                <div class="file-upload">
-                    <input type="file" name="thumbnail" accept="image/*">
-                    <div class="upload-icon">
-                        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-                    </div>
-                    <div class="upload-text">Clique ou arraste uma imagem</div>
-                    <div class="upload-hint">JPG, PNG, WebP — máx <?= e($postMax ?: '30M') ?></div>
-                </div>
-                <?php if (!empty($template['thumbnail_url'])): ?>
-                    <img src="<?= e($template['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail">
-                <?php endif; ?>
-            </div>
-
-            <div class="form-group">
-                <div class="toggle-group" style="margin-top:8px">
-                    <input type="checkbox" id="has_free_file" name="has_free_file" <?= ($template['has_free_file'] ?? 0) ? 'checked' : '' ?>>
-                    <label for="has_free_file">Possui arquivo gratuito para download</label>
-                </div>
-            </div>
-
-            <div id="archive-upload-section" style="display:<?= ($template['has_free_file'] ?? 0) ? 'block' : 'none' ?>">
+            <div class="form-row">
                 <div class="form-group">
-                    <label>Arquivo do Template (ZIP)</label>
+                    <label for="thumbnail">Thumbnail</label>
                     <div class="file-upload">
-                        <input type="file" name="template_archive" accept=".zip">
+                        <input type="file" id="thumbnail" name="thumbnail" accept="image/png,image/jpeg,image/gif,image/webp">
+                        <div class="upload-icon">
+                            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+                        </div>
+                        <div class="upload-text">Clique ou arraste uma imagem</div>
+                        <div class="upload-hint">JPG, PNG, WebP — máx <?= e($postMax ?: '30M') ?></div>
+                    </div>
+                    <?php if (!empty($template['thumbnail_url'])): ?>
+                        <img src="<?= e($template['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail">
+                    <?php endif; ?>
+                </div>
+                <div class="form-group">
+                    <div class="toggle-group">
+                        <input type="checkbox" id="has_free_file" name="has_free_file" <?= ($template['has_free_file'] ?? 0) ? 'checked' : '' ?>>
+                        <label for="has_free_file">Possui arquivo gratuito para download</label>
+                    </div>
+                    <div class="field-hint">Ative para exibir o botão de download do template.</div>
+                </div>
+            </div>
+
+            <div id="archive-upload-section" class="<?= ($template['has_free_file'] ?? 0) ? '' : 'hidden' ?>">
+                <div class="form-group">
+                    <label for="template_archive">Arquivo do Template (ZIP)</label>
+                    <div class="file-upload">
+                        <input type="file" id="template_archive" name="template_archive" accept=".zip">
                         <div class="upload-icon">
                             <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                         </div>
@@ -399,7 +401,7 @@ if ($action === 'new' || $action === 'edit') {
                         <div class="upload-hint">ZIP — máx <?= e($postMax ?: '30M') ?></div>
                     </div>
                     <?php if (!empty($template['game_path'])): ?>
-                        <p style="margin-top:8px;font-size:13px;color:var(--muted)">📎 <?= e(basename($template['game_path'])) ?> (envie outro para substituir)</p>
+                        <p class="file-current">📎 <?= e(basename($template['game_path'])) ?> (envie outro para substituir)</p>
                     <?php endif; ?>
                 </div>
             </div>
@@ -411,14 +413,14 @@ if ($action === 'new' || $action === 'edit') {
                 $galleryImages = json_decode($template['gallery'] ?? '[]', true) ?: [];
                 $galleryCount = count($galleryImages);
                 ?>
-                <label>Imagens da Galeria <span style="font-weight:400;color:var(--muted)">(máx 5)</span></label>
+                <label for="gallery-multiple">Imagens da Galeria <span class="field-hint">(máx 5)</span></label>
 
                 <?php if (!empty($galleryImages)): ?>
-                <div id="gallery-existing" style="display:flex;flex-wrap:wrap;gap:12px;margin-top:8px;margin-bottom:12px">
+                <div id="gallery-existing" class="gallery-existing">
                     <?php foreach ($galleryImages as $img): ?>
-                    <div class="gallery-existing-item" style="position:relative;width:130px;border-radius:8px;overflow:hidden;border:2px solid var(--border)">
-                        <img src="<?= e($img) ?>" style="width:100%;height:85px;object-fit:cover;display:block">
-                        <button type="button" onclick="removeGalleryImg(this, '<?= e($img) ?>')" style="position:absolute;top:4px;right:4px;border:none;background:oklch(10% 0.03 260 / 0.7);color:#fff;border-radius:4px;cursor:pointer;padding:2px 8px;font-size:12px;line-height:1">✕</button>
+                    <div class="gallery-existing-item">
+                        <img src="<?= e($img) ?>" alt="">
+                        <button type="button" class="gallery-remove-btn" onclick="removeGalleryImg(this, '<?= e($img) ?>')">✕</button>
                     </div>
                     <?php endforeach; ?>
                 </div>
@@ -426,15 +428,15 @@ if ($action === 'new' || $action === 'edit') {
 
                 <div id="gallery-slots"></div>
 
-                <input type="file" id="gallery-multiple" name="gallery[]" accept="image/*" multiple style="display:none">
+                <input type="file" id="gallery-multiple" name="gallery[]" accept="image/png,image/jpeg,image/gif,image/webp" multiple class="hidden">
 
-                <div style="display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px">
+                <div class="gallery-actions">
                     <button type="button" id="gallery-add-btn" class="btn btn-outline btn-sm">📁 Selecionar Imagens</button>
                     <button type="button" id="gallery-slot-btn" class="btn btn-outline btn-sm" title="Adicionar 1 imagem">➕</button>
-                    <span id="gallery-counter" style="font-size:13px;color:var(--muted)"><?= $galleryCount ?>/5 imagens</span>
+                    <span id="gallery-counter" class="field-hint"><?= $galleryCount ?>/5 imagens</span>
                 </div>
 
-                <div id="gallery-previews" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px"></div>
+                <div id="gallery-previews" class="gallery-previews"></div>
 
                 <script>
                 var MAX = 5;
@@ -470,17 +472,16 @@ if ($action === 'new' || $action === 'edit') {
                     var full = c >= MAX;
                     addBtn.disabled = full;
                     slotBtn.disabled = full;
-                    addBtn.style.opacity = full ? '0.4' : '';
-                    slotBtn.style.opacity = full ? '0.4' : '';
+                    addBtn.classList.toggle('btn-disabled', full);
+                    slotBtn.classList.toggle('btn-disabled', full);
 
                     previews.innerHTML = '';
                     slots.querySelectorAll('.gallery-slot').forEach(function(slot) {
                         var f = slot.querySelector('input[type=file]').files;
                         if (f && f[0]) {
                             var box = document.createElement('div');
-                            box.style.cssText = 'position:relative;width:100px;border-radius:6px;overflow:hidden;border:1px solid var(--border)';
+                            box.className = 'gallery-preview-box';
                             var img = document.createElement('img');
-                            img.style.cssText = 'width:100%;height:70px;object-fit:cover;display:block';
                             var r = new FileReader();
                             r.onload = function(e) { img.src = e.target.result; };
                             r.readAsDataURL(f[0]);
@@ -492,9 +493,8 @@ if ($action === 'new' || $action === 'edit') {
                         for (var i = 0; i < multipleInput.files.length; i++) {
                             (function(f) {
                                 var box = document.createElement('div');
-                                box.style.cssText = 'position:relative;width:100px;border-radius:6px;overflow:hidden;border:1px solid var(--border)';
+                                box.className = 'gallery-preview-box';
                                 var img = document.createElement('img');
-                                img.style.cssText = 'width:100%;height:70px;object-fit:cover;display:block';
                                 var r = new FileReader();
                                 r.onload = function(e) { img.src = e.target.result; };
                                 r.readAsDataURL(f);
@@ -506,7 +506,7 @@ if ($action === 'new' || $action === 'edit') {
                 }
 
                 function removeGalleryImg(btn, url) {
-                    btn.parentElement.style.display = 'none';
+                    btn.parentElement.classList.add('hidden');
                     var hidden = document.createElement('input');
                     hidden.type = 'hidden';
                     hidden.name = 'remove_gallery[]';
@@ -536,16 +536,14 @@ if ($action === 'new' || $action === 'edit') {
                     }
                     var wrap = document.createElement('div');
                     wrap.className = 'gallery-slot';
-                    wrap.style.cssText = 'display:flex;align-items:center;gap:6px;margin-top:6px';
                     var inp = document.createElement('input');
                     inp.type = 'file';
                     inp.name = 'gallery[]';
-                    inp.accept = 'image/*';
-                    inp.style.cssText = 'font-size:13px;flex:1';
+                    inp.accept = 'image/png,image/jpeg,image/gif,image/webp';
                     var rm = document.createElement('button');
                     rm.type = 'button';
                     rm.textContent = '✕';
-                    rm.style.cssText = 'border:none;background:oklch(55% 0.20 25 / 0.15);color:oklch(55% 0.20 25);border-radius:4px;cursor:pointer;padding:2px 8px;font-size:12px';
+                    rm.className = 'gallery-slot-remove';
                     rm.addEventListener('click', function() { wrap.remove(); refresh(); });
                     inp.addEventListener('change', refresh);
                     wrap.appendChild(inp);
@@ -560,24 +558,24 @@ if ($action === 'new' || $action === 'edit') {
 
             <h3 class="form-section-title">Links de Distribuição</h3>
             <div id="templateLinksContainer">
-                <div class="field-hint" style="margin-bottom:12px">Links para lojas onde o template pode ser adquirido.</div>
-                <div style="display:flex;gap:8px;margin-bottom:8px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase">
-                    <div style="flex:0 0 30%">Plataforma</div>
-                    <div style="flex:0 0 50%">URL do Link</div>
-                    <div style="flex:0 0 20%;text-align:center">Ação</div>
+                <div class="field-hint distribution-field-hint">Links para lojas onde o template pode ser adquirido.</div>
+                <div class="link-row-header">
+                    <div>Plataforma</div>
+                    <div>URL do Link</div>
+                    <div>Ação</div>
                 </div>
                 <div id="templateLinksList">
                     <?php if (!empty($templateLinks)): ?>
                         <?php foreach ($templateLinks as $tl): ?>
-                        <div class="template-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
-                            <div class="form-group" style="flex:0 0 30%;margin-bottom:0">
-                                <div style="display:flex;align-items:center;gap:6px">
+                        <div class="template-link-row">
+                            <div class="form-group">
+                                <div class="platform-select-wrap">
                                     <?php if (!empty($tl['use_logo']) && !empty($tl['logo_path'])): ?>
-                                        <img src="<?= logoImgSrc($tl['logo_path']) ?>" alt="" class="platform-thumb" style="height:18px;width:auto;flex-shrink:0">
+                                        <img src="<?= logoImgSrc($tl['logo_path']) ?>" alt="" class="platform-thumb">
                                     <?php else: ?>
-                                        <span class="platform-thumb" style="font-size:18px;flex-shrink:0"><?= e($tl['platform_icon'] ?? '🛒') ?></span>
+                                        <span class="platform-thumb"><?= e($tl['platform_icon'] ?? '🛒') ?></span>
                                     <?php endif; ?>
-                                    <select name="link_platform[]" style="width:100%">
+                                    <select name="link_platform[]">
                                         <option value="">Selecione...</option>
                                         <?php foreach ($platforms as $p): ?>
                                         <option value="<?= $p['id'] ?>" <?= $tl['platform_id'] == $p['id'] ? 'selected' : '' ?>><?= e($p['name']) ?></option>
@@ -585,10 +583,10 @@ if ($action === 'new' || $action === 'edit') {
                                     </select>
                                 </div>
                             </div>
-                            <div class="form-group" style="flex:0 0 50%;margin-bottom:0">
-                                <input type="url" name="link_url[]" value="<?= e($tl['url']) ?>" placeholder="https://..." style="width:100%">
+                            <div class="form-group">
+                                <input type="url" name="link_url[]" value="<?= e($tl['url']) ?>" placeholder="https://...">
                             </div>
-                            <div style="flex:0 0 20%;text-align:center;padding-bottom:2px">
+                            <div class="link-row-actions">
                                 <button type="button" class="btn btn-danger btn-sm template-link-remove" title="Remover link">🗑️ Excluir</button>
                             </div>
                         </div>
@@ -618,18 +616,18 @@ if ($action === 'new' || $action === 'edit') {
             </div>
 
             <div class="form-row">
-                <div class="form-group">
-                    <div class="toggle-group" style="margin-top:28px">
-                        <input type="checkbox" id="featured" name="featured" <?= ($template['featured'] ?? 0) ? 'checked' : '' ?>>
-                        <label for="featured">Destaque no site</label>
+                    <div class="form-group">
+                        <div class="toggle-group">
+                            <input type="checkbox" id="featured" name="featured" <?= ($template['featured'] ?? 0) ? 'checked' : '' ?>>
+                            <label for="featured">Destaque no site</label>
+                        </div>
                     </div>
-                </div>
-                <div class="form-group">
-                    <div class="toggle-group" style="margin-top:28px">
-                        <input type="checkbox" id="active" name="active" <?= ($template['active'] ?? 1) ? 'checked' : '' ?>>
-                        <label for="active">Ativo</label>
+                    <div class="form-group">
+                        <div class="toggle-group">
+                            <input type="checkbox" id="active" name="active" <?= ($template['active'] ?? 1) ? 'checked' : '' ?>>
+                            <label for="active">Ativo</label>
+                        </div>
                     </div>
-                </div>
             </div>
 
             <div class="form-actions">
@@ -642,7 +640,7 @@ if ($action === 'new' || $action === 'edit') {
                 var section = document.getElementById('archive-upload-section');
                 if (checkbox && section) {
                     checkbox.addEventListener('change', function() {
-                        section.style.display = this.checked ? 'block' : 'none';
+                        section.classList.toggle('hidden', !this.checked);
                     });
                 }
             })();
@@ -659,22 +657,22 @@ if ($action === 'new' || $action === 'edit') {
 
                 function createLinkRow(platformId, url) {
                     let selectHtml = '<select name="link_platform[]"><option value="">Selecione...</option>';
-                    let thumbHtml = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">🛒</span>';
+                    let thumbHtml = '<span class="platform-thumb">🛒</span>';
                     platforms.forEach(function(p) {
                         selectHtml += '<option value="' + p.id + '" ' + (p.id == platformId ? 'selected' : '') + '>' + p.name + '</option>';
                         if (p.id == platformId) {
                             thumbHtml = p.use_logo && p.logo_path
-                                ? '<img class="platform-thumb" src="' + (p.logo_path.startsWith('http') ? p.logo_path : '/' + p.logo_path) + '" alt="" style="height:18px;width:auto;flex-shrink:0">'
-                                : '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">' + p.icon + '</span>';
+                                ? '<img class="platform-thumb" src="' + (p.logo_path.startsWith('http') ? p.logo_path : '/' + p.logo_path) + '" alt="">'
+                                : '<span class="platform-thumb">' + p.icon + '</span>';
                         }
                     });
                     selectHtml += '</select>';
-                    return '<div class="template-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">' +
-                        '<div class="form-group" style="flex:0 0 30%;margin-bottom:0">' +
-                            '<div style="display:flex;align-items:center;gap:6px">' + thumbHtml + selectHtml + '</div>' +
+                    return '<div class="template-link-row">' +
+                        '<div class="form-group">' +
+                            '<div class="platform-select-wrap">' + thumbHtml + selectHtml + '</div>' +
                         '</div>' +
-                        '<div class="form-group" style="flex:0 0 50%;margin-bottom:0"><input type="url" name="link_url[]" value="' + url + '" placeholder="https://..." style="width:100%"></div>' +
-                        '<div style="flex:0 0 20%;text-align:center;padding-bottom:2px"><button type="button" class="btn btn-danger btn-sm template-link-remove" title="Remover link">🗑️ Excluir</button></div>' +
+                        '<div class="form-group"><input type="url" name="link_url[]" value="' + url + '" placeholder="https://..."></div>' +
+                        '<div class="link-row-actions"><button type="button" class="btn btn-danger btn-sm template-link-remove" title="Remover link">🗑️ Excluir</button></div>' +
                     '</div>';
                 }
 
@@ -697,12 +695,12 @@ if ($action === 'new' || $action === 'edit') {
                         var selected = platforms.find(function(p) { return p.id == e.target.value; });
                         if (selected) {
                             if (selected.use_logo && selected.logo_path) {
-                                thumb.outerHTML = '<img class="platform-thumb" src="' + (selected.logo_path.startsWith('http') ? selected.logo_path : '/' + selected.logo_path) + '" alt="" style="height:18px;width:auto;flex-shrink:0">';
+                                thumb.outerHTML = '<img class="platform-thumb" src="' + (selected.logo_path.startsWith('http') ? selected.logo_path : '/' + selected.logo_path) + '" alt="">';
                             } else {
-                                thumb.outerHTML = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">' + selected.icon + '</span>';
+                                thumb.outerHTML = '<span class="platform-thumb">' + selected.icon + '</span>';
                             }
                         } else {
-                            thumb.outerHTML = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">🛒</span>';
+                            thumb.outerHTML = '<span class="platform-thumb">🛒</span>';
                         }
                     }
                 });
@@ -753,8 +751,8 @@ if ($action === 'new' || $action === 'edit') {
                     <tbody>
                         <?php foreach ($templates as $t): ?>
                         <tr>
-                            <td><strong style="color:var(--fg)"><?= e($t['title']) ?></strong></td>
-                            <td><span class="badge" style="background:<?= getEngineColor($t['engine']) ?>;color:#fff;font-weight:600;text-transform:none;letter-spacing:normal;font-size:10px"><?= getEngineIcon($t['engine']) ?> <?= e($t['engine']) ?></span></td>
+                            <td><strong><?= e($t['title']) ?></strong></td>
+                            <td><span class="badge engine-badge"><?= getEngineIcon($t['engine']) ?> <?= e($t['engine']) ?></span></td>
                             <td class="hide-tablet"><?= e($t['language'] ?: '—') ?></td>
                             <td class="hide-tablet"><?php
                                 $links = $platformLinks[$t['id']] ?? [];
@@ -764,7 +762,7 @@ if ($action === 'new' || $action === 'edit') {
                                     foreach ($links as $pl) {
                                         $badge = '';
                                         if (!empty($pl['use_logo']) && !empty($pl['logo_path'])) {
-                                            $badge .= '<img src="' . logoImgSrc($pl['logo_path']) . '" alt="" style="height:14px;width:auto">';
+                                            $badge .= '<img src="' . logoImgSrc($pl['logo_path']) . '" alt="" class="store-badge-logo">';
                                         } else {
                                             $badge .= e($pl['icon'] ?? '🛒');
                                         }
@@ -778,7 +776,7 @@ if ($action === 'new' || $action === 'edit') {
                                     echo '—';
                                 }
                             ?></td>
-                            <td class="hide-tablet"><?= $t['has_free_file'] ? '<span style="color:var(--green,#4ade80)">✅ Grátis</span>' : '<span style="color:var(--muted)">—</span>' ?></td>
+                            <td class="hide-tablet"><?= $t['has_free_file'] ? '<span class="text-success">✅ Grátis</span>' : '<span class="text-muted">—</span>' ?></td>
                             <td>
                                 <?php if ($t['active']): ?>
                                     <span class="badge badge-active">Ativo</span>
@@ -790,14 +788,14 @@ if ($action === 'new' || $action === 'edit') {
                                 <?php endif; ?>
                             </td>
                             <td class="actions">
-                                <form method="POST" style="display:inline">
+                                <form method="POST" class="inline-actions">
                                     <input type="hidden" name="action" value="toggle">
                                     <input type="hidden" name="id" value="<?= $t['id'] ?>">
                                     <?= csrfField() ?>
                                     <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $t['active'] ? 'Desativar' : 'Ativar' ?>"><?= $t['active'] ? '🔴' : '🟢' ?></button>
                                 </form>
                                 <a href="templates?action=edit&id=<?= $t['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
-                                <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este template?')">
+                                <form method="POST" class="inline-actions" onsubmit="return confirm('Excluir este template?')">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="id" value="<?= $t['id'] ?>">
                                     <?= csrfField() ?>

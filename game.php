@@ -96,6 +96,8 @@ if ($isExterno) {
         $orientation = ($h > $w) ? 'portrait' : 'landscape';
     }
 }
+$gameAdTop = renderAdSlot('game_before_player', 'game', 'all');
+$gameAdBottom = renderAdSlot('game_after_player', 'game', 'all');
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -108,6 +110,7 @@ if ($isExterno) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="<?= assetUrl('/assets/css/style.css') ?>">
     <?php if ($orientation === 'landscape'): ?>
     <meta name="screen-orientation" content="landscape">
@@ -135,6 +138,7 @@ if ($isExterno) {
     <!-- Theater Mode Player -->
     <section class="theater-section">
         <div class="theater-container">
+            <?= $gameAdTop ?>
             <div class="theater-player<?= $isExterno ? ' theater-player-externo' : '' ?>" id="theaterPlayer"<?= $isExterno ? ' style="width:' . e($iframeWidth) . ';height:' . e($iframeHeight) . '"' : '' ?>>
                 <div class="theater-loader" id="theaterLoader">
                     <div class="loader-spinner"></div>
@@ -169,6 +173,7 @@ if ($isExterno) {
     <!-- Game Info -->
     <section class="game-info-section">
         <div class="container">
+            <?= $gameAdBottom ?>
             <div class="game-info-grid">
                 <!-- Main Info -->
                 <div class="game-info-main">

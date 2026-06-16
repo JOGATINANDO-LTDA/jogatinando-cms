@@ -5,6 +5,7 @@ $pageTitle = 'Catálogo';
 $siteName = getSetting('site_name', SITE_NAME);
 $siteTagline = getSetting('site_tagline', SITE_TAGLINE);
 $footerDescription = getSetting('footer_description', '');
+$catalogAd = renderAdSlot('catalogo_sidebar', 'catalogo', 'desktop');
 
 $type = in_array($_GET['type'] ?? '', ['autoral', 'cliente', 'externo'], true) ? $_GET['type'] : '';
 $engine = trim($_GET['engine'] ?? '');
@@ -54,6 +55,7 @@ $routeEngineSlug = function ($value) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="<?= assetUrl('/assets/css/style.css') ?>">
 </head>
 <body>
@@ -92,6 +94,7 @@ $routeEngineSlug = function ($value) {
 
     <main class="section section-dark catalog-page">
         <div class="container">
+            <?= $catalogAd ?>
             <div class="section-title catalog-title">
                 <h2>Catálogo de <span class="gold">Jogos</span></h2>
                 <p>Filtre por tipo e engine. Jogos web-playable abrem direto; os demais seguem para a página de detalhes.</p>

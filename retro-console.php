@@ -10,6 +10,7 @@ if ($consoleSlug === '') {
 $siteName = getSetting('site_name', SITE_NAME);
 $siteTagline = getSetting('site_tagline', SITE_TAGLINE);
 $footerDescription = getSetting('footer_description', '');
+$retroConsoleAd = renderAdSlot('game_before_player', 'retro', 'all');
 
 $console = dbQueryOne("SELECT * FROM retro_consoles WHERE slug = ? AND active = 1", [$consoleSlug]);
 if (!$console) {
@@ -59,6 +60,7 @@ $availableLetters = array_column($letterRows, 'letter');
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="<?= assetUrl('/assets/css/style.css') ?>">
 </head>
 <body>
@@ -83,6 +85,7 @@ $availableLetters = array_column($letterRows, 'letter');
 
     <main class="section section-dark catalog-page">
         <div class="container">
+            <?= $retroConsoleAd ?>
             <div class="section-title catalog-title">
                 <?php if (!empty($console['thumbnail_url'])): ?>
                     <img src="<?= e(mediaUrl($console['thumbnail_url'])) ?>" alt="<?= e($console['name']) ?>" style="width:80px;height:80px;border-radius:12px;object-fit:cover;margin:0 auto 12px;border:2px solid var(--gold);box-shadow:0 0 20px var(--gold-glow)">

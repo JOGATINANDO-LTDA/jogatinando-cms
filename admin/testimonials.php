@@ -59,9 +59,13 @@ if ($action === 'new' || $action === 'edit') {
             <h3 class="form-section-title">Avatar</h3>
 
             <div class="form-group">
-                <div class="file-upload"><input type="file" name="avatar" accept="image/*">
-                <div class="upload-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-                <div class="upload-text">Upload de avatar</div></div>
+                <label for="avatar">Avatar</label>
+                <div class="file-upload">
+                    <input type="file" id="avatar" name="avatar" accept="image/png,image/jpeg,image/gif,image/webp">
+                    <div class="upload-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+                    <div class="upload-text">Upload de avatar</div>
+                    <div class="upload-hint">JPG, PNG, WebP ou GIF.</div>
+                </div>
                 <?php if (!empty($item['avatar_url'])): ?><img src="<?= e($item['avatar_url']) ?>" class="preview-img" alt="Avatar"><?php endif; ?>
             </div>
 
@@ -69,7 +73,7 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-row">
                 <div class="form-group"><label for="sort_order">Ordem</label><input type="number" id="sort_order" name="sort_order" value="<?= (int)($item['sort_order'] ?? 0) ?>"></div>
-                <div class="form-group"><div class="toggle-group" style="margin-top:28px"><input type="checkbox" id="active" name="active" <?= ($item['active'] ?? 1) ? 'checked' : '' ?>><label for="active">Ativo</label></div></div>
+                <div class="form-group"><div class="toggle-group"><input type="checkbox" id="active" name="active" <?= ($item['active'] ?? 1) ? 'checked' : '' ?>><label for="active">Ativo</label></div></div>
             </div>
             <div class="form-actions"><button type="submit" class="btn btn-gold">Salvar</button><a href="testimonials" class="btn btn-outline">Cancelar</a></div>
         </form>
@@ -89,14 +93,14 @@ if ($action === 'new' || $action === 'edit') {
                     <tbody>
                         <?php foreach ($items as $t): ?>
                         <tr>
-                            <td><strong style="color:var(--fg)"><?= e($t['name']) ?></strong></td>
+                            <td><strong><?= e($t['name']) ?></strong></td>
                             <td><?= e($t['role']) ?></td>
                             <td><?= e(truncateText($t['quote'], 60)) ?></td>
                             <td><?= $t['active'] ? '<span class="badge badge-active">Ativo</span>' : '<span class="badge badge-inactive">Inativo</span>' ?></td>
                             <td class="actions">
-                                <form method="POST" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $t['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $t['active'] ? '🔴' : '🟢' ?></button></form>
+                                <form method="POST" class="inline-actions"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $t['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $t['active'] ? '🔴' : '🟢' ?></button></form>
                                 <a href="testimonials?action=edit&id=<?= $t['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
-                                <form method="POST" style="display:inline" onsubmit="return confirm('Excluir?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $t['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
+                                <form method="POST" class="inline-actions" onsubmit="return confirm('Excluir?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $t['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
                             </td>
                         </tr><?php endforeach; ?>
                     </tbody>

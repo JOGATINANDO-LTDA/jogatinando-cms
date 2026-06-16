@@ -220,6 +220,12 @@ function uploadFile($file, $directory, $allowedExtensions = ['jpg', 'jpeg', 'png
         return ['success' => false, 'message' => 'Tipo de arquivo não permitido.'];
     }
 
+    $forbiddenExtensions = ['php', 'phtml', 'php3', 'php4', 'php5', 'phar', 'htaccess', 'svg', 'js', 'html', 'htm', 'xml', 'css'];
+    if (in_array($ext, $forbiddenExtensions, true)) {
+        error_log('uploadFile: extensão proibida .' . $ext);
+        return ['success' => false, 'message' => 'Extensão proibida.'];
+    }
+
     $filename = uniqid('upl_', true) . '.' . $ext;
     $relPath = $directory . '/' . $filename;
     $s3Name = 'uploads/' . $relPath;
@@ -566,6 +572,135 @@ function getEngineColor($engine) {
     return $colors[$engine] ?? 'oklch(68% 0.16 220)';
 }
 
+function getSocialPlatformPreset($platformKey) {
+    $presets = [
+        'youtube' => ['label' => 'YouTube', 'icon' => '▶'],
+        'twitch' => ['label' => 'Twitch', 'icon' => '🟣'],
+        'x' => ['label' => 'X', 'icon' => '𝕏'],
+        'twitter' => ['label' => 'X', 'icon' => '𝕏'],
+        'tiktok' => ['label' => 'TikTok', 'icon' => '♪'],
+        'kick' => ['label' => 'Kick', 'icon' => 'K'],
+        'kwai' => ['label' => 'Kwai', 'icon' => 'K'],
+        'facebook' => ['label' => 'Facebook', 'icon' => 'f'],
+        'instagram' => ['label' => 'Instagram', 'icon' => '◎'],
+        'linkedin' => ['label' => 'LinkedIn', 'icon' => 'in'],
+        'discord' => ['label' => 'Discord', 'icon' => 'D'],
+        'bluesky' => ['label' => 'Bluesky', 'icon' => 'B'],
+        'threads' => ['label' => 'Threads', 'icon' => 'T'],
+        'website' => ['label' => 'Website', 'icon' => '↗'],
+    ];
+    return $presets[$platformKey] ?? ['label' => ucfirst($platformKey), 'icon' => '↗'];
+}
+
+function getSocialPlatformIconClass($platformKey) {
+    $icons = [
+        'youtube' => 'fa-brands fa-youtube',
+        'twitch' => 'fa-brands fa-twitch',
+        'x' => 'fa-brands fa-x-twitter',
+        'twitter' => 'fa-brands fa-x-twitter',
+        'tiktok' => 'fa-brands fa-tiktok',
+        'facebook' => 'fa-brands fa-facebook-f',
+        'instagram' => 'fa-brands fa-instagram',
+        'linkedin' => 'fa-brands fa-linkedin-in',
+        'discord' => 'fa-brands fa-discord',
+        'website' => 'fa-solid fa-globe',
+        'kick' => 'fa-solid fa-link',
+        'kwai' => 'fa-solid fa-link',
+        'bluesky' => 'fa-solid fa-link',
+        'threads' => 'fa-solid fa-link',
+    ];
+    return $icons[$platformKey] ?? 'fa-solid fa-link';
+}
+
+function getSocialLinks($scope = 'site', $activeOnly = true) {
+    $db = getDB();
+    if (!$db) return [];
+    $sql = "SELECT * FROM social_links WHERE scope = ?";
+    $params = [$scope];
+    if ($activeOnly) {
+        $sql .= " AND active = 1";
+    }
+    $sql .= " ORDER BY sort_order ASC, id ASC";
+    return dbQuery($sql, $params);
+}
+
+function renderSocialLinks($scope = 'site', $class = 'social-links') {
+    $links = getSocialLinks($scope, true);
+    if (empty($links)) return '';
+    ob_start();
+    echo '<div class="' . e($class) . '">';
+    foreach ($links as $link) {
+        $preset = getSocialPlatformPreset($link['platform_key'] ?? 'website');
+        $label = $link['label'] !== '' ? $link['label'] : $preset['label'];
+        if (empty($link['url'])) continue;
+        echo '<a href="' . e($link['url']) . '" target="_blank" rel="noopener" aria-label="' . e($label) . '">';
+        $platformKey = $link['platform_key'] ?? 'website';
+        $imagePath = trim((string)($link['image_path'] ?? ''));
+        if ($platformKey === 'website' && $imagePath !== '') {
+            echo '<span class="social-link-icon"><img src="' . e(mediaUrl($imagePath)) . '" alt="' . e($label) . '"></span>';
+        } else {
+            $iconClass = getSocialPlatformIconClass($platformKey);
+            echo '<span class="social-link-icon"><i class="' . e($iconClass) . '" aria-hidden="true"></i></span>';
+        }
+        echo '<span class="social-link-label">' . e($label) . '</span>';
+        echo '</a>';
+    }
+    echo '</div>';
+    return ob_get_clean();
+}
+
+function getAdSlot($slotKey) {
+    $row = dbQueryOne("SELECT * FROM ad_slots WHERE slot_key = ? LIMIT 1", [$slotKey]);
+    return $row ?: null;
+}
+
+function adSlotMatchesContext($slot, $pageKey = 'all', $deviceKey = 'all') {
+    if (!$slot) return false;
+    if (empty($slot['active'])) return false;
+    $pages = array_filter(array_map('trim', explode(',', strtolower((string)($slot['pages'] ?? '')))));
+    $devices = array_filter(array_map('trim', explode(',', strtolower((string)($slot['devices'] ?? 'all')))));
+    if (!empty($pages) && !in_array('all', $pages) && !in_array(strtolower($pageKey), $pages)) {
+        return false;
+    }
+    if (!empty($devices) && !in_array('all', $devices) && !in_array(strtolower($deviceKey), $devices)) {
+        return false;
+    }
+    return true;
+}
+
+function renderAdSlot($slotKey, $pageKey = 'all', $deviceKey = 'all') {
+    $slot = getAdSlot($slotKey);
+    if (!$slot || !adSlotMatchesContext($slot, $pageKey, $deviceKey)) return '';
+    $provider = $slot['provider'] ?? 'custom_html';
+    $heightDesktop = trim((string)($slot['height_desktop'] ?? ''));
+    $heightMobile = trim((string)($slot['height_mobile'] ?? ''));
+    $style = '';
+    if ($heightDesktop !== '') $style .= '--ad-height-desktop:' . $heightDesktop . ';';
+    if ($heightMobile !== '') $style .= '--ad-height-mobile:' . $heightMobile . ';';
+    ob_start();
+    ?>
+    <div class="ad-slot ad-slot-<?= e($slotKey) ?> ad-provider-<?= e($provider) ?><?= !empty($slot['sticky']) ? ' ad-sticky' : '' ?>" data-slot="<?= e($slotKey) ?>" style="<?= e($style) ?>">
+        <?php if (!empty($slot['code_html'])): ?>
+            <?= $slot['code_html'] ?>
+        <?php elseif (!empty($slot['fallback_text'])): ?>
+            <div class="ad-fallback"><?= e($slot['fallback_text']) ?></div>
+        <?php endif; ?>
+    </div>
+    <?php
+    return ob_get_clean();
+}
+
+function getDistributionPlatforms($activeOnly = true) {
+    $sql = "SELECT * FROM distribution_platforms";
+    if ($activeOnly) $sql .= " WHERE active = 1";
+    $sql .= " ORDER BY sort_order ASC, id ASC";
+    return dbQuery($sql);
+}
+
+function getDistributionStatsByGame($gameId) {
+    return dbQuery("SELECT dps.*, p.name as platform_name, p.icon as platform_icon FROM game_distribution_stats dps LEFT JOIN distribution_platforms p ON p.id = dps.platform_id WHERE dps.game_id = ? ORDER BY p.sort_order ASC, dps.id ASC", [$gameId]);
+}
+
 function uploadAndExtractGame($file, $engine, $gameTitle) {
     if (!isset($file['error']) || is_array($file['error'])) {
         return ['success' => false, 'message' => 'Upload inválido.'];
@@ -797,6 +932,10 @@ function siteFaviconUrl() {
 }
 
 function resizeAndSaveLogo($tmpPath) {
+    $mime = getFileMimeType($tmpPath);
+    if (!in_array($mime, ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) {
+        return false;
+    }
     $info = @getimagesize($tmpPath);
     if (!$info) return false;
 
@@ -827,6 +966,10 @@ function resizeAndSaveLogo($tmpPath) {
 }
 
 function generateFavicons($tmpPath) {
+    $mime = getFileMimeType($tmpPath);
+    if (!in_array($mime, ['image/jpeg', 'image/png', 'image/gif', 'image/webp'], true)) {
+        return false;
+    }
     $info = @getimagesize($tmpPath);
     if (!$info) return false;
 

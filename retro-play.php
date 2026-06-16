@@ -10,6 +10,7 @@ if ($consoleSlug === '' || $slug === '') {
 }
 
 $siteName = getSetting('site_name', SITE_NAME);
+$retroPlayAd = renderAdSlot('game_before_player', 'retro', 'all');
 $console = dbQueryOne("SELECT * FROM retro_consoles WHERE slug = ? AND active = 1", [$consoleSlug]);
 if (!$console) {
     header('Location: /retro');
@@ -42,6 +43,7 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-i
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="<?= assetUrl('/assets/css/style.css') ?>">
     <style>
         .retro-splash {
@@ -132,6 +134,7 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-i
 
     <section class="theater-section">
         <div class="theater-container">
+            <?= $retroPlayAd ?>
             <div class="theater-player" id="theaterPlayer">
                 <!-- Splash / Thumbnail -->
                 <div class="retro-splash" id="retroSplash">

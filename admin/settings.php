@@ -98,9 +98,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         'site_tagline' => trim($_POST['site_tagline']),
         'contact_email' => trim($_POST['contact_email']),
         'contact_whatsapp' => trim($_POST['contact_whatsapp']),
-        'youtube_url' => trim($_POST['youtube_url']),
-        'twitch_url' => trim($_POST['twitch_url']),
-        'blog_url' => trim($_POST['blog_url']),
         'footer_description' => trim($_POST['footer_description']),
         'maintenance_mode' => $_POST['maintenance_mode'] ?? '0',
     ];
@@ -331,7 +328,7 @@ function _writeSmtpConfig($smtpHost, $smtpPort, $smtpUser, $smtpPass, $smtpFrom,
 }
 
 $settings = [];
-$keys = ['site_name', 'site_tagline', 'contact_email', 'contact_whatsapp', 'youtube_url', 'twitch_url', 'blog_url', 'footer_description', 'contact_recipient', 'maintenance_mode'];
+    $keys = ['site_name', 'site_tagline', 'contact_email', 'contact_whatsapp', 'footer_description', 'contact_recipient', 'maintenance_mode'];
 foreach ($keys as $key) {
     $settings[$key] = getSetting($key, '');
 }
@@ -354,63 +351,67 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
 ?>
 
 <!-- Meu Perfil -->
-<div class="card" style="margin-bottom: 24px; border-color: oklch(75% 0.15 85 / 0.3);">
+<div class="card settings-profile-card">
     <div class="card-header">
         <h2 class="card-title">Meu Perfil</h2>
     </div>
     <div class="card-body">
-        <div style="display: flex; align-items: center; gap: 24px; flex-wrap: wrap;">
-            <div style="text-align: center;">
-                <div style="width: 80px; height: 80px; border-radius: 50%; overflow: hidden; background: linear-gradient(135deg, oklch(75% 0.15 85), oklch(62% 0.13 85)); display: flex; align-items: center; justify-content: center; font-family: 'Cinzel', serif; font-size: 28px; font-weight: 700; color: oklch(8% 0.02 260); margin: 0 auto 8px;">
+        <div class="profile-layout">
+            <div>
+                <div class="profile-avatar">
                     <?php if ($userData && $userData['avatar_url']): ?>
-                        <img src="<?= e($userData['avatar_url']) ?>" alt="" style="width:100%;height:100%;object-fit:cover;">
+                        <img src="<?= e($userData['avatar_url']) ?>" alt="">
                     <?php else: ?>
                         <?= $profileInitial ?>
                     <?php endif; ?>
                 </div>
             </div>
-            <div style="flex:1;min-width:200px;">
-                <p style="margin-bottom:4px;"><strong style="color:var(--fg)"><?= e($userData['username'] ?? '') ?></strong>
+            <div class="profile-content">
+                <p class="settings-profile-title"><strong><?= e($userData['username'] ?? '') ?></strong>
                     <?php if (isset($userData['role_name'])): ?>
-                    <span class="badge badge-featured" style="margin-left:8px;font-size:11px;"><?= e($userData['level_name'] ?? $userData['role_name'] ?? '') ?></span>
+                    <span class="badge badge-featured"><?= e($userData['level_name'] ?? $userData['role_name'] ?? '') ?></span>
                     <?php endif; ?>
                 </p>
-                <p style="font-size:13px;color:var(--fg-muted);margin-bottom:12px;">Seu perfil de acesso ao painel administrativo.</p>
-                <form method="POST" enctype="multipart/form-data" style="display:inline-block;">
-                    <input type="hidden" name="action" value="save_avatar">
-                    <?= csrfField() ?>
-                    <label for="avatar-upload" class="btn btn-outline" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;padding:8px 16px;font-size:13px;">
-                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Upload
-                    </label>
-                    <input type="file" id="avatar-upload" name="avatar" accept="image/*" style="display:none;" onchange="this.form.submit()">
-                </form>
-                <?php if ($userData && $userData['avatar_url']): ?>
-                <form method="POST" style="display:inline-block;margin-left:8px;">
-                    <input type="hidden" name="action" value="remove_avatar">
-                    <?= csrfField() ?>
-                    <button type="submit" class="btn btn-outline" style="border-color:oklch(55% 0.20 25);color:oklch(55% 0.20 25);padding:8px 16px;font-size:13px;cursor:pointer;" onclick="return confirm('Remover foto de perfil?')">Remover</button>
-                </form>
-                <?php endif; ?>
+                <p class="field-hint">Seu perfil de acesso ao painel administrativo.</p>
+                <div class="settings-action-row">
+                    <form method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="action" value="save_avatar">
+                        <?= csrfField() ?>
+                        <label for="avatar-upload" class="btn btn-outline btn-sm">
+                            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Upload
+                        </label>
+                        <input type="file" id="avatar-upload" name="avatar" accept="image/png,image/jpeg,image/gif,image/webp" class="sr-only-file" onchange="this.form.submit()">
+                    </form>
+                    <?php if ($userData && $userData['avatar_url']): ?>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="remove_avatar">
+                        <?= csrfField() ?>
+                        <button type="submit" class="btn btn-danger-outline btn-sm" onclick="return confirm('Remover foto de perfil?')">Remover</button>
+                    </form>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
 
-        <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--border);">
-            <button class="btn btn-outline btn-sm" onclick="document.getElementById('passwordForm').classList.toggle('hidden'); this.classList.toggle('hidden')">Alterar Senha</button>
-            <form id="passwordForm" method="POST" class="hidden" style="margin-top: 16px; max-width: 400px;">
+        <div class="settings-action-row settings-password-toggle">
+            <button type="button" class="btn btn-outline btn-sm" onclick="document.getElementById('passwordForm').classList.toggle('hidden'); this.classList.toggle('hidden')">Alterar Senha</button>
+            <form id="passwordForm" method="POST" class="hidden">
                 <input type="hidden" name="action" value="change_password">
                 <?= csrfField() ?>
-                <div class="form-group">
-                    <label for="current_password">Senha Atual *</label>
-                    <input type="password" id="current_password" name="current_password" required placeholder="Sua senha atual">
-                </div>
-                <div class="form-group">
-                    <label for="new_password">Nova Senha *</label>
-                    <input type="password" id="new_password" name="new_password" required minlength="6" placeholder="Mínimo 6 caracteres">
-                </div>
-                <div class="form-group">
-                    <label for="confirm_password">Confirmar Nova Senha *</label>
-                    <input type="password" id="confirm_password" name="confirm_password" required minlength="6" placeholder="Repita a nova senha">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="current_password">Senha Atual *</label>
+                        <input type="password" id="current_password" name="current_password" required placeholder="Sua senha atual">
+                    </div>
+                    <div class="form-group">
+                        <label for="new_password">Nova Senha *</label>
+                        <input type="password" id="new_password" name="new_password" required minlength="6" placeholder="Mínimo 6 caracteres">
+                    </div>
+                    <div class="form-group">
+                        <label for="confirm_password">Confirmar Nova Senha *</label>
+                        <input type="password" id="confirm_password" name="confirm_password" required minlength="6" placeholder="Repita a nova senha">
+                    </div>
                 </div>
                 <button type="submit" class="btn btn-gold btn-sm">Salvar Nova Senha</button>
             </form>
@@ -421,9 +422,9 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
 <div class="card">
     <div class="card-header">
         <h2 class="card-title">Configurações do Site</h2>
-        <div style="margin-top: 8px;">
-            <span style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; background: <?= DB_TYPE === 'mysql' ? 'oklch(68% 0.16 220 / 0.15)' : 'oklch(75% 0.15 85 / 0.15)' ?>; color: <?= DB_TYPE === 'mysql' ? 'oklch(68% 0.16 220)' : 'oklch(75% 0.15 85)' ?>;">
-                <span style="width: 8px; height: 8px; border-radius: 50%; background: <?= DB_TYPE === 'mysql' ? 'oklch(68% 0.16 220)' : 'oklch(75% 0.15 85)' ?>;"></span>
+        <div>
+            <span class="settings-db-badge <?= DB_TYPE === 'mysql' ? 'mysql' : 'sqlite' ?>">
+                <span class="settings-db-dot"></span>
                 Banco: <?= DB_TYPE === 'mysql' ? 'MySQL' : 'SQLite' ?>
             </span>
         </div>
@@ -441,23 +442,23 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
 
         <h3 class="form-section-title">Manutenção</h3>
         <div class="form-group">
-            <label class="toggle-label" for="maintenance_mode">
+            <div class="toggle-group">
                 <input type="hidden" name="maintenance_mode" value="0">
-                <input type="checkbox" id="maintenance_mode" name="maintenance_mode" value="1" <?= ($settings['maintenance_mode'] ?? '0') === '1' ? 'checked' : '' ?> style="accent-color:oklch(75% 0.15 85);width:18px;height:18px;cursor:pointer;">
-                <span style="margin-left:8px;font-weight:600;">Ativar modo de manutenção</span>
+                <input type="checkbox" id="maintenance_mode" name="maintenance_mode" value="1" <?= ($settings['maintenance_mode'] ?? '0') === '1' ? 'checked' : '' ?>>
+                <label for="maintenance_mode">Ativar modo de manutenção</label>
                 <?php if (file_exists(DATA_PATH . '/.maintenance') || file_exists(dirname(ROOT_PATH) . '/.maintenance')): ?>
-                    <span style="margin-left:8px;font-size:11px;color:oklch(65% 0.18 145);">✓ arquivo .maintenance presente</span>
+                    <span class="badge badge-active">arquivo .maintenance presente</span>
                 <?php endif; ?>
-            </label>
-            <p style="font-size:12px;color:oklch(60% 0.012 250);margin-top:4px;">Quando ativo, visitantes veem uma página de "Em Manutenção". Administradores logados continuam acessando normalmente.</p>
+            </div>
+            <div class="field-hint">Quando ativo, visitantes veem uma página de "Em Manutenção". Administradores logados continuam acessando normalmente.</div>
         </div>
 
         <h3 class="form-section-title">Hero / Banner Principal</h3>
-        <p style="font-size:13px;color:oklch(60% 0.012 250);margin-bottom:16px;">
+        <div class="settings-section-subtitle">
             O título e subtítulo do Hero são definidos <strong>individualmente em cada banner</strong> na seção
-            <a href="/admin/banners" style="color:oklch(75% 0.15 85);">Banners</a>.
+            <a href="/admin/banners">Banners</a>.
             Quando não há banners cadastrados, mensagens padrão são exibidas automaticamente.
-        </p>
+        </div>
 
         <h3 class="form-section-title">Contato</h3>
         <div class="form-row">
@@ -466,11 +467,9 @@ $profileInitial = strtoupper(substr($userData['username'] ?? 'A', 0, 1));
         </div>
 
         <h3 class="form-section-title">Redes Sociais</h3>
-        <div class="form-row">
-            <div class="form-group"><label for="youtube_url">YouTube URL</label><input type="url" id="youtube_url" name="youtube_url" value="<?= e($settings['youtube_url']) ?>"></div>
-            <div class="form-group"><label for="twitch_url">Twitch URL</label><input type="url" id="twitch_url" name="twitch_url" value="<?= e($settings['twitch_url']) ?>"></div>
+        <div class="settings-section-subtitle compact">
+            Os links sociais agora são gerenciados em <a href="/admin/social-links">Redes Sociais</a>, com presets dinâmicos e ordenação própria.
         </div>
-        <div class="form-group"><label for="blog_url">Blog URL</label><input type="url" id="blog_url" name="blog_url" value="<?= e($settings['blog_url']) ?>"></div>
 
         <h3 class="form-section-title">Footer</h3>
         <div class="form-group"><label for="footer_description">Descrição do Footer</label><textarea id="footer_description" name="footer_description" rows="3"><?= e($settings['footer_description']) ?></textarea></div>
@@ -489,54 +488,56 @@ $currentFaviconUrl = siteFaviconUrl();
 $hasCustomLogo = getSetting('site_logo_url', '') !== '';
 $hasCustomFavicon = getSetting('site_favicon_url', '') !== '';
 ?>
-<div class="card" style="margin-top: 24px; border-color: oklch(68% 0.16 220 / 0.3);">
+<div class="card">
     <div class="card-header">
         <h2 class="card-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 8px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            <svg class="settings-card-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
             Identidade Visual
         </h2>
     </div>
     <div class="card-body">
-        <div style="display: flex; gap: 40px; flex-wrap: wrap;">
-            <!-- Logo -->
-            <div style="flex: 1; min-width: 200px;">
-                <h4 style="font-size:14px;font-weight:700;color:var(--fg);margin:0 0 8px;">Logo do Site</h4>
-                <p style="font-size:12px;color:oklch(60% 0.012 250);margin:0 0 12px;">Imagem quadrada, redimensionada para 256×256 automaticamente.</p>
-                <div style="width: 128px; height: 128px; border-radius: 12px; overflow: hidden; background: oklch(12% 0.02 260); border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-                    <img src="<?= e($currentLogoUrl) ?>" alt="Logo" style="max-width:100%;max-height:100%;object-fit:contain;">
+        <div class="identity-layout">
+            <div class="form-group">
+                <label for="logo-upload">Logo do Site</label>
+                <div class="field-hint">Imagem quadrada, redimensionada para 256×256 automaticamente.</div>
+                <div class="settings-preview logo">
+                    <img src="<?= e($currentLogoUrl) ?>" alt="Logo">
                 </div>
-                <form method="POST" enctype="multipart/form-data" style="display:flex;gap:8px;flex-wrap:wrap;">
+                <form method="POST" enctype="multipart/form-data">
                     <?= csrfField() ?>
                     <input type="hidden" name="action" value="save_logo">
-                    <label for="logo-upload" class="btn btn-outline btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:6px 12px;font-size:12px;">
-                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Upload Logo
-                    </label>
-                    <input type="file" id="logo-upload" name="logo" accept="image/*" style="display:none;" onchange="this.form.submit()">
-                    <?php if ($hasCustomLogo): ?>
-                    <button type="submit" class="btn btn-outline btn-sm" formaction="" formmethod="POST" name="action" value="remove_logo" style="border-color:oklch(55% 0.20 25);color:oklch(55% 0.20 25);padding:6px 12px;font-size:12px;cursor:pointer;" onclick="return confirm('Remover logo?')">Remover</button>
-                    <?php endif; ?>
+                    <div class="settings-upload-actions">
+                        <label for="logo-upload" class="btn btn-outline btn-sm">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Upload Logo
+                        </label>
+                        <input type="file" id="logo-upload" name="logo" accept="image/png,image/jpeg,image/gif,image/webp" class="sr-only-file" onchange="this.form.submit()">
+                        <?php if ($hasCustomLogo): ?>
+                        <button type="submit" class="btn btn-danger-outline btn-sm" formaction="" formmethod="POST" name="action" value="remove_logo" onclick="return confirm('Remover logo?')">Remover</button>
+                        <?php endif; ?>
+                    </div>
                 </form>
             </div>
 
-            <!-- Favicon -->
-            <div style="flex: 1; min-width: 200px;">
-                <h4 style="font-size:14px;font-weight:700;color:var(--fg);margin:0 0 8px;">Favicon</h4>
-                <p style="font-size:12px;color:oklch(60% 0.012 250);margin:0 0 12px;">Gera automaticamente versões 16×16, 32×32 e 180×180.</p>
-                <div style="width: 64px; height: 64px; border-radius: 8px; overflow: hidden; background: oklch(12% 0.02 260); border: 2px dashed var(--border); display: flex; align-items: center; justify-content: center; margin-bottom: 12px;">
-                    <img src="<?= e($currentFaviconUrl) ?>" alt="Favicon" style="max-width:32px;max-height:32px;object-fit:contain;">
+            <div class="form-group">
+                <label for="favicon-upload">Favicon</label>
+                <div class="field-hint">Gera automaticamente versões 16×16, 32×32 e 180×180.</div>
+                <div class="settings-preview favicon">
+                    <img src="<?= e($currentFaviconUrl) ?>" alt="Favicon">
                 </div>
-                <form method="POST" enctype="multipart/form-data" style="display:flex;gap:8px;flex-wrap:wrap;">
+                <form method="POST" enctype="multipart/form-data">
                     <?= csrfField() ?>
                     <input type="hidden" name="action" value="save_favicon">
-                    <label for="favicon-upload" class="btn btn-outline btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:4px;padding:6px 12px;font-size:12px;">
-                        <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-                        Upload Favicon
-                    </label>
-                    <input type="file" id="favicon-upload" name="favicon" accept="image/*" style="display:none;" onchange="this.form.submit()">
-                    <?php if ($hasCustomFavicon): ?>
-                    <button type="submit" class="btn btn-outline btn-sm" formaction="" formmethod="POST" name="action" value="remove_favicon" style="border-color:oklch(55% 0.20 25);color:oklch(55% 0.20 25);padding:6px 12px;font-size:12px;cursor:pointer;" onclick="return confirm('Remover favicon?')">Remover</button>
-                    <?php endif; ?>
+                    <div class="settings-upload-actions">
+                        <label for="favicon-upload" class="btn btn-outline btn-sm">
+                            <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                            Upload Favicon
+                        </label>
+                        <input type="file" id="favicon-upload" name="favicon" accept="image/png,image/jpeg,image/gif,image/webp" class="sr-only-file" onchange="this.form.submit()">
+                        <?php if ($hasCustomFavicon): ?>
+                        <button type="submit" class="btn btn-danger-outline btn-sm" formaction="" formmethod="POST" name="action" value="remove_favicon" onclick="return confirm('Remover favicon?')">Remover</button>
+                        <?php endif; ?>
+                    </div>
                 </form>
             </div>
         </div>
@@ -544,131 +545,130 @@ $hasCustomFavicon = getSetting('site_favicon_url', '') !== '';
 </div>
 
 <!-- Configurações SMTP -->
-<div class="card" style="margin-top: 24px; border-color: <?= $smtpConfigured ? 'oklch(75% 0.15 85 / 0.4)' : 'oklch(30% 0.02 260 / 0.3)' ?>;">
+<div class="card">
     <div class="card-header">
         <h2 class="card-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 8px;"><path d="M22 6L12 13L2 6M22 6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6l10 7l10-7z"/></svg>
+            <svg class="settings-card-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 6L12 13L2 6M22 6v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V6l10 7l10-7z"/></svg>
             Configurações SMTP / E-mail
         </h2>
     </div>
     <div class="card-body">
         <?php if ($smtpConfigured): ?>
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: oklch(75% 0.15 85 / 0.08); border: 1px solid oklch(75% 0.15 85 / 0.2); border-radius: 8px; margin-bottom: 20px;">
-            <span style="width: 12px; height: 12px; border-radius: 50%; background: oklch(75% 0.15 85); flex-shrink: 0;"></span>
+        <div class="settings-status-card gold">
+            <span class="settings-status-dot gold"></span>
             <div>
-                <strong style="color: oklch(75% 0.15 85);">SMTP configurado</strong>
-                <span style="font-size: 13px; color: oklch(60% 0.012 250); margin-left: 8px;">
-                    De <strong style="color: var(--fg);"><?= e($smtpFrom ?: $smtpUser ?: '—') ?></strong>
-                    → Para <strong style="color: var(--fg);"><?= e($settings['contact_recipient'] ?: '—') ?></strong>
+                <strong>SMTP configurado</strong>
+                <span class="field-hint">
+                    De <strong><?= e($smtpFrom ?: $smtpUser ?: '—') ?></strong>
+                    → Para <strong><?= e($settings['contact_recipient'] ?: '—') ?></strong>
                 </span>
             </div>
         </div>
         <?php else: ?>
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: oklch(30% 0.02 260 / 0.2); border: 1px solid oklch(40% 0.02 260 / 0.3); border-radius: 8px; margin-bottom: 20px;">
-            <span style="width: 12px; height: 12px; border-radius: 50%; background: oklch(50% 0.02 260); flex-shrink: 0;"></span>
+        <div class="settings-status-card muted">
+            <span class="settings-status-dot muted"></span>
             <div>
-                <strong style="color: oklch(60% 0.012 250);">SMTP não configurado</strong>
-                <span style="font-size: 13px; color: oklch(50% 0.02 260); margin-left: 8px;">Os e-mails do formulário de orçamento não serão enviados até configurar.</span>
+                <strong>SMTP não configurado</strong>
+                <span class="field-hint">Os e-mails do formulário de orçamento não serão enviados até configurar.</span>
             </div>
         </div>
         <?php endif; ?>
         <form method="POST" id="smtp-form">
             <?= csrfField() ?>
-            <div id="smtp-fields" style="<?= $smtpConfigured ? 'opacity:0.5;pointer-events:none;' : '' ?>">
-            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
-                <div class="form-group" style="flex: 2; min-width: 200px;">
+            <div id="smtp-fields" class="<?= $smtpConfigured ? 'settings-locked-fields' : '' ?>">
+            <div class="form-row">
+                <div class="form-group">
                     <label for="smtp_host">Servidor *</label>
                     <input type="text" id="smtp_host" name="smtp_host" value="<?= e($smtpHost) ?>" required placeholder="smtp.gmail.com" <?= $smtpConfigured ? 'disabled' : '' ?>>
                 </div>
-                <div class="form-group" style="flex: 1; min-width: 100px;">
+                <div class="form-group">
                     <label for="smtp_port">Porta *</label>
                     <input type="text" id="smtp_port" name="smtp_port" value="<?= e($smtpPort) ?>" required placeholder="587" <?= $smtpConfigured ? 'disabled' : '' ?>>
                 </div>
             </div>
-            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
-                <div class="form-group" style="flex: 1; min-width: 200px;">
+            <div class="form-row">
+                <div class="form-group">
                     <label for="smtp_user">Usuário</label>
                     <input type="text" id="smtp_user" name="smtp_user" value="<?= e($smtpUser) ?>" placeholder="seu@email.com" autocomplete="off" <?= $smtpConfigured ? 'disabled' : '' ?>>
                 </div>
-                <div class="form-group" style="flex: 1; min-width: 200px;">
+                <div class="form-group">
                     <label for="smtp_pass">Senha</label>
                     <input type="password" id="smtp_pass" name="smtp_pass" placeholder="<?= $smtpConfigured ? '•••••• (deixe vazio para manter)' : 'Senha do SMTP' ?>" autocomplete="new-password" <?= $smtpConfigured ? 'disabled' : '' ?>>
                 </div>
             </div>
-            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
-                <div class="form-group" style="flex: 1; min-width: 200px;">
+            <div class="form-row">
+                <div class="form-group">
                     <label for="smtp_from">E-mail remetente</label>
                     <input type="email" id="smtp_from" name="smtp_from" value="<?= e($smtpFrom) ?>" placeholder="noreply@seudominio.com" <?= $smtpConfigured ? 'disabled' : '' ?>>
                 </div>
-                <div class="form-group" style="flex: 1; min-width: 200px;">
+                <div class="form-group">
                     <label for="smtp_from_name">Nome do remetente</label>
                     <input type="text" id="smtp_from_name" name="smtp_from_name" value="<?= e($smtpFromName) ?>" placeholder="Jogatinando CMS" <?= $smtpConfigured ? 'disabled' : '' ?>>
                 </div>
             </div>
-            <hr style="border: none; border-top: 1px solid oklch(22% 0.025 260); margin: 20px 0;">
+            <hr>
             <div class="form-group">
                 <label for="contact_recipient">Email destinatário (formulário de orçamento)</label>
-                <input type="email" id="contact_recipient" name="contact_recipient" value="<?= e($settings['contact_recipient'] ?? '') ?>" placeholder="para quem enviar os orçamentos" style="max-width: 400px;" <?= $smtpConfigured ? 'disabled' : '' ?>>
-                <p style="font-size: 12px; color: oklch(60% 0.012 250); margin-top: 4px;">Este email receberá os pedidos de orçamento enviados pelo formulário de contato do site.</p>
+                <input type="email" id="contact_recipient" name="contact_recipient" value="<?= e($settings['contact_recipient'] ?? '') ?>" placeholder="para quem enviar os orçamentos" <?= $smtpConfigured ? 'disabled' : '' ?>>
+                <div class="field-hint">Este email receberá os pedidos de orçamento enviados pelo formulário de contato do site.</div>
             </div>
             </div><!-- /smtp-fields -->
-            <div class="form-actions" id="smtp-actions" style="<?= $smtpConfigured ? 'display:none' : '' ?>">
+            <div class="form-actions <?= $smtpConfigured ? 'hidden' : '' ?>" id="smtp-actions">
                 <button type="submit" class="btn btn-gold" name="action" value="test_smtp">Testar e Salvar</button>
             </div>
             <?php if ($smtpConfigured): ?>
             <div class="form-actions" id="smtp-locked-actions">
                 <button type="button" class="btn btn-gold" onclick="unlockSmtp()">✏️ Editar Configurações</button>
             </div>
-            <div class="form-actions" id="smtp-edit-actions" style="display:none">
+            <div class="form-actions hidden" id="smtp-edit-actions">
                 <button type="submit" class="btn btn-gold" name="action" value="test_smtp">💾 Salvar</button>
                 <button type="button" class="btn btn-outline" onclick="relockSmtp()">Cancelar</button>
             </div>
             <?php endif; ?>
         </form>
 
-        <hr style="border: none; border-top: 1px solid oklch(22% 0.025 260); margin: 20px 0;">
+        <hr>
         <form method="POST" id="noreply-form">
             <?= csrfField() ?>
-            <h4 style="font-size:14px;font-weight:700;color:var(--fg);margin:0 0 4px;">Notificações Automáticas</h4>
-            <p style="font-size:12px;color:oklch(60% 0.012 250);margin:0 0 12px;">Usado para verificação de email e outros avisos do sistema.</p>
-            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
-                <div class="form-group" style="flex: 1; min-width: 200px;">
+            <h3 class="form-section-title">Notificações Automáticas</h3>
+            <div class="field-hint">Usado para verificação de email e outros avisos do sistema.</div>
+            <div class="form-row">
+                <div class="form-group">
                     <label for="noreply_email">E-mail noreply</label>
                     <input type="email" id="noreply_email" name="noreply_email" value="<?= e(getSetting('noreply_email', '')) ?>" placeholder="noreply@seudominio.com">
                 </div>
-                <div class="form-group" style="flex: 1; min-width: 200px;">
+                <div class="form-group">
                     <label for="noreply_name">Nome do remetente</label>
                     <input type="text" id="noreply_name" name="noreply_name" value="<?= e(getSetting('noreply_name', '')) ?>" placeholder="No Reply">
                 </div>
             </div>
-            <div class="form-actions" style="margin-top: 12px;">
+            <div class="form-actions">
                 <button type="submit" class="btn btn-gold btn-sm" name="action" value="save_noreply">Salvar</button>
             </div>
         </form>
     </div>
 </div>
 
+
 <script>
 function unlockSmtp() {
     var fields = document.getElementById('smtp-fields');
-    fields.style.opacity = '1';
-    fields.style.pointerEvents = '';
+    fields.classList.remove('settings-locked-fields');
     fields.querySelectorAll('input').forEach(function(el) {
         el.disabled = false;
     });
-    document.getElementById('smtp-locked-actions').style.display = 'none';
-    document.getElementById('smtp-edit-actions').style.display = '';
+    document.getElementById('smtp-locked-actions').classList.add('hidden');
+    document.getElementById('smtp-edit-actions').classList.remove('hidden');
 }
 
 function relockSmtp() {
     var fields = document.getElementById('smtp-fields');
-    fields.style.opacity = '0.5';
-    fields.style.pointerEvents = 'none';
+    fields.classList.add('settings-locked-fields');
     fields.querySelectorAll('input').forEach(function(el) {
         el.disabled = true;
     });
-    document.getElementById('smtp-edit-actions').style.display = 'none';
-    document.getElementById('smtp-locked-actions').style.display = '';
+    document.getElementById('smtp-edit-actions').classList.add('hidden');
+    document.getElementById('smtp-locked-actions').classList.remove('hidden');
     document.getElementById('smtp_pass').value = '';
 }
 </script>
@@ -676,28 +676,26 @@ function relockSmtp() {
 <script>
 function unlockS3() {
     var fields = document.getElementById('s3-fields');
-    fields.style.opacity = '1';
-    fields.style.pointerEvents = '';
+    fields.classList.remove('settings-locked-fields');
     fields.querySelectorAll('input, select').forEach(function(el) {
         el.disabled = false;
     });
-    document.getElementById('s3-locked-actions').style.display = 'none';
-    document.getElementById('s3-edit-actions').style.display = '';
-    document.getElementById('s3-bucket-display').style.display = 'none';
-    document.getElementById('s3-bucket-select-container').style.display = '';
+    document.getElementById('s3-locked-actions').classList.add('hidden');
+    document.getElementById('s3-edit-actions').classList.remove('hidden');
+    document.getElementById('s3-bucket-display').classList.add('hidden');
+    document.getElementById('s3-bucket-select-container').classList.remove('hidden');
 }
 function relockS3() {
     var fields = document.getElementById('s3-fields');
-    fields.style.opacity = '0.5';
-    fields.style.pointerEvents = 'none';
+    fields.classList.add('settings-locked-fields');
     fields.querySelectorAll('input, select').forEach(function(el) {
         el.disabled = true;
     });
-    document.getElementById('s3-edit-actions').style.display = 'none';
-    document.getElementById('s3-locked-actions').style.display = '';
+    document.getElementById('s3-edit-actions').classList.add('hidden');
+    document.getElementById('s3-locked-actions').classList.remove('hidden');
     document.getElementById('s3_secret_key').value = '';
-    document.getElementById('s3-bucket-select-container').style.display = 'none';
-    document.getElementById('s3-bucket-display').style.display = '';
+    document.getElementById('s3-bucket-select-container').classList.add('hidden');
+    document.getElementById('s3-bucket-display').classList.remove('hidden');
 }
 
 var s3ErrorTimer = null;
@@ -705,9 +703,9 @@ var s3ErrorTimer = null;
 function showS3Error(msg) {
     var el = document.getElementById('s3-bucket-error');
     el.textContent = msg;
-    el.style.display = 'inline';
+    el.classList.remove('hidden');
     if (s3ErrorTimer) clearTimeout(s3ErrorTimer);
-    s3ErrorTimer = setTimeout(function() { el.style.display = 'none'; }, 8000);
+    s3ErrorTimer = setTimeout(function() { el.classList.add('hidden'); }, 8000);
 }
 
 function fetchS3Buckets() {
@@ -740,8 +738,8 @@ function fetchS3Buckets() {
             sel.innerHTML = '';
             if (!data.buckets || data.buckets.length === 0) {
                 sel.innerHTML = '<option value="">Nenhum bucket encontrado.</option>';
-                document.getElementById('s3-bucket-select-container').style.display = '';
-                document.getElementById('s3-bucket-display').style.display = 'none';
+                document.getElementById('s3-bucket-select-container').classList.remove('hidden');
+                document.getElementById('s3-bucket-display').classList.add('hidden');
                 return;
             }
             var html = '<option value="">— Selecione um bucket —</option>';
@@ -751,8 +749,8 @@ function fetchS3Buckets() {
             }
             sel.innerHTML = html;
             sel.onchange = function() { onS3BucketSelect(this); };
-            document.getElementById('s3-bucket-select-container').style.display = '';
-            document.getElementById('s3-bucket-display').style.display = 'none';
+            document.getElementById('s3-bucket-select-container').classList.remove('hidden');
+            document.getElementById('s3-bucket-display').classList.add('hidden');
         } catch (e) {
             showS3Error('Erro ao processar resposta: ' + e.message);
         }
@@ -768,15 +766,15 @@ function fetchS3Buckets() {
 function onS3BucketSelect(sel) {
     var val = sel.value;
     document.getElementById('s3_bucket').value = val;
-    document.getElementById('s3-bucket-select-container').style.display = 'none';
-    document.getElementById('s3-bucket-display').style.display = '';
+    document.getElementById('s3-bucket-select-container').classList.add('hidden');
+    document.getElementById('s3-bucket-display').classList.remove('hidden');
     document.getElementById('s3-bucket-display').querySelector('div').textContent = val || 'Nenhum bucket selecionado';
 }
 </script>
 
 <!-- Migração SQLite → MySQL -->
 <?php if (DB_TYPE === 'sqlite'): ?>
-<div class="card" style="margin-top: 24px; border-color: oklch(68% 0.16 220 / 0.3);">
+<div class="card">
     <div class="card-header">
         <h2 class="card-title">Migrar para MySQL</h2>
     </div>
@@ -921,12 +919,13 @@ function onS3BucketSelect(sel) {
         echo $migrateMessage;
         ?>
         <?php if (!$migrateSuccess): ?>
-        <p style="margin-bottom: 16px; color: oklch(68% 0.16 220);">
+        <div class="settings-migration-note">
             Seus dados atuais (SQLite) serão copiados para um banco MySQL. O arquivo SQLite original será preservado.
-        </p>
+        </div>
         <form method="POST">
             <input type="hidden" name="action" value="migrate">
             <?= csrfField() ?>
+            <h3 class="form-section-title">Conexão MySQL</h3>
             <div class="form-row">
                 <div class="form-group"><label for="db_host">Host</label><input type="text" id="db_host" name="db_host" value="<?= e(DB_HOST) ?>"></div>
                 <div class="form-group"><label for="db_port">Porta</label><input type="text" id="db_port" name="db_port" value="<?= e(DB_PORT) ?>"></div>
@@ -937,14 +936,16 @@ function onS3BucketSelect(sel) {
                 <div class="form-group"><label for="db_pass">Senha MySQL</label><input type="password" id="db_pass" name="db_pass" value="<?= e(DB_PASS) ?>"></div>
             </div>
 
-            <h3 class="form-section-title" style="margin-top: 24px;">Administrador</h3>
-            <p style="color: oklch(60% 0.012 250); font-size: 13px; margin-bottom: 16px;">Defina o novo login e senha do painel admin para o MySQL.</p>
+            <h3 class="form-section-title">Administrador</h3>
+            <div class="field-hint">Defina o novo login e senha do painel admin para o MySQL.</div>
             <div class="form-row">
-                <div class="form-group"><label for="admin_user">* Usuário Admin</label><input type="text" id="admin_user" name="admin_user" placeholder="admin" required></div>
-                <div class="form-group"><label for="admin_pass">* Senha Admin</label><input type="password" id="admin_pass" name="admin_pass" placeholder="Nova senha" required></div>
+                <div class="form-group"><label for="admin_user">Usuário Admin *</label><input type="text" id="admin_user" name="admin_user" placeholder="admin" required></div>
+                <div class="form-group"><label for="admin_pass">Senha Admin *</label><input type="password" id="admin_pass" name="admin_pass" placeholder="Nova senha" required></div>
             </div>
 
-            <button type="submit" class="btn btn-primary" style="background: linear-gradient(135deg, oklch(68% 0.16 220), oklch(55% 0.14 220)); color: white; border: none; padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer;">Migrar para MySQL</button>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-gold">Migrar para MySQL</button>
+            </div>
         </form>
         <?php endif; ?>
         <?php if ($migrateRedirect): ?>
@@ -1028,33 +1029,33 @@ $s3Config = $s3Configured ? S3::getResolvedConfig() : [];
 ?>
 
 <!-- Cloudflare R2 (S3-compatible) -->
-<div class="card" style="margin-top: 24px; border-color: <?= $s3Configured ? 'oklch(75% 0.15 85 / 0.4)' : 'oklch(30% 0.02 260 / 0.3)' ?>;">
+<div class="card">
     <div class="card-header">
         <h2 class="card-title">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align: middle; margin-right: 8px;"><path d="M21 16v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2m4-4l4 4 4-4m-4-4v8"/></svg>
+            <svg class="settings-card-icon" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2m4-4l4 4 4-4m-4-4v8"/></svg>
             Cloudflare R2 (S3)
         </h2>
     </div>
     <div class="card-body">
         <?php if ($s3Configured): ?>
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: oklch(75% 0.15 85 / 0.08); border: 1px solid oklch(75% 0.15 85 / 0.2); border-radius: 8px; margin-bottom: 20px;">
-            <span style="width: 12px; height: 12px; border-radius: 50%; background: oklch(75% 0.15 85); flex-shrink: 0;"></span>
+        <div class="settings-status-card gold">
+            <span class="settings-status-dot gold"></span>
             <div>
-                <strong style="color: oklch(75% 0.15 85);">S3 configurado</strong>
-                <span style="font-size: 13px; color: oklch(60% 0.012 250); margin-left: 8px;">
-                    Bucket: <strong style="color: var(--fg);"><?= e($s3Config['bucket'] ?? '') ?></strong>
+                <strong>S3 configurado</strong>
+                <span class="field-hint">
+                    Bucket: <strong><?= e($s3Config['bucket'] ?? '') ?></strong>
                     <?php if (!empty($s3Config['public_url'])): ?>
-                    &middot; URL Pública: <strong style="color: var(--fg);"><?= e($s3Config['public_url']) ?></strong>
+                    &middot; URL Pública: <strong><?= e($s3Config['public_url']) ?></strong>
                     <?php endif; ?>
                 </span>
             </div>
         </div>
         <?php else: ?>
-        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: oklch(30% 0.02 260 / 0.2); border: 1px solid oklch(40% 0.02 260 / 0.3); border-radius: 8px; margin-bottom: 20px;">
-            <span style="width: 12px; height: 12px; border-radius: 50%; background: oklch(50% 0.02 260); flex-shrink: 0;"></span>
+        <div class="settings-status-card muted">
+            <span class="settings-status-dot muted"></span>
             <div>
-                <strong style="color: oklch(60% 0.012 250);">S3 não configurado</strong>
-                <span style="font-size: 13px; color: oklch(50% 0.02 260); margin-left: 8px;">Preencha os campos abaixo para configurar Cloudflare R2.</span>
+                <strong>S3 não configurado</strong>
+                <span class="field-hint">Preencha os campos abaixo para configurar Cloudflare R2.</span>
             </div>
         </div>
         <?php endif; ?>
@@ -1062,60 +1063,62 @@ $s3Config = $s3Configured ? S3::getResolvedConfig() : [];
         <!-- S3 Credential Form -->
         <form method="POST" id="s3-form">
             <?= csrfField() ?>
-            <div id="s3-fields" style="<?= $s3Configured ? 'opacity:0.5;pointer-events:none;' : '' ?>">
-            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
-                <div class="form-group" style="flex: 2; min-width: 250px;">
+            <div id="s3-fields" class="<?= $s3Configured ? 'settings-locked-fields' : '' ?>">
+            <div class="form-row">
+                <div class="form-group">
                     <label for="s3_endpoint">Endpoint *</label>
                     <input type="url" id="s3_endpoint" name="s3_endpoint" value="<?= e($s3Config['endpoint'] ?? '') ?>" required placeholder="https://&lt;accountid&gt;.r2.cloudflarestorage.com" <?= $s3Configured ? 'disabled' : '' ?>>
                 </div>
             </div>
-            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap;">
-                <div class="form-group" style="flex: 1; min-width: 200px;">
+            <div class="form-row">
+                <div class="form-group">
                     <label for="s3_access_key">Access Key ID *</label>
                     <input type="text" id="s3_access_key" name="s3_access_key" value="<?= e($s3Config['access_key'] ?? '') ?>" required placeholder="&lt;access_key_id&gt;" <?= $s3Configured ? 'disabled' : '' ?>>
                 </div>
-                <div class="form-group" style="flex: 1; min-width: 200px;">
+                <div class="form-group">
                     <label for="s3_secret_key">Secret Access Key *</label>
                     <input type="password" id="s3_secret_key" name="s3_secret_key" placeholder="<?= $s3Configured ? '•••••• (deixe vazio para manter)' : '&lt;secret_access_key&gt;' ?>" autocomplete="new-password" <?= $s3Configured ? 'disabled' : '' ?>>
                 </div>
             </div>
-            <div class="form-row" style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
-                <div class="form-group" style="flex: 0 0 auto;">
-                    <label>&nbsp;</label>
-                    <button type="button" id="btn-fetch-s3-buckets" class="btn btn-outline" style="padding: 10px 16px; font-size:13px; white-space:nowrap;" onclick="fetchS3Buckets()">🔍 Buscar Buckets</button>
-                    <span id="s3-bucket-error" style="display:none;margin-left:12px;font-size:13px;color:oklch(55% 0.20 25);"></span>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="s3_bucket_fetch">Buckets</label>
+                    <div class="settings-action-row">
+                        <button type="button" id="btn-fetch-s3-buckets" class="btn btn-outline" onclick="fetchS3Buckets()">🔍 Buscar Buckets</button>
+                        <span id="s3-bucket-error" class="field-hint hidden"></span>
+                    </div>
                 </div>
             </div>
-            <div id="s3-bucket-select-container" style="display:none;">
-                <div class="form-group" style="max-width: 400px;">
+            <div id="s3-bucket-select-container" class="hidden">
+                <div class="form-group">
                     <label for="s3_bucket_select">Bucket *</label>
-                    <select id="s3_bucket_select" style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--fg);font-size:14px;">
+                    <select id="s3_bucket_select">
                         <option value="">— Clique em "Buscar Buckets" primeiro —</option>
                     </select>
                 </div>
             </div>
-            <div id="s3-bucket-display" class="form-group" style="max-width: 400px;<?= $s3Configured ? '' : 'display:none' ?>">
+            <div id="s3-bucket-display" class="form-group <?= $s3Configured ? '' : 'hidden' ?>">
                 <label>Bucket</label>
-                <div style="padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);color:var(--fg);font-size:14px;">
-                    <?= $s3Bucket ? e($s3Bucket) : '<span style="color:oklch(50% 0.02 260);font-style:italic;">Selecione usando "Buscar Buckets"</span>' ?>
+                <div class="settings-read-only">
+                    <?= $s3Bucket ? e($s3Bucket) : '<span class="settings-muted-text">Selecione usando "Buscar Buckets"</span>' ?>
                 </div>
                 <input type="hidden" id="s3_bucket" name="s3_bucket" value="<?= e($s3Bucket) ?>">
             </div>
-            <div class="form-group" style="max-width: 400px;">
-                <label for="s3_public_url">URL Pública <span style="color:oklch(50% 0.02 260);font-size:11px;">(opcional)</span></label>
+            <div class="form-group">
+                <label for="s3_public_url">URL Pública <span class="settings-muted-text">(opcional)</span></label>
                 <input type="url" id="s3_public_url" name="s3_public_url" value="<?= e($s3PublicUrl) ?>" placeholder="https://pub-xxxxx.r2.dev" <?= $s3Configured ? 'disabled' : '' ?>>
-                <p style="font-size:12px;color:oklch(60% 0.012 250);margin-top:4px;">Se tiver um domínio customizado ou URL pública do R2, insira aqui. Sem isso, as URLs usarão o endpoint diretamente.</p>
+                <div class="field-hint">Se tiver um domínio customizado ou URL pública do R2, insira aqui. Sem isso, as URLs usarão o endpoint diretamente.</div>
             </div>
             </div><!-- /s3-fields -->
 
-            <div class="form-actions" id="s3-actions" style="<?= $s3Configured ? 'display:none' : '' ?>">
+            <div class="form-actions <?= $s3Configured ? 'hidden' : '' ?>" id="s3-actions">
                 <button type="submit" class="btn btn-gold" name="action" value="save_s3">Salvar Configurações S3</button>
             </div>
             <?php if ($s3Configured): ?>
             <div class="form-actions" id="s3-locked-actions">
                 <button type="button" class="btn btn-gold" onclick="unlockS3()">✏️ Editar Configurações</button>
             </div>
-            <div class="form-actions" id="s3-edit-actions" style="display:none">
+            <div class="form-actions hidden" id="s3-edit-actions">
                 <button type="submit" class="btn btn-gold" name="action" value="save_s3">💾 Salvar</button>
                 <button type="button" class="btn btn-outline" onclick="relockS3()">Cancelar</button>
             </div>
@@ -1123,15 +1126,15 @@ $s3Config = $s3Configured ? S3::getResolvedConfig() : [];
         </form>
 
         <?php if ($s3Configured): ?>
-        <hr style="border: none; border-top: 1px solid oklch(22% 0.025 260); margin: 20px 0;">
-        <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <form method="POST" action="/admin/bucket-sync" style="display:inline">
-                <button type="submit" class="btn btn-gold" style="padding: 10px 20px;">⬆ Sincronizar Uploads com S3</button>
+        <hr>
+        <div class="settings-action-row">
+            <form method="POST" action="/admin/bucket-sync">
+                <button type="submit" class="btn btn-gold">⬆ Sincronizar Uploads com S3</button>
             </form>
-            <form method="POST" style="display:inline">
+            <form method="POST">
                 <?= csrfField() ?>
                 <input type="hidden" name="action" value="s3_test">
-                <button type="submit" class="btn btn-outline" style="padding: 10px 20px;">🔌 Testar Conexão</button>
+                <button type="submit" class="btn btn-outline">🔌 Testar Conexão</button>
             </form>
         </div>
         <?php endif; ?>

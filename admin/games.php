@@ -250,7 +250,7 @@ if ($action === 'new' || $action === 'edit') {
             <?= csrfField() ?>
 
             <!-- Upload progress overlay -->
-            <div class="upload-progress-overlay" id="uploadProgress">
+            <div class="upload-progress-overlay hidden" id="uploadProgress">
                 <div class="upload-progress-content">
                     <div class="upload-spinner"></div>
                     <h3>Processando jogo...</h3>
@@ -301,10 +301,10 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
             </div>
 
-            <h3 class="form-section-title" id="externalSection" style="<?= ($game['game_type'] ?? '') === 'externo' ? '' : 'display:none' ?>">Link Externo</h3>
-            <div id="externalContainer" style="<?= ($game['game_type'] ?? '') === 'externo' ? '' : 'display:none' ?>">
+            <h3 class="form-section-title <?= ($game['game_type'] ?? '') === 'externo' ? '' : 'hidden' ?>" id="externalSection">Link Externo</h3>
+            <div id="externalContainer" class="<?= ($game['game_type'] ?? '') === 'externo' ? '' : 'hidden' ?>">
                 <div class="form-row">
-                    <div class="form-group" style="flex:2">
+                    <div class="form-group game-external-wide">
                         <label for="external_url">URL do Site do Jogo *</label>
                         <input type="url" id="external_url" name="external_url" value="<?= e($game['external_url'] ?? '') ?>" placeholder="https://exemplo.com.br">
                         <div class="field-hint">URL completa do site onde o jogo roda. Será exibido via iframe. Jogos externos não têm upload de arquivo.</div>
@@ -312,26 +312,26 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
                 <div class="form-row">
                     <div class="form-group">
-                        <div class="toggle-group" style="margin-top:28px">
+                            <div class="toggle-group">
                             <input type="checkbox" id="is_open_source" name="is_open_source" <?= ($game['is_open_source'] ?? 0) ? 'checked' : '' ?>>
                             <label for="is_open_source">Projeto Open Source</label>
                         </div>
                     </div>
                 </div>
-                <div class="form-row" id="repoUrlRow" style="<?= ($game['is_open_source'] ?? 0) ? '' : 'display:none' ?>">
-                    <div class="form-group" style="flex:2">
+                <div class="form-row <?= ($game['is_open_source'] ?? 0) ? '' : 'hidden' ?>" id="repoUrlRow">
+                    <div class="form-group game-external-wide">
                         <label for="repo_url">URL do Repositório</label>
                         <input type="url" id="repo_url" name="repo_url" value="<?= e($game['repo_url'] ?? '') ?>" placeholder="https://github.com/usuario/repositorio">
                         <div class="field-hint">Link para GitHub, GitLab ou outro repositório</div>
                     </div>
                 </div>
                 <div class="form-row">
-                    <div class="form-group" style="flex:1">
+                    <div class="form-group game-iframe-dimension">
                         <label for="iframe_width">Largura do iframe</label>
                         <input type="text" id="iframe_width" name="iframe_width" value="<?= e($game['iframe_width'] ?? '100%') ?>" placeholder="ex: 800px, 100%">
                         <div class="field-hint">Largura do iframe. Use px, % ou vw.</div>
                     </div>
-                    <div class="form-group" style="flex:1">
+                    <div class="form-group game-iframe-dimension">
                         <label for="iframe_height">Altura do iframe</label>
                         <input type="text" id="iframe_height" name="iframe_height" value="<?= e($game['iframe_height'] ?? '100%') ?>" placeholder="ex: 600px, 80vh">
                         <div class="field-hint">Altura do iframe. Use px, vh ou %.</div>
@@ -343,9 +343,9 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-row">
                 <div class="form-group">
-                    <label>Thumbnail do Jogo</label>
+                    <label for="thumbnail">Thumbnail do Jogo</label>
                     <div class="file-upload">
-                        <input type="file" name="thumbnail" accept="image/*">
+                        <input type="file" id="thumbnail" name="thumbnail" accept="image/png,image/jpeg,image/gif,image/webp">
                         <div class="upload-icon">
                             <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                         </div>
@@ -356,8 +356,8 @@ if ($action === 'new' || $action === 'edit') {
                         <img src="<?= e($game['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail">
                     <?php endif; ?>
                 </div>
-                <div class="form-group" id="gameArchiveGroup" style="<?= ($game['game_type'] ?? '') === 'externo' ? 'display:none' : '' ?>">
-                    <label>Arquivo do Jogo</label>
+                <div class="form-group <?= ($game['game_type'] ?? '') === 'externo' ? 'hidden' : '' ?>" id="gameArchiveGroup">
+                    <label for="game_archive">Arquivo do Jogo</label>
                     <div class="file-upload" id="gameArchiveDrop">
                         <input type="file" name="game_archive" accept=".zip" id="gameArchiveInput">
                         <div class="upload-icon">
@@ -366,13 +366,13 @@ if ($action === 'new' || $action === 'edit') {
                         <div class="upload-text">Upload do arquivo do jogo</div>
                         <div class="upload-hint">ZIP — HTML exportado — máx <?= e($postMax ?: '30M') ?></div>
                     </div>
-                    <div class="file-selected" id="gameArchiveInfo" style="display:none">
+                    <div class="file-selected hidden" id="gameArchiveInfo">
                         <span class="file-name" id="gameArchiveName"></span>
                         <span class="file-size" id="gameArchiveSize"></span>
                         <button type="button" class="file-remove" id="gameArchiveRemove">✕</button>
                     </div>
                     <?php if (!empty($game['game_path'])): ?>
-                        <p style="margin-top:8px;font-size:13px;color:var(--muted)">📎 <?= e($game['game_path']) ?> (envie outro para substituir)</p>
+                        <p class="file-current">📎 <?= e($game['game_path']) ?> (envie outro para substituir)</p>
                     <?php endif; ?>
                 </div>
             </div>
@@ -389,23 +389,23 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-row">
                 <div class="form-group">
-                    <div class="toggle-group" style="margin-top:28px">
+                    <div class="toggle-group">
                         <input type="checkbox" id="is_web_playable" name="is_web_playable" <?= ($game['is_web_playable'] ?? 1) ? 'checked' : '' ?>>
                         <label for="is_web_playable">Jogável no navegador</label>
                     </div>
-                    <div class="field-hint" style="margin-top:4px">Marque se o jogo roda na nossa plataforma (HTML5 upload ou link externo via iframe)</div>
+                    <div class="field-hint">Marque se o jogo roda na nossa plataforma (HTML5 upload ou link externo via iframe)</div>
                 </div>
             </div>
 
             <div class="form-row">
                 <div class="form-group">
-                    <div class="toggle-group" style="margin-top:28px">
+                    <div class="toggle-group">
                         <input type="checkbox" id="featured" name="featured" <?= ($game['featured'] ?? 0) ? 'checked' : '' ?>>
                         <label for="featured">Destaque no site</label>
                     </div>
                 </div>
                 <div class="form-group">
-                    <div class="toggle-group" style="margin-top:28px">
+                    <div class="toggle-group">
                         <input type="checkbox" id="active" name="active" <?= ($game['active'] ?? 1) ? 'checked' : '' ?>>
                         <label for="active">Ativo</label>
                     </div>
@@ -414,11 +414,11 @@ if ($action === 'new' || $action === 'edit') {
 
             <h3 class="form-section-title" id="gameLinksSection">Links de Distribuição</h3>
             <div id="gameLinksContainer">
-                <div class="field-hint" style="margin-bottom:12px">Links para lojas onde o jogo pode ser adquirido ou baixado. Funciona independente de ser jogável no navegador.</div>
-                <div style="display:flex;gap:8px;margin-bottom:8px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase">
-                    <div style="flex:0 0 30%">Plataforma</div>
-                    <div style="flex:0 0 50%">URL do Link</div>
-                    <div style="flex:0 0 20%;text-align:center">Ação</div>
+                <div class="field-hint link-row-header">Links para lojas onde o jogo pode ser adquirido ou baixado. Funciona independente de ser jogável no navegador.</div>
+                <div class="link-row-header">
+                    <div>Plataforma</div>
+                    <div>URL do Link</div>
+                    <div>Ação</div>
                 </div>
                 <div id="gameLinksList">
                     <?php
@@ -426,15 +426,15 @@ if ($action === 'new' || $action === 'edit') {
                     if (!empty($gameLinks)):
                         foreach ($gameLinks as $gl):
                     ?>
-                    <div class="game-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">
-                        <div class="form-group" style="flex:0 0 30%;margin-bottom:0">
-                            <div style="display:flex;align-items:center;gap:6px">
+                    <div class="game-link-row">
+                        <div class="form-group game-link-platform">
+                            <div class="platform-select-wrap">
                                 <?php if (!empty($gl['use_logo']) && !empty($gl['logo_path'])): ?>
-                                    <img src="<?= logoImgSrc($gl['logo_path']) ?>" alt="" class="platform-thumb" style="height:18px;width:auto;flex-shrink:0">
+                                    <img src="<?= logoImgSrc($gl['logo_path']) ?>" alt="" class="platform-thumb">
                                 <?php else: ?>
-                                    <span class="platform-thumb" style="font-size:18px;flex-shrink:0"><?= e($gl['platform_icon'] ?? '🛒') ?></span>
+                                    <span class="platform-thumb"><?= e($gl['platform_icon'] ?? '🛒') ?></span>
                                 <?php endif; ?>
-                                <select name="link_platform[]" style="width:100%">
+                                <select name="link_platform[]">
                                     <option value="">Selecione...</option>
                                     <?php foreach ($platforms as $p): ?>
                                     <option value="<?= $p['id'] ?>" <?= $gl['platform_id'] == $p['id'] ? 'selected' : '' ?>><?= e($p['name']) ?></option>
@@ -442,10 +442,10 @@ if ($action === 'new' || $action === 'edit') {
                                 </select>
                             </div>
                         </div>
-                        <div class="form-group" style="flex:0 0 50%;margin-bottom:0">
-                            <input type="url" name="link_url[]" value="<?= e($gl['url']) ?>" placeholder="https://..." style="width:100%">
+                        <div class="form-group game-link-url">
+                            <input type="url" name="link_url[]" value="<?= e($gl['url']) ?>" placeholder="https://...">
                         </div>
-                        <div style="flex:0 0 20%;text-align:center;padding-bottom:2px">
+                        <div class="game-link-action">
                             <button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">🗑️ Excluir</button>
                         </div>
                     </div>
@@ -486,14 +486,14 @@ if ($action === 'new' || $action === 'edit') {
         function showFileInfo(file) {
             nameEl.textContent = file.name;
             sizeEl.textContent = formatSize(file.size);
-            info.style.display = 'flex';
-            dropZone.style.display = 'none';
+            info.classList.remove('hidden');
+            dropZone.classList.add('hidden');
         }
 
         function clearFile() {
             input.value = '';
-            info.style.display = 'none';
-            dropZone.style.display = '';
+            info.classList.add('hidden');
+            dropZone.classList.remove('hidden');
         }
 
         input.addEventListener('change', () => {
@@ -507,15 +507,13 @@ if ($action === 'new' || $action === 'edit') {
             ['dragenter', 'dragover'].forEach(evt => {
                 dropZone.addEventListener(evt, e => {
                     e.preventDefault();
-                    dropZone.style.borderColor = 'var(--gold)';
-                    dropZone.style.background = 'var(--gold-subtle)';
+                    dropZone.classList.add('is-dragover');
                 });
             });
             ['dragleave', 'drop'].forEach(evt => {
                 dropZone.addEventListener(evt, e => {
                     e.preventDefault();
-                    dropZone.style.borderColor = '';
-                    dropZone.style.background = '';
+                    dropZone.classList.remove('is-dragover');
                 });
             });
             dropZone.addEventListener('drop', e => {
@@ -539,10 +537,10 @@ if ($action === 'new' || $action === 'edit') {
                 }
                 submitBtn.disabled = true;
                 submitBtn.textContent = 'Enviando...';
-                progress.style.display = 'flex';
+                    progress.classList.remove('hidden');
                 setTimeout(() => {
                     const statusEl = document.getElementById('uploadStatus');
-                    if (statusEl && progress.style.display === 'flex') {
+                    if (statusEl && !progress.classList.contains('hidden')) {
                         statusEl.textContent = 'Processando arquivo grande... aguarde';
                     }
                 }, 15000);
@@ -565,9 +563,9 @@ if ($action === 'new' || $action === 'edit') {
 
     function toggleExternalFields() {
         const isExterno = gameType.value === 'externo';
-        if (externalSection) externalSection.style.display = isExterno ? '' : 'none';
-        if (externalContainer) externalContainer.style.display = isExterno ? '' : 'none';
-        if (gameArchiveGroup) gameArchiveGroup.style.display = isExterno ? 'none' : '';
+        if (externalSection) externalSection.classList.toggle('hidden', !isExterno);
+        if (externalContainer) externalContainer.classList.toggle('hidden', !isExterno);
+        if (gameArchiveGroup) gameArchiveGroup.classList.toggle('hidden', isExterno);
         if (isWebPlayable) {
             isWebPlayable.checked = isExterno ? true : isWebPlayable.dataset.original !== undefined ? isWebPlayable.dataset.original === '1' : <?= ($game['is_web_playable'] ?? 1) ? 'true' : 'false' ?>;
             isWebPlayable.disabled = isExterno;
@@ -575,7 +573,7 @@ if ($action === 'new' || $action === 'edit') {
     }
 
     function toggleRepoUrl() {
-        if (repoUrlRow) repoUrlRow.style.display = isOpenSource.checked ? '' : 'none';
+        if (repoUrlRow) repoUrlRow.classList.toggle('hidden', !isOpenSource.checked);
     }
 
     if (isWebPlayable) {
@@ -599,24 +597,27 @@ if ($action === 'new' || $action === 'edit') {
 
     function escHtml(s) { return String(s).replace(/[&<>"']/g, function(c) { return '&#' + c.charCodeAt(0) + ';'; }); }
 
+    function platformThumbHtml(p) {
+        if (p.use_logo && p.logo_path) {
+            return '<img class="platform-thumb" src="' + escHtml(p.logo_path.startsWith('http') ? p.logo_path : '/' + p.logo_path) + '" alt="">';
+        }
+        return '<span class="platform-thumb">' + escHtml(p.icon || '🛒') + '</span>';
+    }
+
     function createLinkRow(platformId, url) {
         let selectHtml = '<select name="link_platform[]"><option value="">Selecione...</option>';
-        let thumbHtml = '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">?</span>';
+        let thumbHtml = '<span class="platform-thumb">?</span>';
         platforms.forEach(p => {
             selectHtml += '<option value="' + escHtml(p.id) + '" ' + (p.id == platformId ? 'selected' : '') + '>' + escHtml(p.name) + '</option>';
             if (p.id == platformId) {
-                thumbHtml = p.use_logo && p.logo_path
-                        ? '<img class="platform-thumb" src="' + escHtml(p.logo_path.startsWith('http') ? p.logo_path : '/' + p.logo_path) + '" alt="" style="height:18px;width:auto;flex-shrink:0">'
-                    : '<span class="platform-thumb" style="font-size:18px;flex-shrink:0">' + escHtml(p.icon) + '</span>';
+                thumbHtml = platformThumbHtml(p);
             }
         });
         selectHtml += '</select>';
-        return '<div class="game-link-row" style="display:flex;gap:8px;align-items:flex-end;margin-bottom:8px">' +
-            '<div class="form-group" style="flex:0 0 30%;margin-bottom:0">' +
-            '<div style="display:flex;align-items:center;gap:6px">' + thumbHtml + selectHtml + '</div>' +
-            '</div>' +
-            '<div class="form-group" style="flex:0 0 50%;margin-bottom:0"><input type="url" name="link_url[]" value="' + escHtml(url) + '" placeholder="https://..." style="width:100%"></div>' +
-            '<div style="flex:0 0 20%;text-align:center;padding-bottom:2px"><button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">?? Excluir</button></div>' +
+        return '<div class="game-link-row">' +
+            '<div class="form-group game-link-platform"><div class="platform-select-wrap">' + thumbHtml + selectHtml + '</div></div>' +
+            '<div class="form-group game-link-url"><input type="url" name="link_url[]" value="' + escHtml(url) + '" placeholder="https://..."></div>' +
+            '<div class="game-link-action"><button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">🗑️ Excluir</button></div>' +
         '</div>';
     }
 
@@ -638,16 +639,12 @@ if ($action === 'new' || $action === 'edit') {
         if (e.target.matches('select[name="link_platform[]"]')) {
             const row = e.target.closest('.game-link-row');
             const thumb = row.querySelector('.platform-thumb');
-            const selected = platforms.find(p => p.id == e.target.value);
-            if (selected) {
-                if (selected.use_logo && selected.logo_path) {
-                    thumb.outerHTML = `<img class="platform-thumb" src="${selected.logo_path.startsWith('http') ? selected.logo_path : '/' + selected.logo_path}" alt="" style="height:18px;width:auto;flex-shrink:0">`;
-                } else {
-                    thumb.outerHTML = `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">${selected.icon}</span>`;
-                }
-            } else {
-                thumb.outerHTML = `<span class="platform-thumb" style="font-size:18px;flex-shrink:0">🛒</span>`;
-            }
+                    const selected = platforms.find(p => p.id == e.target.value);
+                    if (selected) {
+                        thumb.outerHTML = platformThumbHtml(selected);
+                    } else {
+                        thumb.outerHTML = '<span class="platform-thumb">🛒</span>';
+                    }
         }
     });
     </script>
@@ -689,7 +686,7 @@ if ($action === 'new' || $action === 'edit') {
                     <tbody>
                         <?php foreach ($games as $g): ?>
                         <tr>
-                            <td><strong style="color:var(--fg)"><?= e($g['title']) ?></strong></td>
+                            <td><strong class="text-primary"><?= e($g['title']) ?></strong></td>
                             <td>
                                 <?php if (($g['game_type'] ?? 'autoral') === 'cliente'): ?>
                                     <span class="badge badge-client">Cliente</span>
@@ -699,19 +696,19 @@ if ($action === 'new' || $action === 'edit') {
                                     <span class="badge badge-autoral">Autoral</span>
                                 <?php endif; ?>
                             </td>
-                            <td><span class="badge" style="background:<?= getEngineColor($g['engine']) ?>;color:#fff;font-weight:600;text-transform:none;letter-spacing:normal;font-size:10px"><?= getEngineIcon($g['engine']) ?> <?= e($g['engine']) ?></span></td>
+                            <td><span class="badge engine-badge engine-badge-<?= e(generateSlug($g['engine'])) ?>"><?= getEngineIcon($g['engine']) ?> <?= e($g['engine']) ?></span></td>
                             <td class="hide-tablet">
                                 <?php $desc = trim($g['description'] ?? ''); ?>
                                 <?php if ($desc !== ''): ?>
-                                    <span class="desc-full" style="display:none"><?= e($desc) ?></span>
+                                    <span class="desc-full hidden"><?= e($desc) ?></span>
                                     <button onclick="openDescModal('<?= e($g['title']) ?>', this)" class="btn btn-text btn-sm" title="Ver descrição completa">📄</button>
                                 <?php else: ?>
-                                    <span style="color:var(--muted)">—</span>
+                                    <span class="text-muted">—</span>
                                 <?php endif; ?>
                             </td>
                             <td>
                                 <?php if (!$g['engine_active']): ?>
-                                    <span class="badge badge-inactive" title="Engine inativa — jogo não aparece para os usuários" style="cursor:help">⚙️ Engine Inativa</span>
+                                    <span class="badge badge-inactive badge-help" title="Engine inativa — jogo não aparece para os usuários">⚙️ Engine Inativa</span>
                                 <?php elseif ($g['active']): ?>
                                     <span class="badge badge-active">Ativo</span>
                                 <?php else: ?>
@@ -736,17 +733,17 @@ if ($action === 'new' || $action === 'edit') {
                             <?php if ($canEditGames): ?>
                             <td class="actions">
                                 <?php if ($g['engine_active']): ?>
-                                <form method="POST" style="display:inline">
+                                <form method="POST">
                                     <input type="hidden" name="action" value="toggle">
                                     <input type="hidden" name="id" value="<?= $g['id'] ?>">
                                     <?= csrfField() ?>
                                     <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $g['active'] ? 'Desativar' : 'Ativar' ?>"><?= $g['active'] ? '🔴' : '🟢' ?></button>
                                 </form>
                                 <?php else: ?>
-                                <span class="btn btn-outline btn-sm btn-icon" style="opacity:0.4;cursor:not-allowed" title="Jogo com engine inativa — ative a engine primeiro">🔒</span>
+                                <span class="btn btn-outline btn-sm btn-icon btn-disabled" title="Jogo com engine inativa — ative a engine primeiro">🔒</span>
                                 <?php endif; ?>
                                 <a href="games?action=edit&id=<?= $g['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
-                                <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este jogo? O arquivo ZIP também será removido.')">
+                                <form method="POST" onsubmit="return confirm('Excluir este jogo? O arquivo ZIP também será removido.')">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="id" value="<?= $g['id'] ?>">
                                     <?= csrfField() ?>
@@ -754,7 +751,7 @@ if ($action === 'new' || $action === 'edit') {
                                 </form>
                             </td>
                             <?php else: ?>
-                            <td class="actions"><span style="color:var(--muted);font-size:12px">Somente visualização</span></td>
+                            <td class="actions"><span class="text-muted text-small">Somente visualização</span></td>
                             <?php endif; ?>
                         </tr>
                         <?php endforeach; ?>
@@ -763,11 +760,11 @@ if ($action === 'new' || $action === 'edit') {
             </div>
 
             <!-- Modal de descrição -->
-            <div class="desc-modal-overlay" id="descModalOverlay" style="display:none" onclick="if(event.target===this)closeDescModal()">
+            <div class="desc-modal-overlay hidden" id="descModalOverlay" onclick="if(event.target===this)closeDescModal()">
                 <div class="desc-modal">
                     <div class="desc-modal-header">
                         <strong class="desc-modal-title" id="descModalTitle"></strong>
-                        <button onclick="closeDescModal()" class="btn btn-sm" style="padding:4px 10px;font-size:16px;line-height:1" title="Fechar">✕</button>
+                        <button onclick="closeDescModal()" class="btn btn-icon" title="Fechar">✕</button>
                     </div>
                     <div class="desc-modal-body" id="descModalBody"></div>
                 </div>
@@ -777,10 +774,10 @@ if ($action === 'new' || $action === 'edit') {
                 var desc = btn.parentNode.querySelector('.desc-full').textContent;
                 document.getElementById('descModalTitle').textContent = title;
                 document.getElementById('descModalBody').textContent = desc;
-                document.getElementById('descModalOverlay').style.display = 'flex';
+                document.getElementById('descModalOverlay').classList.remove('hidden');
             }
             function closeDescModal() {
-                document.getElementById('descModalOverlay').style.display = 'none';
+                document.getElementById('descModalOverlay').classList.add('hidden');
             }
             document.addEventListener('keydown', function(e) {
                 if (e.key === 'Escape') closeDescModal();
