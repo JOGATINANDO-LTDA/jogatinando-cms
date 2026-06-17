@@ -1030,7 +1030,7 @@ input, textarea, select, button { font-family: inherit; }
   border-top: 1px solid var(--border);
 }
 
-.hidden { display: none !important; }
+.hidden { display: none; }
 
 .sr-only-file {
   position: absolute;
