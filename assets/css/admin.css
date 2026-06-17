@@ -539,9 +539,27 @@ input, textarea, select, button { font-family: inherit; }
 }
 
 .btn-outline {
-  background: transparent;
+  background: transparent !important;
   color: var(--fg-secondary);
-  border-color: var(--border);
+  border: 1px solid var(--border);
+}
+.btn-outline:hover {
+  border-color: var(--border-gold);
+  color: var(--gold);
+  background: var(--gold-subtle) !important;
+}
+.btn-outline.btn-icon {
+  background: transparent !important;
+  border: 1px solid var(--border) !important;
+  color: var(--muted) !important;
+  min-width: 36px;
+  min-height: 36px;
+  padding: 8px;
+}
+.btn-outline.btn-icon:hover {
+  border-color: var(--gold) !important;
+  color: var(--gold) !important;
+  background: var(--gold-subtle) !important;
 }
 
 .btn-outline:hover {
