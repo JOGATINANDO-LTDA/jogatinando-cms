@@ -701,21 +701,17 @@ if ($action === 'new' || $action === 'edit') {
                                 <?php $desc = trim($g['description'] ?? ''); ?>
                                 <?php if ($desc !== ''): ?>
                                     <span class="desc-full hidden"><?= e($desc) ?></span>
-                                    <button onclick="openDescModal('<?= e($g['title']) ?>', this)" class="btn btn-text btn-sm" title="Ver descrição completa">📄</button>
+                                    <button class="btn btn-text btn-sm desc-open" data-title="<?= e($g['title']) ?>" title="Ver descrição completa">📄</button>
                                 <?php else: ?>
                                     <span class="text-muted">—</span>
                                 <?php endif; ?>
                             </td>
                             <td>
-                                <?php if (!$g['engine_active']): ?>
-                                    <span class="badge badge-inactive badge-help" title="Engine inativa — jogo não aparece para os usuários">⚙️ Engine Inativa</span>
-                                <?php elseif ($g['active']): ?>
-                                    <span class="badge badge-active">Ativo</span>
+                                <?php $desc = trim($g['description'] ?? ''); ?>
+                                <?php if ($desc !== ''): ?>
+                                    <button class="btn btn-text btn-sm desc-open" data-title="<?= e($g['title']) ?>" data-desc="<?= e($desc) ?>" title="Ver descrição completa">📄</button>
                                 <?php else: ?>
-                                    <span class="badge badge-inactive">Inativo</span>
-                                <?php endif; ?>
-                                <?php if ($g['featured']): ?>
-                                    <span class="badge badge-featured">Destaque</span>
+                                    <span class="text-muted">—</span>
                                 <?php endif; ?>
                             </td>
                             <td class="hide-mobile">
@@ -760,7 +756,7 @@ if ($action === 'new' || $action === 'edit') {
             </div>
 
             <!-- Modal de descrição -->
-            <div class="desc-modal-overlay hidden" id="descModalOverlay" onclick="if(event.target===this)closeDescModal()">
+            <div class="desc-modal-overlay" id="descModalOverlay" style="display:none" onclick="if(event.target===this)closeDescModal()">
                 <div class="desc-modal">
                     <div class="desc-modal-header">
                         <strong class="desc-modal-title" id="descModalTitle"></strong>
@@ -770,18 +766,21 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
             </div>
             <script>
-            function openDescModal(title, btn) {
-                var desc = btn.parentNode.querySelector('.desc-full').textContent;
-                document.getElementById('descModalTitle').textContent = title;
-                document.getElementById('descModalBody').textContent = desc;
-                document.getElementById('descModalOverlay').classList.remove('hidden');
-            }
-            function closeDescModal() {
-                document.getElementById('descModalOverlay').classList.add('hidden');
-            }
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') closeDescModal();
-            });
+            (function() {
+                var descModal = document.getElementById('descModalOverlay');
+                if (!descModal) return;
+                var descTitle = document.getElementById('descModalTitle');
+                var descBody = document.getElementById('descModalBody');
+                document.querySelectorAll('.desc-open').forEach(function(btn) {
+                    btn.addEventListener('click', function() {
+                        descTitle.textContent = this.dataset.title || '';
+                        descBody.textContent = this.dataset.desc || '';
+                        descModal.style.display = 'flex';
+                    });
+                });
+                window.closeDescModal = function() { descModal.style.display = 'none'; };
+                document.addEventListener('keydown', function(e) { if (e.key === 'Escape') closeDescModal(); });
+            })();
             </script>
         <?php endif; ?>
     </div>
