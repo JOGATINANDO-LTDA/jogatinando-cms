@@ -2200,25 +2200,30 @@ tbody tr:last-child td { border-bottom: none; }
     white-space: pre-wrap;
 }
 .btn-text {
-    background: none;
-    border: none;
+    background: none !important;
+    border: none !important;
     color: var(--muted);
     cursor: pointer;
     font-size: 13px;
-    padding: 4px 8px;
-    border-radius: var(--radius-sm);
+    font-weight: 400;
+    padding: 4px 8px !important;
+    border-radius: var(--radius-sm) !important;
     transition: all var(--transition-fast);
     display: inline-flex;
     align-items: center;
     gap: 4px;
     line-height: 1;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    justify-content: flex-start;
+    white-space: nowrap;
 }
 .btn-text:hover {
     color: var(--gold);
-    background: var(--gold-subtle);
+    background: var(--gold-subtle) !important;
 }
 .btn-text svg {
-    width: 14px;
-    height: 14px;
+    width: 14px !important;
+    height: 14px !important;
     flex-shrink: 0;
 }
