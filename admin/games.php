@@ -755,38 +755,39 @@ if ($action === 'new' || $action === 'edit') {
                             <?php endif; ?>
                         </tr>
                         <?php endforeach; ?>
-                    </tbody>
-                </table>
+                     </tbody>
+                 </table>
             </div>
 
-            <!-- Modal de descrição -->
-            <div class="desc-modal-overlay hidden" id="descModalOverlay" onclick="if(event.target===this)closeDescModal()">
-                <div class="desc-modal">
-                    <div class="desc-modal-header">
-                        <strong class="desc-modal-title" id="descModalTitle"></strong>
-                        <button onclick="closeDescModal()" class="btn btn-icon" title="Fechar">✕</button>
-                    </div>
-                    <div class="desc-modal-body" id="descModalBody"></div>
-                </div>
-            </div>
-             <script>
-             function openDescModal(title, btn) {
-                 var td = btn.closest('td');
-                 var full = td ? td.querySelector('.desc-full') : null;
-                 document.getElementById('descModalTitle').textContent = title;
-                 document.getElementById('descModalBody').textContent = full ? full.textContent : '';
-                 document.getElementById('descModalOverlay').classList.remove('hidden');
-             }
-             function closeDescModal() {
-                 document.getElementById('descModalOverlay').classList.add('hidden');
-             }
-             document.addEventListener('keydown', function(e) {
-                 if (e.key === 'Escape') closeDescModal();
-             });
-             </script>
         <?php endif; ?>
-    </div>
-    <?php
+     </div>
+
+     <!-- Modal de descrição (fora do card para evitar overflow:hidden) -->
+     <div class="desc-modal-overlay hidden" id="descModalOverlay" onclick="if(event.target===this)closeDescModal()">
+         <div class="desc-modal">
+             <div class="desc-modal-header">
+                 <strong class="desc-modal-title" id="descModalTitle"></strong>
+                 <button onclick="closeDescModal()" class="btn btn-icon" title="Fechar">✕</button>
+             </div>
+             <div class="desc-modal-body" id="descModalBody"></div>
+         </div>
+     </div>
+     <script>
+     function openDescModal(title, btn) {
+         var td = btn.closest('td');
+         var full = td ? td.querySelector('.desc-full') : null;
+         document.getElementById('descModalTitle').textContent = title;
+         document.getElementById('descModalBody').textContent = full ? full.textContent : '';
+         document.getElementById('descModalOverlay').classList.remove('hidden');
+     }
+     function closeDescModal() {
+         document.getElementById('descModalOverlay').classList.add('hidden');
+     }
+     document.addEventListener('keydown', function(e) {
+         if (e.key === 'Escape') closeDescModal();
+     });
+     </script>
+     <?php
 }
 
 require_once __DIR__ . '/../includes/footer.php';
