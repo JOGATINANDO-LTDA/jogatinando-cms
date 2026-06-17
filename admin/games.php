@@ -769,20 +769,23 @@ if ($action === 'new' || $action === 'edit') {
                     <div class="desc-modal-body" id="descModalBody"></div>
                 </div>
             </div>
-            <script>
-            function openDescModal(title, btn) {
-                var desc = btn.parentNode.querySelector('.desc-full').textContent;
-                document.getElementById('descModalTitle').textContent = title;
-                document.getElementById('descModalBody').textContent = desc;
-                document.getElementById('descModalOverlay').classList.remove('hidden');
-            }
-            function closeDescModal() {
-                document.getElementById('descModalOverlay').classList.add('hidden');
-            }
-            document.addEventListener('keydown', function(e) {
-                if (e.key === 'Escape') closeDescModal();
-            });
-            </script>
+             <script>
+             function openDescModal(title, btn) {
+                 console.log('openDescModal called', title, btn);
+                 var td = btn.closest('td');
+                 var full = td ? td.querySelector('.desc-full') : null;
+                 console.log('td:', td, 'full:', full, 'desc:', full ? full.textContent : 'NOT FOUND');
+                 document.getElementById('descModalTitle').textContent = title;
+                 document.getElementById('descModalBody').textContent = full ? full.textContent : '';
+                 document.getElementById('descModalOverlay').classList.remove('hidden');
+             }
+             function closeDescModal() {
+                 document.getElementById('descModalOverlay').classList.add('hidden');
+             }
+             document.addEventListener('keydown', function(e) {
+                 if (e.key === 'Escape') closeDescModal();
+             });
+             </script>
         <?php endif; ?>
     </div>
     <?php
