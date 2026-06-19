@@ -1280,6 +1280,108 @@ function migration_034($db, $type) {
     } catch (Exception $e) {}
 }
 
+function migration_036($db, $type) {
+    // Distribution integration hub tables
+    try {
+        if ($type === 'mysql') {
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_integrations (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                platform_id INT NOT NULL,
+                name VARCHAR(150) NOT NULL,
+                integration_type VARCHAR(50) NOT NULL DEFAULT 'manual',
+                config_json LONGTEXT,
+                active TINYINT(1) NOT NULL DEFAULT 1,
+                last_sync_at DATETIME DEFAULT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_game_links (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                game_id INT NOT NULL,
+                integration_id INT DEFAULT NULL,
+                platform_id INT NOT NULL,
+                store_url VARCHAR(500) NOT NULL DEFAULT '',
+                store_package_id VARCHAR(255) NOT NULL DEFAULT '',
+                store_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+                version_name VARCHAR(50) NOT NULL DEFAULT '',
+                last_sync_at DATETIME DEFAULT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_dgl_game (game_id),
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                FOREIGN KEY (integration_id) REFERENCES distribution_integrations(id) ON DELETE SET NULL,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_sync_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                integration_id INT NOT NULL,
+                game_link_id INT DEFAULT NULL,
+                direction VARCHAR(20) NOT NULL DEFAULT 'pull',
+                status VARCHAR(20) NOT NULL DEFAULT 'success',
+                message TEXT,
+                details_json LONGTEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (integration_id) REFERENCES distribution_integrations(id) ON DELETE CASCADE,
+                FOREIGN KEY (game_link_id) REFERENCES distribution_game_links(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } else {
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_integrations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                integration_type TEXT NOT NULL DEFAULT 'manual',
+                config_json TEXT DEFAULT '',
+                active INTEGER NOT NULL DEFAULT 1,
+                last_sync_at TEXT DEFAULT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_game_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER NOT NULL,
+                integration_id INTEGER DEFAULT NULL,
+                platform_id INTEGER NOT NULL,
+                store_url TEXT NOT NULL DEFAULT '',
+                store_package_id TEXT NOT NULL DEFAULT '',
+                store_status TEXT NOT NULL DEFAULT 'pending',
+                version_name TEXT NOT NULL DEFAULT '',
+                last_sync_at TEXT DEFAULT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                FOREIGN KEY (integration_id) REFERENCES distribution_integrations(id) ON DELETE SET NULL,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_sync_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                integration_id INTEGER NOT NULL,
+                game_link_id INTEGER DEFAULT NULL,
+                direction TEXT NOT NULL DEFAULT 'pull',
+                status TEXT NOT NULL DEFAULT 'success',
+                message TEXT DEFAULT '',
+                details_json TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (integration_id) REFERENCES distribution_integrations(id) ON DELETE CASCADE,
+                FOREIGN KEY (game_link_id) REFERENCES distribution_game_links(id) ON DELETE SET NULL
+            )");
+        }
+    } catch (Exception $e) {}
+
+    // Seed Play Store integration entry
+    try {
+        $psId = $db->query("SELECT id FROM distribution_platforms WHERE slug = 'play_store'")->fetchColumn();
+        if ($psId) {
+            $count = (int)$db->query("SELECT COUNT(*) FROM distribution_integrations WHERE platform_id = $psId")->fetchColumn();
+            if ($count === 0) {
+                $db->prepare("INSERT INTO distribution_integrations (platform_id, name, integration_type, active) VALUES (?, ?, ?, ?)")
+                    ->execute([$psId, 'Google Play Console', 'google_play', 1]);
+            }
+        }
+    } catch (Exception $e) {}
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();

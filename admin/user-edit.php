@@ -173,13 +173,13 @@ $assignableRoles = getAssignableRoles($db);
     </div>
     <div class="card-body">
         <?php if ($isEditingMaster): ?>
-        <div style="margin-bottom: 20px; padding: 12px 16px; background: oklch(75% 0.15 85 / 0.1); border: 1px solid oklch(75% 0.15 85 / 0.3); border-radius: 8px; font-size: 13px;">
+        <div class="alert-static alert-static-gold">
             🛡️ <strong>Conta Master</strong> — Esta é a conta principal do sistema. Algumas alterações só podem ser feitas pelo próprio master.
         </div>
         <?php endif; ?>
 
         <?php if (empty($user['email'])): ?>
-        <div style="margin-bottom: 20px; padding: 12px 16px; background: oklch(55% 0.20 25 / 0.1); border: 1px solid oklch(55% 0.20 25 / 0.3); border-radius: 8px; font-size: 13px;">
+        <div class="alert-static alert-static-danger">
             ⚠️ Este usuário não possui email cadastrado. Adicione um email para permitir confirmação e recuperação de senha.
         </div>
         <?php endif; ?>
@@ -188,7 +188,7 @@ $assignableRoles = getAssignableRoles($db);
             <input type="hidden" name="action" value="save">
             <?= csrfField() ?>
 
-            <div class="form-row" style="margin-bottom: 0;">
+            <div class="form-row" style="margin-bottom:0;">
                 <div class="form-group">
                     <label for="username">Usuário *</label>
                     <input type="text" id="username" name="username" value="<?= e($user['username']) ?>" required <?= (!$isSelf && $currentUserId !== 1) ? 'readonly' : '' ?>>
@@ -199,13 +199,13 @@ $assignableRoles = getAssignableRoles($db);
                 </div>
             </div>
 
-            <div class="form-group" style="margin-top: 12px;">
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+            <div class="form-group">
+                <label class="label-checkbox">
                     <input type="checkbox" name="change_password" value="1" onchange="document.getElementById('pw-fields').classList.toggle('hidden')">
-                    <span style="font-size:13px;">Alterar senha</span>
+                    Alterar senha
                 </label>
             </div>
-            <div id="pw-fields" class="hidden form-row" style="margin-top: 8px;">
+            <div id="pw-fields" class="hidden form-row">
                 <div class="form-group">
                     <label for="new_password">Nova senha</label>
                     <input type="password" id="new_password" name="new_password" placeholder="Mínimo 6 caracteres" minlength="6">
@@ -213,7 +213,7 @@ $assignableRoles = getAssignableRoles($db);
             </div>
 
             <?php if ($canChangeRole || ($isSelf && !$isEditingMaster)): ?>
-            <div class="form-group" style="margin-top: 12px;">
+            <div class="form-group">
                 <label for="role_id">Cargo</label>
                 <select id="role_id" name="role_id" <?= $isEditingMaster ? 'disabled' : '' ?>>
                     <?php if ($isEditingMaster || (!$canChangeRole && $isSelf)): ?>
@@ -230,25 +230,21 @@ $assignableRoles = getAssignableRoles($db);
             <?php endif; ?>
 
             <?php if (!$isSelf && !$isEditingMaster): ?>
-            <div class="form-group" style="margin-top: 12px;">
+            <div class="form-group">
                 <label for="status">Status</label>
                 <select id="status" name="status">
                     <option value="active" <?= $user['status'] === 'active' ? 'selected' : '' ?>>Ativo</option>
                     <option value="pending" <?= $user['status'] === 'pending' ? 'selected' : '' ?>>Pendente</option>
                 </select>
-                <p style="font-size: 12px; color: var(--fg-muted); margin-top: 4px;">Usuários pendentes não podem fazer login.</p>
+                <p class="field-hint">Usuários pendentes não podem fazer login.</p>
             </div>
             <?php endif; ?>
 
-            <div class="form-actions" style="margin-top: 20px;">
+            <div class="form-actions">
                 <button type="submit" class="btn btn-gold btn-sm">💾 Salvar</button>
             </div>
         </form>
     </div>
 </div>
-
-<style>
-.hidden { display: none; }
-</style>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

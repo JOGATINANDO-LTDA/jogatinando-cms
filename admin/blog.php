@@ -50,6 +50,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($_POST['action'] === 'delete') { $post = dbQueryOne("SELECT thumbnail_url FROM blog_posts WHERE id = ?", [$id]); if ($post && !empty($post['thumbnail_url'])) deleteFile($post['thumbnail_url']); dbDelete('blog_posts', $id); flashMessage('success', 'Post excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog'); exit; }
     if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM blog_posts WHERE id = ?", [$id]); if ($r) dbExec("UPDATE blog_posts SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog'); exit; }
+    if ($_POST['action'] === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            foreach ($ids as $bid) { $p = dbQueryOne("SELECT thumbnail_url FROM blog_posts WHERE id = ?", [$bid]); if ($p && !empty($p['thumbnail_url'])) deleteFile($p['thumbnail_url']); }
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            dbExec("DELETE FROM blog_posts WHERE id IN ($placeholders)", $ids);
+            flashMessage('success', count($ids) . ' post(s) removido(s).');
+        }
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/blog');
+        exit;
+    }
 }
 
 if ($action === 'new' || $action === 'edit') {
@@ -120,15 +132,41 @@ if ($action === 'new' || $action === 'edit') {
                 <a href="blog" class="btn btn-outline">Cancelar</a>
             </div>
         </form>
-        </div>
     </div>
+    </div>
+
+    <?php if ($action === 'new' || $action === 'edit'): ?>
+    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        if (document.getElementById('content')) {
+            tinymce.init({
+                selector: '#content',
+                height: 350,
+                menubar: false,
+                plugins: 'link lists code',
+                toolbar: 'bold italic underline | bullist numlist | link | code',
+                content_style: 'body { font-family: Inter, sans-serif; font-size: 14px; color: #e0e0e0; background: #1a1a2e; } a { color: #d4a853; }',
+                skin: 'oxide-dark',
+                content_css: false,
+                branding: false,
+                promotion: false,
+                statusbar: true
+            });
+        }
+    });
+    </script>
+    <?php endif; ?>
+
     <?php
 } else {
-    $posts = dbQuery("SELECT * FROM blog_posts ORDER BY created_at DESC");
+    $pager = paginateQuery('SELECT COUNT(*) as c FROM blog_posts', 'SELECT * FROM blog_posts ORDER BY created_at DESC');
+    $posts = $pager['items'];
+    $totalItems = $pager['total'];
     ?>
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Posts do Blog</h2>
+            <h2 class="card-title">Posts do Blog (<?= $totalItems ?>)</h2>
             <a href="blog?action=new" class="btn btn-gold btn-sm">+ Novo Post</a>
         </div>
         <?php if (empty($posts)): ?>
@@ -141,26 +179,35 @@ if ($action === 'new' || $action === 'edit') {
             </div>
             </div>
         <?php else: ?>
-            <div class="table-wrapper">
-                <table>
-                    <thead><tr><th>Título</th><th>Slug</th><th>Externa</th><th>Status</th><th>Data</th><th>Ações</th></tr></thead>
-                    <tbody>
-                        <?php foreach ($posts as $p): ?>
-                        <tr>
-                            <td><strong><?= e($p['title']) ?></strong></td>
-                            <td><code class="slug-code"><?= e($p['slug']) ?></code></td>
-                            <td><?= $p['external_url'] ? '🔗 Externo' : '📄 Interno' ?></td>
-                            <td><?= $p['active'] ? '<span class="badge badge-active">Publicado</span>' : '<span class="badge badge-inactive">Rascunho</span>' ?></td>
-                            <td><?= timeAgo($p['created_at']) ?></td>
-                            <td class="actions">
-                                <form method="POST" class="inline-actions"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $p['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $p['active'] ? '🔴' : '🟢' ?></button></form>
-                                <a href="blog?action=edit&id=<?= $p['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
-                                <form method="POST" class="inline-actions" onsubmit="return confirm('Excluir este post?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $p['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+            <div class="card-body">
+                <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+                <div class="bulk-bar" id="bulkBar">
+                    <span class="bulk-count" id="bulkCount">0 selecionados</span>
+                    <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th><input type="checkbox" id="select-all"></th><th>Título</th><th>Slug</th><th>Externa</th><th>Status</th><th>Data</th><th>Ações</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($posts as $p): ?>
+                            <tr>
+                                <td><input type="checkbox" class="row-select" value="<?= (int)$p['id'] ?>"></td>
+                                <td><strong><?= e($p['title']) ?></strong></td>
+                                <td><code class="slug-code"><?= e($p['slug']) ?></code></td>
+                                <td><?= $p['external_url'] ? '🔗 Externo' : '📄 Interno' ?></td>
+                                <td><?= $p['active'] ? '<span class="badge badge-active">Publicado</span>' : '<span class="badge badge-inactive">Rascunho</span>' ?></td>
+                                <td><?= timeAgo($p['created_at']) ?></td>
+                                <td class="actions">
+                                    <form method="POST" class="inline-actions"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $p['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $p['active'] ? '🔴' : '🟢' ?></button></form>
+                                    <a href="blog?action=edit&id=<?= $p['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
+                                    <form method="POST" class="inline-actions" onsubmit="return confirm('Excluir este post?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $p['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?= renderPagination($pager['page'], $pager['pages']) ?>
             </div>
         <?php endif; ?>
     </div>

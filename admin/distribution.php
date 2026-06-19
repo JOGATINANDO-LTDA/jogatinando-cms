@@ -15,6 +15,92 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $action = $_POST['action'] ?? '';
+
+    if ($action === 'save_integration') {
+        $id = (int)($_POST['id'] ?? 0);
+        $platformId = (int)($_POST['platform_id'] ?? 0);
+        $name = trim($_POST['name'] ?? '');
+        $integrationType = trim($_POST['integration_type'] ?? 'manual');
+        $configJson = trim($_POST['config_json'] ?? '');
+        $active = isset($_POST['active']) ? 1 : 0;
+
+        if ($name === '') {
+            flashMessage('error', 'Nome da integração obrigatório.');
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/distribution');
+            exit;
+        }
+        if ($platformId <= 0) {
+            flashMessage('error', 'Selecione uma plataforma.');
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/distribution');
+            exit;
+        }
+
+        if ($id > 0) {
+            $db->prepare("UPDATE distribution_integrations SET platform_id = ?, name = ?, integration_type = ?, config_json = ?, active = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                ->execute([$platformId, $name, $integrationType, $configJson, $active, $id]);
+        } else {
+            $db->prepare("INSERT INTO distribution_integrations (platform_id, name, integration_type, config_json, active) VALUES (?, ?, ?, ?, ?)")
+                ->execute([$platformId, $name, $integrationType, $configJson, $active]);
+        }
+        flashMessage('success', 'Integração salva.');
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/distribution');
+        exit;
+    }
+
+    if ($action === 'delete_integration') {
+        $id = (int)($_POST['id'] ?? 0);
+        $db->prepare("DELETE FROM distribution_integrations WHERE id = ?")->execute([$id]);
+        flashMessage('success', 'Integração removida.');
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/distribution');
+        exit;
+    }
+
+    if ($action === 'save_game_link') {
+        $id = (int)($_POST['id'] ?? 0);
+        $gameId = (int)($_POST['game_id'] ?? 0);
+        $integrationId = (int)($_POST['integration_id'] ?? 0) ?: null;
+        $platformId = (int)($_POST['platform_id'] ?? 0);
+        $storeUrl = trim($_POST['store_url'] ?? '');
+        $storePackageId = trim($_POST['store_package_id'] ?? '');
+        $storeStatus = trim($_POST['store_status'] ?? 'pending');
+        $versionName = trim($_POST['version_name'] ?? '');
+
+        if ($gameId <= 0 || $platformId <= 0) {
+            flashMessage('error', 'Jogo e plataforma são obrigatórios.');
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/distribution');
+            exit;
+        }
+
+        $allowedStatuses = ['pending', 'published', 'rejected', 'removed', 'draft'];
+        if (!in_array($storeStatus, $allowedStatuses, true)) $storeStatus = 'pending';
+
+        if ($id > 0) {
+            $db->prepare("UPDATE distribution_game_links SET game_id = ?, integration_id = ?, platform_id = ?, store_url = ?, store_package_id = ?, store_status = ?, version_name = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?")
+                ->execute([$gameId, $integrationId, $platformId, $storeUrl, $storePackageId, $storeStatus, $versionName, $id]);
+        } else {
+            $db->prepare("INSERT INTO distribution_game_links (game_id, integration_id, platform_id, store_url, store_package_id, store_status, version_name) VALUES (?, ?, ?, ?, ?, ?, ?)")
+                ->execute([$gameId, $integrationId, $platformId, $storeUrl, $storePackageId, $storeStatus, $versionName]);
+        }
+        flashMessage('success', 'Link da loja salvo.');
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/distribution');
+        exit;
+    }
+
+    if ($action === 'delete_game_link') {
+        $id = (int)($_POST['id'] ?? 0);
+        $db->prepare("DELETE FROM distribution_game_links WHERE id = ?")->execute([$id]);
+        flashMessage('success', 'Link removido.');
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/distribution');
+        exit;
+    }
+
     if ($action === 'save_campaign') {
         $id = (int)($_POST['id'] ?? 0);
         $name = trim($_POST['name'] ?? '');
@@ -171,13 +257,91 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . ADMIN_URL . '/distribution');
         exit;
     }
+
+    if ($action === 'delete_selected_integrations') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if ($ids) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $db->prepare("DELETE FROM distribution_integrations WHERE id IN ($placeholders)")->execute($ids);
+            flashMessage('success', count($ids) . ' integração(ões) removida(s).');
+        }
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/distribution');
+        exit;
+    }
+
+    if ($action === 'delete_selected_game_links') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if ($ids) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $db->prepare("DELETE FROM distribution_game_links WHERE id IN ($placeholders)")->execute($ids);
+            flashMessage('success', count($ids) . ' link(s) removido(s).');
+        }
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/distribution');
+        exit;
+    }
+
+    if ($action === 'delete_selected_campaigns') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if ($ids) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $db->prepare("DELETE FROM campaigns WHERE id IN ($placeholders)")->execute($ids);
+            flashMessage('success', count($ids) . ' campanha(s) removida(s).');
+        }
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/distribution');
+        exit;
+    }
+
+    if ($action === 'delete_selected_metrics') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if ($ids) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $db->prepare("DELETE FROM game_distribution_stats WHERE id IN ($placeholders)")->execute($ids);
+            flashMessage('success', count($ids) . ' métrica(s) removida(s).');
+        }
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/distribution');
+        exit;
+    }
+
+    if ($action === 'delete_selected_campaign_metrics') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if ($ids) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $db->prepare("DELETE FROM campaign_metrics WHERE id IN ($placeholders)")->execute($ids);
+            flashMessage('success', count($ids) . ' métrica(s) de campanha removida(s).');
+        }
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/distribution');
+        exit;
+    }
 }
 
 $games = dbQuery('SELECT id, title FROM games ORDER BY title ASC');
 $platforms = getDistributionPlatforms(false);
-$campaigns = dbQuery('SELECT c.*, g.title as game_title, p.name as platform_name FROM campaigns c LEFT JOIN games g ON g.id = c.game_id LEFT JOIN distribution_platforms p ON p.id = c.platform_id ORDER BY c.id DESC LIMIT 20');
-$metrics = dbQuery('SELECT m.*, c.name as campaign_name FROM campaign_metrics m LEFT JOIN campaigns c ON c.id = m.campaign_id ORDER BY m.id DESC LIMIT 20');
-$stats = dbQuery('SELECT s.*, g.title as game_title, p.name as platform_name FROM game_distribution_stats s LEFT JOIN games g ON g.id = s.game_id LEFT JOIN distribution_platforms p ON p.id = s.platform_id ORDER BY s.id DESC LIMIT 20');
+
+$integrationsPager = paginateQueryPrefix('page_integrations', 'SELECT COUNT(*) as c FROM distribution_integrations', 'SELECT i.*, p.name as platform_name, p.slug as platform_slug FROM distribution_integrations i LEFT JOIN distribution_platforms p ON p.id = i.platform_id ORDER BY i.id DESC');
+$integrations = $integrationsPager['items'];
+
+$gameLinksPager = paginateQueryPrefix('page_game_links', 'SELECT COUNT(*) as c FROM distribution_game_links', 'SELECT gl.*, g.title as game_title, i.name as integration_name, p.name as platform_name, p.slug as platform_slug FROM distribution_game_links gl LEFT JOIN games g ON g.id = gl.game_id LEFT JOIN distribution_integrations i ON i.id = gl.integration_id LEFT JOIN distribution_platforms p ON p.id = gl.platform_id ORDER BY gl.id DESC');
+$gameLinks = $gameLinksPager['items'];
+
+$syncLogs = dbQuery('SELECT sl.*, i.name as integration_name FROM distribution_sync_logs sl LEFT JOIN distribution_integrations i ON i.id = sl.integration_id ORDER BY sl.id DESC LIMIT 20');
+
+$campaignsPager = paginateQueryPrefix('page_campaigns', 'SELECT COUNT(*) as c FROM campaigns', 'SELECT c.*, g.title as game_title, p.name as platform_name FROM campaigns c LEFT JOIN games g ON g.id = c.game_id LEFT JOIN distribution_platforms p ON p.id = c.platform_id ORDER BY c.id DESC');
+$campaigns = $campaignsPager['items'];
+
+$metricsPager = paginateQueryPrefix('page_metrics', 'SELECT COUNT(*) as c FROM campaign_metrics', 'SELECT m.*, c.name as campaign_name FROM campaign_metrics m LEFT JOIN campaigns c ON c.id = m.campaign_id ORDER BY m.id DESC');
+$metrics = $metricsPager['items'];
+
+$statsPager = paginateQueryPrefix('page_stats', 'SELECT COUNT(*) as c FROM game_distribution_stats', 'SELECT s.*, g.title as game_title, p.name as platform_name FROM game_distribution_stats s LEFT JOIN games g ON g.id = s.game_id LEFT JOIN distribution_platforms p ON p.id = s.platform_id ORDER BY s.id DESC');
+$stats = $statsPager['items'];
+$editIntegrationId = (int)($_GET['edit_integration'] ?? 0);
+$editIntegration = $editIntegrationId ? dbQueryOne('SELECT * FROM distribution_integrations WHERE id = ?', [$editIntegrationId]) : null;
+$editGameLinkId = (int)($_GET['edit_game_link'] ?? 0);
+$editGameLink = $editGameLinkId ? dbQueryOne('SELECT * FROM distribution_game_links WHERE id = ?', [$editGameLinkId]) : null;
 $editCampaignId = (int)($_GET['edit_campaign'] ?? 0);
 $editCampaign = $editCampaignId ? dbQueryOne('SELECT * FROM campaigns WHERE id = ?', [$editCampaignId]) : null;
 $editMetricId = (int)($_GET['edit_metric'] ?? 0);
@@ -204,6 +368,21 @@ $sourceOptions = [
     'store' => 'Loja',
     'analytics' => 'Analytics',
     'import' => 'Importado',
+];
+$integrationTypeOptions = [
+    'manual' => 'Manual',
+    'google_play' => 'Google Play Console',
+    'steam' => 'Steam',
+    'apple_connect' => 'App Store Connect',
+    'itch_io' => 'itch.io',
+    'other' => 'Outro',
+];
+$storeStatusOptions = [
+    'draft' => 'Rascunho',
+    'pending' => 'Pendente',
+    'published' => 'Publicado',
+    'rejected' => 'Rejeitado',
+    'removed' => 'Removido',
 ];
 $summaryCards = [
     ['label' => 'Jogos cadastrados', 'value' => count($games), 'icon' => 'gamepad'],
@@ -241,6 +420,250 @@ $summaryCards = [
             </div>
             <?php endforeach; ?>
         </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Integrações com Lojas (<?= (int)$integrationsPager['total'] ?>)</h2>
+        <div class="card-actions">
+            <a class="btn btn-outline btn-sm" href="?edit_integration=0">+ Nova Integração</a>
+        </div>
+    </div>
+    <?php if ($editIntegration !== null || (isset($_GET['edit_integration']) && $_GET['edit_integration'] === '0')): ?>
+    <div class="card-body">
+        <form method="POST" class="form-grid">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="save_integration">
+            <input type="hidden" name="id" value="<?= e((string)($editIntegration['id'] ?? 0)) ?>">
+
+            <h3 class="form-section-title">Dados da Integração</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="int_name">Nome</label>
+                    <input type="text" id="int_name" name="name" value="<?= e($editIntegration['name'] ?? '') ?>" placeholder="Ex: Google Play Console" required>
+                </div>
+                <div class="form-group">
+                    <label for="int_platform_id">Plataforma</label>
+                    <select id="int_platform_id" name="platform_id" required>
+                        <option value="0">— selecione —</option>
+                        <?php foreach ($platforms as $platform): ?>
+                            <option value="<?= (int)$platform['id'] ?>" <?= !empty($editIntegration['platform_id']) && (int)$editIntegration['platform_id'] === (int)$platform['id'] ? 'selected' : '' ?>><?= e($platform['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="int_type">Tipo</label>
+                    <select id="int_type" name="integration_type">
+                        <?php foreach ($integrationTypeOptions as $key => $label): ?>
+                            <option value="<?= e($key) ?>" <?= ($editIntegration['integration_type'] ?? 'manual') === $key ? 'selected' : '' ?>><?= e($label) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="label-checkbox">
+                        <input type="checkbox" name="active" value="1" <?= ($editIntegration['active'] ?? 1) ? 'checked' : '' ?>>
+                        Ativa
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="int_config">Configuração (JSON)</label>
+                <textarea id="int_config" name="config_json" rows="5" placeholder='{"service_account_key": "...", "package_name": "..."}'><?= e($editIntegration['config_json'] ?? '') ?></textarea>
+                <div class="field-hint">Dados de autenticação ou configuração específica da integração. Formato JSON.</div>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-gold" type="submit">Salvar</button>
+                <a class="btn btn-outline" href="?">Cancelar</a>
+            </div>
+        </form>
+    </div>
+    <?php endif; ?>
+
+    <form method="POST" id="bulkForm_integrations" class="bulk-form" data-bulk-group="integrations">
+        <?= csrfField() ?>
+        <input type="hidden" name="action" value="delete_selected_integrations">
+    </form>
+    <div class="bulk-bar" id="bulkBar_integrations" data-bulk-group="integrations">
+        <span class="bulk-count">0 selecionados</span>
+        <button type="button" class="btn btn-danger btn-sm bulk-delete-btn" data-bulk-group="integrations" disabled>Excluir selecionados</button>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th><input type="checkbox" id="select-all-integrations" class="select-all" data-bulk-group="integrations"></th><th>Nome</th><th>Plataforma</th><th>Tipo</th><th>Ativa</th><th>Ações</th></tr></thead>
+            <tbody>
+            <?php foreach ($integrations as $int): ?>
+                <tr>
+                    <td><input type="checkbox" class="row-select" data-bulk-group="integrations" value="<?= (int)$int['id'] ?>"></td>
+                    <td><?= e($int['name']) ?></td>
+                    <td><?= e($int['platform_name'] ?? '—') ?></td>
+                    <td><?= e($integrationTypeOptions[$int['integration_type']] ?? $int['integration_type']) ?></td>
+                    <td><span class="badge <?= $int['active'] ? 'badge-active' : 'badge-inactive' ?>"><?= $int['active'] ? 'Sim' : 'Não' ?></span></td>
+                    <td class="actions">
+                        <a class="btn btn-outline btn-sm" href="?edit_integration=<?= (int)$int['id'] ?>">Editar</a>
+                        <form method="POST" onsubmit="return confirm('Remover integração?')">
+                            <?= csrfField() ?>
+                            <input type="hidden" name="action" value="delete_integration">
+                            <input type="hidden" name="id" value="<?= (int)$int['id'] ?>">
+                            <button class="btn btn-outline btn-sm" type="submit">Excluir</button>
+                        </form>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            <?php if (empty($integrations)): ?>
+                <tr><td colspan="6" class="text-muted">Nenhuma integração configurada.</td></tr>
+            <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <?= renderPaginationPrefix('page_integrations', $integrationsPager['page'], $integrationsPager['pages']) ?>
+</div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Links de Jogos nas Lojas (<?= (int)$gameLinksPager['total'] ?>)</h2>
+        <div class="card-actions">
+            <a class="btn btn-outline btn-sm" href="?edit_game_link=0">+ Novo Link</a>
+        </div>
+    </div>
+    <?php if ($editGameLink !== null || (isset($_GET['edit_game_link']) && $_GET['edit_game_link'] === '0')): ?>
+    <div class="card-body">
+        <form method="POST" class="form-grid">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="save_game_link">
+            <input type="hidden" name="id" value="<?= e((string)($editGameLink['id'] ?? 0)) ?>">
+
+            <h3 class="form-section-title">Dados do Link</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="gl_game_id">Jogo</label>
+                    <select id="gl_game_id" name="game_id" required>
+                        <option value="0">— selecione —</option>
+                        <?php foreach ($games as $game): ?>
+                            <option value="<?= (int)$game['id'] ?>" <?= !empty($editGameLink['game_id']) && (int)$editGameLink['game_id'] === (int)$game['id'] ? 'selected' : '' ?>><?= e($game['title']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="gl_platform_id">Plataforma</label>
+                    <select id="gl_platform_id" name="platform_id" required>
+                        <option value="0">— selecione —</option>
+                        <?php foreach ($platforms as $platform): ?>
+                            <option value="<?= (int)$platform['id'] ?>" <?= !empty($editGameLink['platform_id']) && (int)$editGameLink['platform_id'] === (int)$platform['id'] ? 'selected' : '' ?>><?= e($platform['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="gl_integration_id">Integração</label>
+                    <select id="gl_integration_id" name="integration_id">
+                        <option value="0">— nenhuma —</option>
+                        <?php foreach ($integrations as $int): ?>
+                            <option value="<?= (int)$int['id'] ?>" <?= !empty($editGameLink['integration_id']) && (int)$editGameLink['integration_id'] === (int)$int['id'] ? 'selected' : '' ?>><?= e($int['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div class="field-hint">Vincule a uma integração para uso futuro com APIs.</div>
+                </div>
+                <div class="form-group">
+                    <label for="gl_status">Status</label>
+                    <select id="gl_status" name="store_status">
+                        <?php foreach ($storeStatusOptions as $key => $label): ?>
+                            <option value="<?= e($key) ?>" <?= ($editGameLink['store_status'] ?? 'pending') === $key ? 'selected' : '' ?>><?= e($label) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+            <div class="form-group">
+                <label for="gl_url">URL da Loja</label>
+                <input type="url" id="gl_url" name="store_url" value="<?= e($editGameLink['store_url'] ?? '') ?>" placeholder="https://play.google.com/store/apps/details?id=...">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="gl_package">Package ID</label>
+                    <input type="text" id="gl_package" name="store_package_id" value="<?= e($editGameLink['store_package_id'] ?? '') ?>" placeholder="com.jogatinando.meujogo">
+                </div>
+                <div class="form-group">
+                    <label for="gl_version">Versão</label>
+                    <input type="text" id="gl_version" name="version_name" value="<?= e($editGameLink['version_name'] ?? '') ?>" placeholder="1.0.0">
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button class="btn btn-gold" type="submit">Salvar</button>
+                <a class="btn btn-outline" href="?">Cancelar</a>
+            </div>
+        </form>
+    </div>
+    <?php endif; ?>
+
+    <form method="POST" id="bulkForm_game_links" class="bulk-form" data-bulk-group="game_links">
+        <?= csrfField() ?>
+        <input type="hidden" name="action" value="delete_selected_game_links">
+    </form>
+    <div class="bulk-bar" id="bulkBar_game_links" data-bulk-group="game_links">
+        <span class="bulk-count">0 selecionados</span>
+        <button type="button" class="btn btn-danger btn-sm bulk-delete-btn" data-bulk-group="game_links" disabled>Excluir selecionados</button>
+    </div>
+
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th><input type="checkbox" id="select-all-game-links" class="select-all" data-bulk-group="game_links"></th><th>Jogo</th><th>Plataforma</th><th>Status</th><th>Versão</th><th>Ações</th></tr></thead>
+            <tbody>
+            <?php foreach ($gameLinks as $gl): ?>
+                <?php $statusClass = $gl['store_status'] === 'published' ? 'badge-active' : (($gl['store_status'] === 'rejected' || $gl['store_status'] === 'removed') ? 'badge-inactive' : 'badge-featured'); ?>
+                <tr>
+                    <td><input type="checkbox" class="row-select" data-bulk-group="game_links" value="<?= (int)$gl['id'] ?>"></td>
+                    <td><?= e($gl['game_title'] ?? '—') ?></td>
+                    <td><?= e($gl['platform_name'] ?? '—') ?></td>
+                    <td><span class="badge <?= $statusClass ?>"><?= e($storeStatusOptions[$gl['store_status']] ?? $gl['store_status']) ?></span></td>
+                    <td><?= e($gl['version_name'] ?: '—') ?></td>
+                    <td class="actions">
+                        <a class="btn btn-outline btn-sm" href="?edit_game_link=<?= (int)$gl['id'] ?>">Editar</a>
+                        <form method="POST" onsubmit="return confirm('Remover link?')">
+                            <?= csrfField() ?>
+                            <input type="hidden" name="action" value="delete_game_link">
+                            <input type="hidden" name="id" value="<?= (int)$gl['id'] ?>">
+                            <button class="btn btn-outline btn-sm" type="submit">Excluir</button>
+                        </form>
+                    </td>
+                </tr>
+            <?php endforeach; ?>
+            <?php if (empty($gameLinks)): ?>
+                <tr><td colspan="6" class="text-muted">Nenhum link cadastrado.</td></tr>
+            <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <?= renderPaginationPrefix('page_game_links', $gameLinksPager['page'], $gameLinksPager['pages']) ?>
+</div>
+
+<div class="card">
+    <div class="card-header"><h2 class="card-title">Logs de Sincronização</h2></div>
+    <div class="table-wrapper">
+        <table>
+            <thead><tr><th>Integração</th><th>Direção</th><th>Status</th><th>Mensagem</th><th>Data</th></tr></thead>
+            <tbody>
+            <?php foreach ($syncLogs as $log): ?>
+                <?php $logStatusClass = $log['status'] === 'success' ? 'badge-active' : 'badge-inactive'; ?>
+                <tr>
+                    <td><?= e($log['integration_name'] ?? '—') ?></td>
+                    <td><?= e($log['direction']) ?></td>
+                    <td><span class="badge <?= $logStatusClass ?>"><?= e($log['status']) ?></span></td>
+                    <td><?= e(mb_substr($log['message'] ?? '', 0, 60)) ?></td>
+                    <td><?= e($log['created_at']) ?></td>
+                </tr>
+            <?php endforeach; ?>
+            <?php if (empty($syncLogs)): ?>
+                <tr><td colspan="5" class="text-muted">Nenhum log registrado.</td></tr>
+            <?php endif; ?>
+            </tbody>
+        </table>
     </div>
 </div>
 
@@ -321,14 +744,23 @@ $summaryCards = [
 </div>
 
 <div class="card">
-    <div class="card-header"><h2 class="card-title">Campanhas</h2></div>
+    <div class="card-header"><h2 class="card-title">Campanhas (<?= (int)$campaignsPager['total'] ?>)</h2></div>
+    <form method="POST" id="bulkForm_campaigns" class="bulk-form" data-bulk-group="campaigns">
+        <?= csrfField() ?>
+        <input type="hidden" name="action" value="delete_selected_campaigns">
+    </form>
+    <div class="bulk-bar" id="bulkBar_campaigns" data-bulk-group="campaigns">
+        <span class="bulk-count">0 selecionados</span>
+        <button type="button" class="btn btn-danger btn-sm bulk-delete-btn" data-bulk-group="campaigns" disabled>Excluir selecionados</button>
+    </div>
     <div class="table-wrapper">
         <table>
-            <thead><tr><th>Nome</th><th>Jogo</th><th>Plataforma</th><th>Status</th><th>Orçamento</th><th>Ações</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="select-all-campaigns" class="select-all" data-bulk-group="campaigns"></th><th>Nome</th><th>Jogo</th><th>Plataforma</th><th>Status</th><th>Orçamento</th><th>Ações</th></tr></thead>
             <tbody>
             <?php foreach ($campaigns as $campaign): ?>
                 <?php $statusClass = $campaign['status'] === 'active' ? 'badge-active' : (($campaign['status'] === 'paused' || $campaign['status'] === 'finished') ? 'badge-inactive' : 'badge-featured'); ?>
                 <tr>
+                    <td><input type="checkbox" class="row-select" data-bulk-group="campaigns" value="<?= (int)$campaign['id'] ?>"></td>
                     <td><?= e($campaign['name']) ?></td>
                     <td><?= e($campaign['game_title'] ?? '—') ?></td>
                     <td><?= e($campaign['platform_name'] ?? '—') ?></td>
@@ -345,9 +777,13 @@ $summaryCards = [
                     </td>
                 </tr>
             <?php endforeach; ?>
+            <?php if (empty($campaigns)): ?>
+                <tr><td colspan="7" class="text-muted">Nenhuma campanha cadastrada.</td></tr>
+            <?php endif; ?>
             </tbody>
         </table>
     </div>
+    <?= renderPaginationPrefix('page_campaigns', $campaignsPager['page'], $campaignsPager['pages']) ?>
 </div>
 
 <div class="card">
@@ -432,13 +868,22 @@ $summaryCards = [
 </div>
 
 <div class="card">
-    <div class="card-header"><h2 class="card-title">Métricas Recentes</h2></div>
+    <div class="card-header"><h2 class="card-title">Métricas Recentes (<?= (int)$statsPager['total'] ?>)</h2></div>
+    <form method="POST" id="bulkForm_metrics" class="bulk-form" data-bulk-group="metrics">
+        <?= csrfField() ?>
+        <input type="hidden" name="action" value="delete_selected_metrics">
+    </form>
+    <div class="bulk-bar" id="bulkBar_metrics" data-bulk-group="metrics">
+        <span class="bulk-count">0 selecionados</span>
+        <button type="button" class="btn btn-danger btn-sm bulk-delete-btn" data-bulk-group="metrics" disabled>Excluir selecionados</button>
+    </div>
     <div class="table-wrapper">
         <table>
-            <thead><tr><th>Jogo</th><th>Plataforma</th><th>Métrica</th><th>Valor</th><th>Fonte</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="select-all-metrics" class="select-all" data-bulk-group="metrics"></th><th>Jogo</th><th>Plataforma</th><th>Métrica</th><th>Valor</th><th>Fonte</th></tr></thead>
             <tbody>
             <?php foreach ($stats as $row): ?>
                 <tr>
+                    <td><input type="checkbox" class="row-select" data-bulk-group="metrics" value="<?= (int)$row['id'] ?>"></td>
                     <td><?= e($row['game_title'] ?? '—') ?></td>
                     <td><?= e($row['platform_name'] ?? '—') ?></td>
                     <td><?= e($metricOptions[$row['metric_key']] ?? $row['metric_key']) ?></td>
@@ -446,19 +891,32 @@ $summaryCards = [
                     <td><?= e($sourceOptions[$row['source']] ?? $row['source']) ?></td>
                 </tr>
             <?php endforeach; ?>
+            <?php if (empty($stats)): ?>
+                <tr><td colspan="6" class="text-muted">Nenhuma métrica cadastrada.</td></tr>
+            <?php endif; ?>
             </tbody>
         </table>
     </div>
+    <?= renderPaginationPrefix('page_stats', $statsPager['page'], $statsPager['pages']) ?>
 </div>
 
 <div class="card">
-    <div class="card-header"><h2 class="card-title">Métricas de Campanha</h2></div>
+    <div class="card-header"><h2 class="card-title">Métricas de Campanha (<?= (int)$metricsPager['total'] ?>)</h2></div>
+    <form method="POST" id="bulkForm_campaign_metrics" class="bulk-form" data-bulk-group="campaign_metrics">
+        <?= csrfField() ?>
+        <input type="hidden" name="action" value="delete_selected_campaign_metrics">
+    </form>
+    <div class="bulk-bar" id="bulkBar_campaign_metrics" data-bulk-group="campaign_metrics">
+        <span class="bulk-count">0 selecionados</span>
+        <button type="button" class="btn btn-danger btn-sm bulk-delete-btn" data-bulk-group="campaign_metrics" disabled>Excluir selecionados</button>
+    </div>
     <div class="table-wrapper">
         <table>
-            <thead><tr><th>Campanha</th><th>Métrica</th><th>Valor</th><th>Ações</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="select-all-campaign-metrics" class="select-all" data-bulk-group="campaign_metrics"></th><th>Campanha</th><th>Métrica</th><th>Valor</th><th>Ações</th></tr></thead>
             <tbody>
             <?php foreach ($metrics as $metric): ?>
                 <tr>
+                    <td><input type="checkbox" class="row-select" data-bulk-group="campaign_metrics" value="<?= (int)$metric['id'] ?>"></td>
                     <td><?= e($metric['campaign_name'] ?? '—') ?></td>
                     <td><?= e($metricOptions[$metric['metric_key']] ?? $metric['metric_key']) ?></td>
                     <td><?= e((string)$metric['metric_value']) ?></td>
@@ -474,9 +932,13 @@ $summaryCards = [
                     </td>
                 </tr>
             <?php endforeach; ?>
+            <?php if (empty($metrics)): ?>
+                <tr><td colspan="5" class="text-muted">Nenhuma métrica de campanha cadastrada.</td></tr>
+            <?php endif; ?>
             </tbody>
         </table>
     </div>
+    <?= renderPaginationPrefix('page_campaign_metrics', $metricsPager['page'], $metricsPager['pages']) ?>
 </div>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

@@ -85,15 +85,15 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending'"
     </div>
     <div class="card-body">
         <?php if ($pendingCount > 0): ?>
-        <div style="margin-bottom: 16px; padding: 12px 16px; background: oklch(68% 0.16 220 / 0.1); border: 1px solid oklch(68% 0.16 220 / 0.3); border-radius: 8px; color: oklch(68% 0.16 220); font-size: 14px;">
+        <div class="alert-static alert-static-info">
             ⏳ <strong><?= $pendingCount ?></strong> usuário(s) aguardando ativação.
         </div>
         <?php endif; ?>
 
-        <form id="newUserForm" method="POST" class="hidden" style="margin-bottom: 24px; padding: 16px; background: oklch(16% 0.035 265); border: 1px solid var(--border); border-radius: 8px;">
+        <form id="newUserForm" method="POST" class="hidden form-card">
             <input type="hidden" name="action" value="create">
             <?= csrfField() ?>
-            <div class="form-row" style="margin-bottom: 0;">
+            <div class="form-row" style="margin-bottom:0;">
                 <div class="form-group">
                     <label for="username">Usuário *</label>
                     <input type="text" id="username" name="username" required placeholder="nome-de-usuario">
@@ -103,7 +103,7 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending'"
                     <input type="email" id="email" name="email" placeholder="usuario@exemplo.com">
                 </div>
             </div>
-            <div class="form-group" style="margin-top: 12px;">
+            <div class="form-group">
                 <label for="role_id">Cargo *</label>
                 <select id="role_id" name="role_id" required>
                     <option value="">Selecione um cargo...</option>
@@ -112,12 +112,12 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending'"
                     <?php endforeach; ?>
                 </select>
             </div>
-            <div class="form-group" style="margin-top: 12px;">
+            <div class="form-group">
                 <label for="password">Senha</label>
                 <input type="password" id="password" name="password" placeholder="Mínimo 6 caracteres (deixe vazio para enviar convite)" minlength="6">
-                <p style="font-size:12px;color:var(--fg-muted);margin-top:4px;">Se deixar vazio, o usuário receberá um convite para definir a própria senha.</p>
+                <p class="field-hint">Se deixar vazio, o usuário receberá um convite para definir a própria senha.</p>
             </div>
-            <div class="form-actions" style="margin-top: 12px;">
+            <div class="form-actions">
                 <button type="submit" class="btn btn-gold btn-sm">Criar</button>
                 <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('form').classList.add('hidden')">Cancelar</button>
             </div>
@@ -132,11 +132,11 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending'"
                     <?php foreach ($users as $u): ?>
                     <tr>
                         <td><?= $u['id'] ?></td>
-                        <td><strong style="color:var(--fg)"><?= e($u['username']) ?></strong>
-                            <?php if ($u['id'] === 1): ?><span class="badge badge-featured" style="margin-left: 8px;">Master</span><?php endif; ?>
-                            <?php if ((int)$u['id'] === $currentUserId): ?><span class="badge badge-active" style="margin-left: 4px; background: oklch(68% 0.16 220 / 0.15); color: oklch(68% 0.16 220);">Atual</span><?php endif; ?>
+                        <td><strong class="text-fg"><?= e($u['username']) ?></strong>
+                            <?php if ($u['id'] === 1): ?><span class="badge badge-featured" style="margin-left:8px;">Master</span><?php endif; ?>
+                            <?php if ((int)$u['id'] === $currentUserId): ?><span class="badge badge-active" style="margin-left:4px;background:oklch(68% 0.16 220 / 0.15);color:oklch(68% 0.16 220);">Atual</span><?php endif; ?>
                         </td>
-                        <td style="color:var(--fg-muted);font-size:13px;"><?= e($u['email'] ?? '—') ?></td>
+                        <td class="text-muted text-small"><?= e($u['email'] ?? '—') ?></td>
                         <td>
                             <span class="badge badge-featured"><?= e($u['level_name'] ?? $u['role_name'] ?? '—') ?></span>
                         </td>
@@ -154,7 +154,7 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending'"
                         <td class="actions">
                             <a href="<?= ADMIN_URL ?>/user-edit?id=<?= $u['id'] ?>" class="btn btn-outline btn-sm" title="Editar">✏️ Editar</a>
                             <?php if ($u['id'] !== 1 && (int)$u['id'] !== $currentUserId): ?>
-                            <form method="POST" style="display:inline" onsubmit="return confirm('Excluir usuário <?= e($u['username']) ?>?')">
+                            <form method="POST" class="form-inline" onsubmit="return confirm('Excluir usuário <?= e($u['username']) ?>?')">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="id" value="<?= $u['id'] ?>">
                                 <?= csrfField() ?>
@@ -169,9 +169,5 @@ $pendingCount = $db->query("SELECT COUNT(*) FROM users WHERE status = 'pending'"
         </div>
     </div>
 </div>
-
-<style>
-.hidden { display: none; }
-</style>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

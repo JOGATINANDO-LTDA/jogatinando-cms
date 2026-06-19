@@ -59,6 +59,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if ($_POST['action'] === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            dbExec("DELETE FROM engines WHERE id IN ($placeholders)", $ids);
+            flashMessage('success', count($ids) . ' engine(s) removida(s).');
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/engines'); exit;
+    }
+
     if ($_POST['action'] === 'toggle') {
         $engine = dbQueryOne("SELECT active FROM engines WHERE id = ?", [$id]);
         if ($engine) {
@@ -158,13 +168,15 @@ if ($action === 'new' || $action === 'edit') {
     </script>
     <?php
 } else {
-    $engines = dbQuery("SELECT e.*, (SELECT COUNT(*) FROM games WHERE engine = e.name) as game_count FROM engines e ORDER BY active DESC, name ASC");
+    $pager = paginateQuery('SELECT COUNT(*) as c FROM engines', 'SELECT e.*, (SELECT COUNT(*) FROM games WHERE engine = e.name) as game_count FROM engines e ORDER BY active DESC, name ASC');
+    $engines = $pager['items'];
+    $totalItems = $pager['total'];
 
     $allEngines = getEngines();
     ?>
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Engines</h2>
+            <h2 class="card-title">Engines (<?= $totalItems ?>)</h2>
             <a href="engines?action=new" class="btn btn-gold btn-sm">+ Nova Engine</a>
         </div>
         <?php if (empty($engines)): ?>
@@ -175,10 +187,13 @@ if ($action === 'new' || $action === 'edit') {
             </div>
             </div>
         <?php else: ?>
+            <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+            <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>
             <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="select-all"></th>
                             <th>Engine</th>
                             <th>Slug</th>
                             <th class="hide-tablet">Jogos</th>
@@ -189,6 +204,7 @@ if ($action === 'new' || $action === 'edit') {
                     <tbody>
                         <?php foreach ($engines as $e): ?>
                         <tr>
+                            <td><input type="checkbox" class="row-select" value="<?= (int)$e['id'] ?>"></td>
                             <td>
                                 <span style="display:inline-flex;align-items:center;gap:8px">
                                     <span style="font-size:20px"><?= e($e['icon'] ?? '🎮') ?></span>
@@ -224,6 +240,7 @@ if ($action === 'new' || $action === 'edit') {
                     </tbody>
                 </table>
             </div>
+            <?= renderPagination($pager['page'], $pager['pages']) ?>
         <?php endif; ?>
     </div>
     <?php

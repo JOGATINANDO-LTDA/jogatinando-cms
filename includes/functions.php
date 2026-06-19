@@ -1020,3 +1020,63 @@ function imageCreateFromFile($path) {
         default:              return null;
     }
 }
+
+function paginateQuery($countSql, $dataSql, $params = [], $perPage = 20) {
+    $page = max(1, (int)($_GET['page'] ?? 1));
+    $total = (int)(dbQueryOne($countSql, $params)['c'] ?? 0);
+    $pages = max(1, (int)ceil($total / $perPage));
+    $page = min($page, $pages);
+    $offset = ($page - 1) * $perPage;
+    $items = dbQuery($dataSql . " LIMIT ? OFFSET ?", array_merge($params, [$perPage, $offset]));
+    return compact('items', 'total', 'page', 'pages', 'perPage');
+}
+
+function renderPagination($page, $pages) {
+    if ($pages <= 1) return '';
+    $html = '<div class="pagination">';
+    if ($page > 1) {
+        $html .= '<a href="?page=' . ($page - 1) . '" class="btn btn-outline btn-sm">&laquo; Anterior</a>';
+    } else {
+        $html .= '<span class="btn btn-outline btn-sm btn-disabled">&laquo; Anterior</span>';
+    }
+    $html .= '<span class="pagination-info">Página ' . $page . ' de ' . $pages . '</span>';
+    if ($page < $pages) {
+        $html .= '<a href="?page=' . ($page + 1) . '" class="btn btn-outline btn-sm">Próxima &raquo;</a>';
+    } else {
+        $html .= '<span class="btn btn-outline btn-sm btn-disabled">Próxima &raquo;</span>';
+    }
+    $html .= '</div>';
+    return $html;
+}
+
+function paginateQueryPrefix($prefix, $countSql, $dataSql, $params = [], $perPage = 20) {
+    $page = max(1, (int)($_GET[$prefix] ?? 1));
+    $total = (int)(dbQueryOne($countSql, $params)['c'] ?? 0);
+    $pages = max(1, (int)ceil($total / $perPage));
+    $page = min($page, $pages);
+    $offset = ($page - 1) * $perPage;
+    $items = dbQuery($dataSql . " LIMIT ? OFFSET ?", array_merge($params, [$perPage, $offset]));
+    return compact('items', 'total', 'page', 'pages', 'perPage');
+}
+
+function renderPaginationPrefix($prefix, $page, $pages) {
+    if ($pages <= 1) return '';
+    $base = $_GET;
+    unset($base[$prefix]);
+    $qs = http_build_query($base);
+    $sep = $qs !== '' ? '&' : '';
+    $html = '<div class="pagination">';
+    if ($page > 1) {
+        $html .= '<a href="?' . $qs . $sep . $prefix . '=' . ($page - 1) . '" class="btn btn-outline btn-sm">&laquo; Anterior</a>';
+    } else {
+        $html .= '<span class="btn btn-outline btn-sm btn-disabled">&laquo; Anterior</span>';
+    }
+    $html .= '<span class="pagination-info">Página ' . $page . ' de ' . $pages . '</span>';
+    if ($page < $pages) {
+        $html .= '<a href="?' . $qs . $sep . $prefix . '=' . ($page + 1) . '" class="btn btn-outline btn-sm">Próxima &raquo;</a>';
+    } else {
+        $html .= '<span class="btn btn-outline btn-sm btn-disabled">Próxima &raquo;</span>';
+    }
+    $html .= '</div>';
+    return $html;
+}

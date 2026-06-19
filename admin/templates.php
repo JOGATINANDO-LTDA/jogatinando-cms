@@ -286,6 +286,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if ($_POST['action'] === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            dbExec("DELETE FROM game_templates WHERE id IN ($placeholders)", $ids);
+            flashMessage('success', count($ids) . ' template(s) removido(s).');
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/templates'); exit;
+    }
+
     if ($_POST['action'] === 'toggle') {
         $template = dbQueryOne("SELECT active FROM game_templates WHERE id = ?", [$id]);
         if ($template) {
@@ -711,7 +721,9 @@ if ($action === 'new' || $action === 'edit') {
     </div>
     <?php
 } else {
-    $templates = dbQuery("SELECT gt.* FROM game_templates gt ORDER BY gt.sort_order ASC, gt.id DESC");
+    $pager = paginateQuery('SELECT COUNT(*) as c FROM game_templates', 'SELECT gt.* FROM game_templates gt ORDER BY gt.sort_order ASC, gt.id DESC');
+    $templates = $pager['items'];
+    $totalItems = $pager['total'];
     $templateIds = array_column($templates, 'id');
     $platformLinks = [];
     if ($templateIds) {
@@ -724,7 +736,7 @@ if ($action === 'new' || $action === 'edit') {
     ?>
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Todos os Templates</h2>
+            <h2 class="card-title">Todos os Templates (<?= $totalItems ?>)</h2>
             <a href="templates?action=new" class="btn btn-gold btn-sm">+ Novo Template</a>
         </div>
         <?php if (empty($templates)): ?>
@@ -735,10 +747,13 @@ if ($action === 'new' || $action === 'edit') {
             </div>
             </div>
         <?php else: ?>
+            <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+            <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>
             <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="select-all"></th>
                             <th>Título</th>
                             <th>Engine</th>
                             <th class="hide-tablet">Linguagem</th>
@@ -751,6 +766,7 @@ if ($action === 'new' || $action === 'edit') {
                     <tbody>
                         <?php foreach ($templates as $t): ?>
                         <tr>
+                            <td><input type="checkbox" class="row-select" value="<?= (int)$t['id'] ?>"></td>
                             <td><strong><?= e($t['title']) ?></strong></td>
                             <td><span class="badge engine-badge"><?= getEngineIcon($t['engine']) ?> <?= e($t['engine']) ?></span></td>
                             <td class="hide-tablet"><?= e($t['language'] ?: '—') ?></td>
@@ -807,6 +823,7 @@ if ($action === 'new' || $action === 'edit') {
                     </tbody>
                 </table>
             </div>
+            <?= renderPagination($pager['page'], $pager['pages']) ?>
         <?php endif; ?>
     </div>
     <?php

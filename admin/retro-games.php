@@ -108,6 +108,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
+    if ($_POST['action'] === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            dbExec("DELETE FROM retro_games WHERE id IN ($placeholders)", $ids);
+            flashMessage('success', count($ids) . ' jogo(s) retro removido(s).');
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/retro-games'); exit;
+    }
+
     if ($_POST['action'] === 'toggle') {
         $game = dbQueryOne("SELECT active FROM retro_games WHERE id = ?", [$id]);
         if ($game) {
@@ -275,11 +285,13 @@ if ($action === 'new' || $action === 'edit') {
         $where .= " AND r.title LIKE ?";
         $params[] = '%' . $_GET['search'] . '%';
     }
-    $games = dbQuery("SELECT r.*, c.name as console_name, c.icon as console_icon FROM retro_games r LEFT JOIN retro_consoles c ON c.slug = r.console WHERE $where ORDER BY r.active DESC, r.sort_order ASC, r.created_at DESC", $params);
+    $pager = paginateQuery("SELECT COUNT(*) as c FROM retro_games r WHERE $where", "SELECT r.*, c.name as console_name, c.icon as console_icon FROM retro_games r LEFT JOIN retro_consoles c ON c.slug = r.console WHERE $where ORDER BY r.active DESC, r.sort_order ASC, r.created_at DESC", $params);
+    $games = $pager['items'];
+    $totalItems = $pager['total'];
     ?>
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Jogos Retro</h2>
+            <h2 class="card-title">Jogos Retro (<?= $totalItems ?>)</h2>
             <a href="retro-games?action=new" class="btn btn-gold btn-sm">+ Novo Jogo Retro</a>
         </div>
         <div class="card-body">
@@ -311,10 +323,13 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
             </div>
         <?php else: ?>
+            <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+            <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>
             <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="select-all"></th>
                             <th>Título</th>
                             <th>Console</th>
                             <th class="hide-tablet">Tipo</th>
@@ -325,6 +340,7 @@ if ($action === 'new' || $action === 'edit') {
                     <tbody>
                         <?php foreach ($games as $g): ?>
                         <tr>
+                            <td><input type="checkbox" class="row-select" value="<?= (int)$g['id'] ?>"></td>
                             <td><strong><?= e($g['title']) ?></strong></td>
                             <td><span class="inline-icon"><span><?= e($g['console_icon'] ?? '🎮') ?></span><span><?= e($g['console_name'] ?? $g['console']) ?></span></span></td>
                             <td class="hide-tablet"><?= e($g['type'] === 'modified' ? ($g['modification_description'] ?: 'Modificado') : 'Original') ?></td>
@@ -355,6 +371,7 @@ if ($action === 'new' || $action === 'edit') {
                     </tbody>
                 </table>
             </div>
+            <?= renderPagination($pager['page'], $pager['pages']) ?>
         <?php endif; ?>
     </div>
     <?php

@@ -80,6 +80,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if ($_POST['action'] === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            dbExec("DELETE FROM store_platforms WHERE id IN ($placeholders)", $ids);
+            flashMessage('success', count($ids) . ' plataforma(s) removida(s).');
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/platforms'); exit;
+    }
+
     if ($_POST['action'] === 'toggle') {
         $p = dbQueryOne("SELECT active FROM store_platforms WHERE id = ?", [$id]);
         if ($p) {
@@ -200,11 +210,13 @@ if ($action === 'new' || $action === 'edit') {
     </script>
     <?php
 } else {
-    $platforms = dbQuery("SELECT p.*, (SELECT COUNT(*) FROM game_links WHERE platform_id = p.id) as link_count FROM store_platforms p ORDER BY p.active DESC, p.sort_order ASC, p.name ASC");
+    $pager = paginateQuery('SELECT COUNT(*) as c FROM store_platforms', 'SELECT p.*, (SELECT COUNT(*) FROM game_links WHERE platform_id = p.id) as link_count FROM store_platforms p ORDER BY p.active DESC, p.sort_order ASC, p.name ASC');
+    $platforms = $pager['items'];
+    $totalItems = $pager['total'];
     ?>
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Plataformas de Distribuição</h2>
+            <h2 class="card-title">Plataformas de Distribuição (<?= $totalItems ?>)</h2>
             <a href="platforms?action=new" class="btn btn-gold btn-sm">+ Nova Plataforma</a>
         </div>
         <?php if (empty($platforms)): ?>
@@ -215,10 +227,13 @@ if ($action === 'new' || $action === 'edit') {
             </div>
             </div>
         <?php else: ?>
+            <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+            <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>
             <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="select-all"></th>
                             <th>Plataforma</th>
                             <th>Slug</th>
                             <th class="hide-tablet">Links</th>
@@ -229,6 +244,7 @@ if ($action === 'new' || $action === 'edit') {
                     <tbody>
                         <?php foreach ($platforms as $p): ?>
                         <tr>
+                            <td><input type="checkbox" class="row-select" value="<?= (int)$p['id'] ?>"></td>
                             <td>
                                 <span class="platform-name">
                                     <?php if (!empty($p['use_logo']) && !empty($p['logo_path'])): ?>
@@ -270,6 +286,7 @@ if ($action === 'new' || $action === 'edit') {
                     </tbody>
                 </table>
             </div>
+            <?= renderPagination($pager['page'], $pager['pages']) ?>
         <?php endif; ?>
     </div>
     <?php

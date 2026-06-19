@@ -731,11 +731,11 @@ if (isset($_GET['repair_result'])) {
 ?>
 
 <?php if ($repairResult): ?>
-<div class="card" style="margin-bottom:24px;border-color:var(--gold, #c9a84c)">
+<div class="card" style="margin-bottom:24px;border-color:var(--gold)">
     <div class="card-header">
-        <h3 class="card-title" style="color:var(--gold, #c9a84c)">📋 Relatório do Reparo</h3>
+        <h3 class="card-title text-gold">📋 Relatório do Reparo</h3>
     </div>
-    <div class="card-body" style="font-family:var(--mono, 'JetBrains Mono', monospace);font-size:13px;line-height:1.7;white-space:pre-wrap;color:var(--fg-muted, #aaa)">
+    <div class="card-body report-mono">
         <?= e($repairResult) ?>
     </div>
 </div>
@@ -744,39 +744,39 @@ if (isset($_GET['repair_result'])) {
 <div class="card" style="margin-bottom:24px">
     <div class="card-header">
         <h2 class="card-title">🔍 Diagnóstico do Banco de Dados</h2>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <div class="repair-actions">
             <a href="<?= ADMIN_URL ?>/repair?rescan=1" class="btn btn-outline">
                 🔄 Re-escanear
             </a>
-            <form method="POST" style="display:inline" id="repairForm">
+            <form method="POST" class="form-inline" id="repairForm">
                 <?= csrfField() ?>
                 <button type="submit" name="action" value="repair" class="btn btn-gold" <?= $totalIssues === 0 ? 'disabled' : '' ?>>
                     ⚡ Executar Reparo
                 </button>
             </form>
-            <a href="<?= ADMIN_URL ?>/repair?action=reset" class="btn btn-outline" style="color:var(--danger, #e74c3c);border-color:var(--danger, #e74c3c)">
+            <a href="<?= ADMIN_URL ?>/repair?action=reset" class="btn btn-outline text-danger">
                 ⚠ Reset Completo
             </a>
         </div>
     </div>
     <div class="card-body">
-        <p style="color:var(--fg-muted);margin-bottom:16px">
+        <p class="text-muted" style="margin-bottom:16px">
             Compara o schema atual do banco com o esperado após todas as migrações (001–027),
             verifica integridade referencial e contagem de registros.
             Clique em "Re-escanear" para atualizar os resultados.
         </p>
 
         <?php if ($totalIssues > 0): ?>
-            <div class="alert alert-warning" style="padding:12px 16px;border:1px solid var(--gold, #c9a84c);border-radius:8px;margin-bottom:16px;background:oklch(68% 0.16 85 / 0.08)">
-                <strong style="color:var(--gold, #c9a84c)">⚠ <?= $totalIssues ?> problema(s)</strong>
-                <span style="color:var(--fg-muted);margin-left:8px">
+            <div class="alert-static alert-static-gold">
+                <strong>⚠ <?= $totalIssues ?> problema(s)</strong>
+                <span class="text-muted" style="margin-left:8px">
                     — revise abaixo e clique em "Executar Reparo" para corrigir.
                 </span>
             </div>
         <?php else: ?>
-            <div class="alert alert-success" style="padding:12px 16px;border:1px solid oklch(55% 0.15 145);border-radius:8px;margin-bottom:16px;background:oklch(55% 0.15 145 / 0.08)">
-                <strong style="color:oklch(55% 0.15 145)">✅ Nenhum problema encontrado</strong>
-                <span style="color:var(--fg-muted);margin-left:8px">
+            <div class="alert-static alert-static-success">
+                <strong>✅ Nenhum problema encontrado</strong>
+                <span class="text-muted" style="margin-left:8px">
                     — todas as <?= count($diagnostic) ?> tabelas conferem com o schema esperado.
                 </span>
             </div>
@@ -787,9 +787,9 @@ if (isset($_GET['repair_result'])) {
 <div class="card">
     <div class="card-header">
         <h3 class="card-title">📋 Tabelas</h3>
-        <span class="badge" style="background:var(--bg-card, #1a1a2e);color:var(--fg-muted, #888)"><?= count($diagnostic) ?> tabelas esperadas</span>
+        <span class="badge badge-muted"><?= count($diagnostic) ?> tabelas esperadas</span>
     </div>
-    <div class="card-body" style="padding:0">
+    <div class="card-body card-no-pad">
         <div class="table-wrapper">
             <table>
                 <thead>
@@ -803,8 +803,8 @@ if (isset($_GET['repair_result'])) {
                 <tbody>
                     <?php foreach ($diagnostic as $d): ?>
                     <tr>
-                        <td><code style="font-weight:600;color:var(--cyan, #5bc0de)"><?= e($d['table']) ?></code></td>
-                        <td style="font-family:var(--mono, 'JetBrains Mono', monospace);font-size:13px;color:var(--fg-muted)">
+                        <td><code class="text-cyan" style="font-weight:600"><?= e($d['table']) ?></code></td>
+                        <td class="text-muted" style="font-family:var(--font-mono);font-size:13px">
                             <?php if (!$d['exists']): ?>
                                 —
                             <?php elseif ($rowCounts[$d['table']] !== null): ?>
@@ -815,18 +815,18 @@ if (isset($_GET['repair_result'])) {
                         </td>
                         <td>
                             <?php if (!$d['exists']): ?>
-                                <span style="color:var(--danger, #e74c3c)">❌ Tabela não existe</span>
+                                <span class="text-danger">❌ Tabela não existe</span>
                             <?php elseif (!empty($d['missing_cols'])): ?>
-                                <span style="color:var(--gold, #c9a84c)">⚠ Faltam: </span>
-                                <code style="color:var(--gold, #c9a84c)"><?= e(implode(', ', $d['missing_cols'])) ?></code>
+                                <span class="text-gold-muted">⚠ Faltam: </span>
+                                <code class="text-gold-muted"><?= e(implode(', ', $d['missing_cols'])) ?></code>
                             <?php elseif (!empty($d['dropped_cols_present'])): ?>
-                                <span style="color:var(--gold, #c9a84c)">⚠ Obsoletas: </span>
-                                <code style="color:var(--gold, #c9a84c)"><?= e(implode(', ', $d['dropped_cols_present'])) ?></code>
+                                <span class="text-gold-muted">⚠ Obsoletas: </span>
+                                <code class="text-gold-muted"><?= e(implode(', ', $d['dropped_cols_present'])) ?></code>
                             <?php else: ?>
-                                <span style="color:oklch(55% 0.15 145)">✅ Ok</span>
+                                <span class="text-success">✅ Ok</span>
                             <?php endif; ?>
                             <?php if (!empty($d['extra_cols'])): ?>
-                                <br><span style="color:var(--fg-muted, #666);font-size:12px">Extras: <?= e(implode(', ', $d['extra_cols'])) ?></span>
+                                <br><span class="text-muted" style="font-size:12px">Extras: <?= e(implode(', ', $d['extra_cols'])) ?></span>
                             <?php endif; ?>
                         </td>
                         <td>
@@ -846,12 +846,12 @@ if (isset($_GET['repair_result'])) {
     </div>
 </div>
 
-<div class="card" style="margin-top:24px">
+<div class="card card-spaced">
     <div class="card-header">
         <h3 class="card-title">📜 Schema Version</h3>
-        <span class="badge" style="background:var(--bg-card, #1a1a2e);color:var(--fg-muted, #888)"><?= count($svDiag['installed']) ?>/<?= count(getMigrationList()) ?> versões</span>
+        <span class="badge badge-muted"><?= count($svDiag['installed']) ?>/<?= count(getMigrationList()) ?> versões</span>
     </div>
-    <div class="card-body" style="padding:0">
+    <div class="card-body card-no-pad">
         <div class="table-wrapper">
             <table>
                 <thead>
@@ -897,12 +897,12 @@ if (isset($_GET['repair_result'])) {
     </div>
 </div>
 
-<div class="card" style="margin-top:24px">
+<div class="card card-spaced">
     <div class="card-header">
         <h3 class="card-title">🔗 Integridade Referencial</h3>
-        <span class="badge" style="background:var(--bg-card, #1a1a2e);color:var(--fg-muted, #888)"><?= count($integrityChecks) ?> verificações</span>
+        <span class="badge badge-muted"><?= count($integrityChecks) ?> verificações</span>
     </div>
-    <div class="card-body" style="padding:0">
+    <div class="card-body card-no-pad">
         <div class="table-wrapper">
             <table>
                 <thead>
@@ -915,10 +915,10 @@ if (isset($_GET['repair_result'])) {
                 <tbody>
                     <?php foreach ($integrityChecks as $check): ?>
                     <tr>
-                        <td><code style="font-weight:600;color:var(--cyan, #5bc0de);font-size:13px"><?= e($check['label']) ?></code></td>
-                        <td style="font-family:var(--mono, 'JetBrains Mono', monospace);font-size:13px">
+                        <td><code class="text-cyan" style="font-weight:600;font-size:13px"><?= e($check['label']) ?></code></td>
+                        <td style="font-family:var(--font-mono);font-size:13px">
                             <?php if (!empty($check['skip'])): ?>
-                                <span style="color:var(--fg-muted)">—</span>
+                                <span class="text-muted">—</span>
                             <?php else: ?>
                                 <?= $check['orphaned'] ?>
                             <?php endif; ?>
@@ -941,14 +941,14 @@ if (isset($_GET['repair_result'])) {
 </div>
 
 <?php if ($action === 'reset'): ?>
-<div class="card" style="margin-top:24px;border-color:var(--danger, #e74c3c)">
-    <div class="card-header" style="border-bottom-color:var(--danger, #e74c3c)">
-        <h3 class="card-title" style="color:var(--danger, #e74c3c)">⚠ Modo Reset — Destrutivo</h3>
+<div class="card card-spaced card-danger">
+    <div class="card-header">
+        <h3 class="card-title">⚠ Modo Reset — Destrutivo</h3>
     </div>
     <div class="card-body">
-        <div class="alert alert-danger" style="padding:12px 16px;border:1px solid var(--danger, #e74c3c);border-radius:8px;margin-bottom:16px;background:oklch(55% 0.2 29 / 0.08)">
-            <strong style="color:var(--danger, #e74c3c)">🚨 ATENÇÃO:</strong>
-            <span style="color:var(--fg-muted)">
+        <div class="alert-static alert-static-danger">
+            <strong>🚨 ATENÇÃO:</strong>
+            <span class="text-muted">
                 Todas as tabelas serão removidas e recriadas do zero.
                 <strong>Todos os dados serão perdidos.</strong>
                 Use apenas como último recurso, quando o Modo Reparo não for suficiente.
@@ -957,22 +957,22 @@ if (isset($_GET['repair_result'])) {
 
         <form method="POST">
             <?= csrfField() ?>
-            <div style="margin-bottom:16px">
-                <label for="master_password" style="display:block;margin-bottom:6px;font-weight:600;color:var(--fg)">Senha do Master</label>
+            <div class="form-group">
+                <label for="master_password">Senha do Master</label>
                 <input type="password" name="master_password" id="master_password" required
-                    style="width:100%;max-width:400px" class="form-input"
+                    class="form-input" style="max-width:400px"
                     placeholder="Digite a senha do administrador master">
             </div>
 
-            <div style="margin-bottom:20px">
-                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--danger, #e74c3c)">
+            <div class="form-group">
+                <label class="label-checkbox text-danger">
                     <input type="checkbox" name="confirm_reset" value="1" required>
-                    <span>Sim, quero resetar o banco de dados e perder TODOS os dados</span>
+                    Sim, quero resetar o banco de dados e perder TODOS os dados
                 </label>
             </div>
 
             <div style="display:flex;gap:8px">
-                <button type="submit" name="action" value="reset" class="btn" style="background:var(--danger, #e74c3c);color:#fff;border:none;padding:10px 24px">
+                <button type="submit" name="action" value="reset" class="btn-danger-fill">
                     🗑 Executar Reset
                 </button>
                 <a href="<?= ADMIN_URL ?>/repair" class="btn btn-outline">Cancelar</a>

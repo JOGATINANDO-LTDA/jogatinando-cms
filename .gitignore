@@ -7,6 +7,7 @@ data/config.local.php
 data/.installed
 data/.maintenance
 data/test_migration.php
+data/browser-state.json
 test_chmod
 
 # === Uploads (managed by Docker volumes) ===

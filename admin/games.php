@@ -184,6 +184,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit;
     }
 
+    if ($action === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            foreach ($ids as $gid) {
+                $g = dbQueryOne("SELECT thumbnail_url, game_path FROM games WHERE id = ?", [$gid]);
+                if ($g) {
+                    if (!empty($g['thumbnail_url'])) deleteFile($g['thumbnail_url']);
+                    if (!empty($g['game_path'])) deleteFile($g['game_path']);
+                }
+            }
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            dbExec("DELETE FROM games WHERE id IN ($placeholders)", $ids);
+            flashMessage('success', count($ids) . ' jogo(s) removido(s).');
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/games'); exit;
+    }
+
     if ($_POST['action'] === 'toggle') {
         $game = dbQueryOne("SELECT g.active, COALESCE(e.active, 0) as engine_active FROM games g LEFT JOIN engines e ON g.engine = e.name WHERE g.id = ?", [$id]);
         if ($game) {
@@ -462,230 +479,75 @@ if ($action === 'new' || $action === 'edit') {
                 <a href="games" class="btn btn-outline">Cancelar</a>
             </div>
         </form>
-        </div>
+    </div>
     </div>
 
+    <?php if ($action === 'new' || $action === 'edit'): ?>
+    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
     <script>
-    document.addEventListener('DOMContentLoaded', () => {
-        const form = document.getElementById('gameForm');
-        const input = document.getElementById('gameArchiveInput');
-        const info = document.getElementById('gameArchiveInfo');
-        const nameEl = document.getElementById('gameArchiveName');
-        const sizeEl = document.getElementById('gameArchiveSize');
-        const removeBtn = document.getElementById('gameArchiveRemove');
-        const dropZone = document.getElementById('gameArchiveDrop');
-        const progress = document.getElementById('uploadProgress');
-        const submitBtn = document.getElementById('submitBtn');
-
-        function formatSize(bytes) {
-            if (bytes < 1024) return bytes + ' B';
-            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-        }
-
-        function showFileInfo(file) {
-            nameEl.textContent = file.name;
-            sizeEl.textContent = formatSize(file.size);
-            info.classList.remove('hidden');
-            dropZone.classList.add('hidden');
-        }
-
-        function clearFile() {
-            input.value = '';
-            info.classList.add('hidden');
-            dropZone.classList.remove('hidden');
-        }
-
-        input.addEventListener('change', () => {
-            if (input.files.length > 0) showFileInfo(input.files[0]);
-        });
-
-        removeBtn.addEventListener('click', clearFile);
-
-        // Drag and drop
-        if (dropZone) {
-            ['dragenter', 'dragover'].forEach(evt => {
-                dropZone.addEventListener(evt, e => {
-                    e.preventDefault();
-                    dropZone.classList.add('is-dragover');
-                });
+    document.addEventListener('DOMContentLoaded', function() {
+        if (document.getElementById('description')) {
+            tinymce.init({
+                selector: '#description',
+                height: 280,
+                menubar: false,
+                plugins: 'link lists code',
+                toolbar: 'bold italic underline | bullist numlist | link | code',
+                content_style: 'body { font-family: Inter, sans-serif; font-size: 14px; color: #e0e0e0; background: #1a1a2e; } a { color: #d4a853; }',
+                skin: 'oxide-dark',
+                content_css: false,
+                branding: false,
+                promotion: false,
+                statusbar: true
             });
-            ['dragleave', 'drop'].forEach(evt => {
-                dropZone.addEventListener(evt, e => {
-                    e.preventDefault();
-                    dropZone.classList.remove('is-dragover');
-                });
-            });
-            dropZone.addEventListener('drop', e => {
-                const files = e.dataTransfer.files;
-                if (files.length > 0) {
-                    input.files = files;
-                    showFileInfo(files[0]);
-                }
-            });
-        }
-
-        // Submit with progress overlay
-        form.addEventListener('submit', (e) => {
-            if (input.files.length > 0) {
-                const serverLimit = parseInt(document.getElementById('serverLimitBytes')?.value || 0);
-                const fileSize = input.files[0].size;
-                if (serverLimit > 0 && fileSize > serverLimit * 0.9) {
-                    e.preventDefault();
-                    alert(`Arquivo muito grande!\n\nTamanho: ${(fileSize / 1048576).toFixed(1)}MB\nLimite do servidor: ${document.getElementById('serverLimitBytes').dataset.limit || '30M'}\n\nContate sua hospedagem para aumentar o limite.`);
-                    return;
-                }
-                submitBtn.disabled = true;
-                submitBtn.textContent = 'Enviando...';
-                    progress.classList.remove('hidden');
-                setTimeout(() => {
-                    const statusEl = document.getElementById('uploadStatus');
-                    if (statusEl && !progress.classList.contains('hidden')) {
-                        statusEl.textContent = 'Processando arquivo grande... aguarde';
-                    }
-                }, 15000);
-            }
-        });
-    });
-
-    // Game links add/remove and toggle
-    const container = document.getElementById('gameLinksContainer');
-    const sectionTitle = document.getElementById('gameLinksSection');
-    const list = document.getElementById('gameLinksList');
-    const addBtn = document.getElementById('addGameLink');
-    const isWebPlayable = document.getElementById('is_web_playable');
-    const gameType = document.getElementById('game_type');
-    const externalSection = document.getElementById('externalSection');
-    const externalContainer = document.getElementById('externalContainer');
-    const isOpenSource = document.getElementById('is_open_source');
-    const repoUrlRow = document.getElementById('repoUrlRow');
-    const gameArchiveGroup = document.getElementById('gameArchiveGroup');
-
-    function toggleExternalFields() {
-        const isExterno = gameType.value === 'externo';
-        if (externalSection) externalSection.classList.toggle('hidden', !isExterno);
-        if (externalContainer) externalContainer.classList.toggle('hidden', !isExterno);
-        if (gameArchiveGroup) gameArchiveGroup.classList.toggle('hidden', isExterno);
-        if (isWebPlayable) {
-            isWebPlayable.checked = isExterno ? true : isWebPlayable.dataset.original !== undefined ? isWebPlayable.dataset.original === '1' : <?= ($game['is_web_playable'] ?? 1) ? 'true' : 'false' ?>;
-            isWebPlayable.disabled = isExterno;
-        }
-    }
-
-    function toggleRepoUrl() {
-        if (repoUrlRow) repoUrlRow.classList.toggle('hidden', !isOpenSource.checked);
-    }
-
-    if (isWebPlayable) {
-        isWebPlayable.dataset.original = isWebPlayable.checked ? '1' : '0';
-        isWebPlayable.addEventListener('change', () => {
-            isWebPlayable.dataset.original = isWebPlayable.checked ? '1' : '0';
-        });
-    }
-
-    if (gameType) {
-        gameType.addEventListener('change', toggleExternalFields);
-    }
-
-    if (isOpenSource) {
-        isOpenSource.addEventListener('change', toggleRepoUrl);
-    }
-
-    const platforms = <?= json_encode(array_map(function($p) {
-        return ['id' => $p['id'], 'name' => $p['name'], 'icon' => $p['icon'] ?? '', 'use_logo' => !empty($p['use_logo']) ? 1 : 0, 'logo_path' => $p['logo_path'] ?? ''];
-    }, $platforms ?? [])) ?>;
-
-    function escHtml(s) { return String(s).replace(/[&<>"']/g, function(c) { return '&#' + c.charCodeAt(0) + ';'; }); }
-
-    function platformThumbHtml(p) {
-        if (p.use_logo && p.logo_path) {
-            return '<img class="platform-thumb" src="' + escHtml(p.logo_path.startsWith('http') ? p.logo_path : '/' + p.logo_path) + '" alt="">';
-        }
-        return '<span class="platform-thumb">' + escHtml(p.icon || '🛒') + '</span>';
-    }
-
-    function createLinkRow(platformId, url) {
-        let selectHtml = '<select name="link_platform[]"><option value="">Selecione...</option>';
-        let thumbHtml = '<span class="platform-thumb">?</span>';
-        platforms.forEach(p => {
-            selectHtml += '<option value="' + escHtml(p.id) + '" ' + (p.id == platformId ? 'selected' : '') + '>' + escHtml(p.name) + '</option>';
-            if (p.id == platformId) {
-                thumbHtml = platformThumbHtml(p);
-            }
-        });
-        selectHtml += '</select>';
-        return '<div class="game-link-row">' +
-            '<div class="form-group game-link-platform"><div class="platform-select-wrap">' + thumbHtml + selectHtml + '</div></div>' +
-            '<div class="form-group game-link-url"><input type="url" name="link_url[]" value="' + escHtml(url) + '" placeholder="https://..."></div>' +
-            '<div class="game-link-action"><button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">🗑️ Excluir</button></div>' +
-        '</div>';
-    }
-
-    if (addBtn) {
-        addBtn.addEventListener('click', () => {
-            const div = document.createElement('div');
-            div.innerHTML = createLinkRow(0, '');
-            list.appendChild(div.firstElementChild);
-        });
-    }
-
-    list.addEventListener('click', (e) => {
-        if (e.target.classList.contains('game-link-remove')) {
-            e.target.closest('.game-link-row').remove();
-        }
-    });
-
-    list.addEventListener('change', (e) => {
-        if (e.target.matches('select[name="link_platform[]"]')) {
-            const row = e.target.closest('.game-link-row');
-            const thumb = row.querySelector('.platform-thumb');
-                    const selected = platforms.find(p => p.id == e.target.value);
-                    if (selected) {
-                        thumb.outerHTML = platformThumbHtml(selected);
-                    } else {
-                        thumb.outerHTML = '<span class="platform-thumb">🛒</span>';
-                    }
         }
     });
     </script>
-    <?php
+    <?php endif; ?>
+
+<?php
 } else {
-    $games = dbQuery("SELECT g.*, COALESCE(e.active, 0) as engine_active FROM games g LEFT JOIN engines e ON g.engine = e.name ORDER BY g.sort_order ASC, g.id DESC");
+    $pager = paginateQuery('SELECT COUNT(*) as c FROM games g LEFT JOIN engines e ON g.engine = e.name', 'SELECT g.*, COALESCE(e.active, 0) as engine_active FROM games g LEFT JOIN engines e ON g.engine = e.name ORDER BY g.sort_order ASC, g.id DESC');
+    $games = $pager['items'];
+    $totalItems = $pager['total'];
     ?>
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Todos os Jogos</h2>
+            <h2 class="card-title">Todos os Jogos (<?= $totalItems ?>)</h2>
             <?php if ($canEditGames): ?>
             <a href="games?action=new" class="btn btn-gold btn-sm">+ Novo Jogo</a>
             <?php endif; ?>
         </div>
+        <div class="card-body">
+            <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+            <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>
         <?php if (empty($games)): ?>
-            <div class="card-body">
             <div class="empty-state">
                 <div class="empty-icon">
                     <svg viewBox="0 0 24 24"><path d="M6 11h4M8 9v4"/><circle cx="15" cy="10.5" r="0.5" fill="currentColor" stroke="none"/><circle cx="17" cy="12.5" r="0.5" fill="currentColor" stroke="none"/><rect x="2" y="6" width="20" height="12" rx="4"/></svg>
                 </div>
                 <p>Nenhum jogo cadastrado ainda.</p>
             </div>
-            </div>
         <?php else: ?>
             <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="select-all"></th>
                             <th>Título</th>
                             <th>Tipo</th>
                             <th>Engine</th>
-                            <th class="hide-tablet">Descrição</th>
+                            <th>Descrição</th>
                             <th>Status</th>
-                            <th class="hide-mobile">Otimização</th>
-                            <th class="hide-mobile">Criado</th>
+                            <th>Otimização</th>
+                            <th>Criado</th>
                             <th>Ações</th>
                         </tr>
                     </thead>
                     <tbody>
                         <?php foreach ($games as $g): ?>
                         <tr>
+                            <td><input type="checkbox" class="row-select" value="<?= (int)$g['id'] ?>"></td>
                             <td><strong class="text-primary"><?= e($g['title']) ?></strong></td>
                             <td>
                                 <?php if (($g['game_type'] ?? 'autoral') === 'cliente'): ?>
@@ -697,17 +559,19 @@ if ($action === 'new' || $action === 'edit') {
                                 <?php endif; ?>
                             </td>
                             <td><span class="badge engine-badge engine-badge-<?= e(generateSlug($g['engine'])) ?>"><?= getEngineIcon($g['engine']) ?> <?= e($g['engine']) ?></span></td>
-                            <td>
-                                <?php $desc = trim($g['description'] ?? ''); ?>
-                                <?php if ($desc !== ''): ?>
-                                    <span class="desc-full hidden"><?= e($desc) ?></span>
-                                    <button onclick="openDescModal('<?= e($g['title']) ?>', this)" class="btn btn-text btn-sm desc-open" title="Ver descrição completa">
-                                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-                                    </button>
-                                <?php else: ?>
-                                    <span class="text-muted">—</span>
-                                <?php endif; ?>
-                            </td>
+                             <td>
+                                 <?php $desc = trim($g['description'] ?? ''); ?>
+                                 <?php if ($desc !== ''): ?>
+                                     <button data-raw="<?= e($desc) ?>" onclick="openDescModal('<?= e($g['title']) ?>', this)" class="btn btn-outline btn-sm btn-icon desc-open" title="Ver descrição completa">
+                                         <span class="desc-btn-inner">
+                                             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                                             <span class="desc-btn-label">Ver Descrição</span>
+                                         </span>
+                                     </button>
+                                 <?php else: ?>
+                                     <span class="text-muted">—</span>
+                                 <?php endif; ?>
+                             </td>
                             <td>
                                 <?php if (!$g['engine_active']): ?>
                                     <span class="badge badge-inactive badge-help" title="Engine inativa — jogo não aparece para os usuários">⚙️ Engine Inativa</span>
@@ -720,7 +584,7 @@ if ($action === 'new' || $action === 'edit') {
                                     <span class="badge badge-featured">Destaque</span>
                                 <?php endif; ?>
                             </td>
-                            <td class="hide-mobile">
+                            <td>
                                 <?php if ($g['game_path']): ?>
                                     <?php if (!empty($g['optimized_at'])): ?>
                                         <span class="badge badge-optimized">✅ <?= date('d/m/Y', strtotime($g['optimized_at'])) ?></span>
@@ -731,7 +595,7 @@ if ($action === 'new' || $action === 'edit') {
                                     —
                                 <?php endif; ?>
                             </td>
-                            <td class="hide-mobile"><?= timeAgo($g['created_at']) ?></td>
+                            <td><?= timeAgo($g['created_at']) ?></td>
                             <?php if ($canEditGames): ?>
                             <td class="actions">
                                 <?php if ($g['engine_active']): ?>
@@ -760,33 +624,86 @@ if ($action === 'new' || $action === 'edit') {
                      </tbody>
                  </table>
             </div>
+            <?= renderPagination($pager['page'], $pager['pages']) ?>
 
         <?php endif; ?>
      </div>
 
       <!-- Modal de descrição (fora do card para evitar overflow:hidden) -->
-      <div class="desc-modal-overlay" id="descModalOverlay" style="display:none" onclick="if(event.target===this)closeDescModal()">
+      <div class="desc-modal-overlay" id="descModalOverlay" onclick="if(event.target===this)closeDescModal()">
           <div class="desc-modal">
               <div class="desc-modal-header">
                   <strong class="desc-modal-title" id="descModalTitle"></strong>
-                  <button onclick="closeDescModal()" class="btn btn-icon" title="Fechar">✕</button>
+                  <button onclick="closeDescModal()" class="btn btn-outline btn-sm btn-icon" title="Fechar">
+                      <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                  </button>
               </div>
               <div class="desc-modal-body" id="descModalBody"></div>
           </div>
       </div>
       <script>
       function openDescModal(title, btn) {
-          var td = btn.closest('td');
-          var full = td ? td.querySelector('.desc-full') : null;
+          var desc = btn.dataset.raw || '';
           document.getElementById('descModalTitle').textContent = title;
-          document.getElementById('descModalBody').textContent = full ? full.textContent : '';
-          document.getElementById('descModalOverlay').style.display = 'flex';
+          document.getElementById('descModalBody').innerHTML = desc;
+          document.getElementById('descModalOverlay').classList.add('is-active');
+          document.body.style.overflow = 'hidden';
       }
       function closeDescModal() {
-          document.getElementById('descModalOverlay').style.display = 'none';
+          document.getElementById('descModalOverlay').classList.remove('is-active');
+          document.body.style.overflow = '';
       }
       document.addEventListener('keydown', function(e) {
           if (e.key === 'Escape') closeDescModal();
+      });
+      </script>
+      <script>
+      document.addEventListener('DOMContentLoaded', function() {
+          var selectAll = document.getElementById('select-all');
+          var rowChecks = document.querySelectorAll('.row-select');
+          var bulkBar = document.getElementById('bulkBar');
+          var bulkCount = document.getElementById('bulkCount');
+          var bulkDeleteBtn = document.getElementById('bulkDeleteBtn');
+          var bulkForm = document.getElementById('bulkForm');
+
+          function updateBulkUI() {
+              var checked = document.querySelectorAll('.row-select:checked');
+              var count = checked.length;
+              bulkCount.textContent = count + ' selecionados';
+              bulkDeleteBtn.disabled = count === 0;
+              if (count > 0) {
+                  bulkBar.classList.add('active');
+              } else {
+                  bulkBar.classList.remove('active');
+              }
+          }
+
+          if (selectAll) {
+              selectAll.addEventListener('change', function() {
+                  rowChecks.forEach(function(cb) { cb.checked = selectAll.checked; });
+                  updateBulkUI();
+              });
+          }
+
+          rowChecks.forEach(function(cb) {
+              cb.addEventListener('change', updateBulkUI);
+          });
+
+          if (bulkDeleteBtn) {
+              bulkDeleteBtn.addEventListener('click', function() {
+                  var checked = document.querySelectorAll('.row-select:checked');
+                  if (checked.length === 0) return;
+                  if (!confirm('Excluir ' + checked.length + ' jogo(s) selecionado(s)?')) return;
+                  checked.forEach(function(cb) {
+                      var input = document.createElement('input');
+                      input.type = 'hidden';
+                      input.name = 'ids[]';
+                      input.value = cb.value;
+                      bulkForm.appendChild(input);
+                  });
+                  bulkForm.submit();
+              });
+          }
       });
       </script>
      <?php

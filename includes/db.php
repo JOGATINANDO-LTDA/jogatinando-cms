@@ -175,6 +175,7 @@ function getMigrationList() {
          33 => 'add_user_setup_token_fields',
          34 => 'add_social_links_ads_distribution',
          35 => 'add_social_links_media_fields',
+         36 => 'add_distribution_integration_hub',
       ];
 }
 

@@ -152,7 +152,7 @@ $status = request($social, 'GET', null, $headers, $body, $cookieFile);
 pageContains($body, 'website', 'social-links CRUD');
 pageContains($body, $socialUrl, 'social-links CRUD');
 ok('social-links criou item');
-if (!preg_match('/<tr>\s*<td>site<\/td>\s*<td>website<\/td>\s*<td>' . preg_quote($socialUrl, '/') . '<\/td>[\s\S]*?<input type="hidden" name="id" value="(\d+)"/m', $body, $m)) {
+if (!preg_match('/<tr>\s*<td><input[^>]*class="row-select"[^>]*><\/td>\s*<td>site<\/td>\s*<td>website<\/td>\s*<td>' . preg_quote($socialUrl, '/') . '<\/td>[\s\S]*?<input type="hidden" name="id" value="(\d+)"/m', $body, $m)) {
     fail('não foi possível localizar o ID do social link criado');
 }
 $socialId = (int)$m[1];
@@ -166,6 +166,17 @@ ok('social-links removeu item');
 
 $status = request($social, 'GET', null, $headers, $body, $cookieFile);
 $socialCsrf = extractCsrf($body);
+
+// Clean up any leftover twitch links in footer from previous runs
+preg_match_all('/<tr>\s*<td><input[^>]*class="row-select"[^>]*value="(\d+)"[^>]*><\/td>\s*<td>footer<\/td>\s*<td>twitch<\/td>/m', $body, $leftovers);
+foreach ($leftovers[1] as $leftoverId) {
+    request($social, 'POST', ['csrf_token' => $socialCsrf, 'action' => 'delete', 'id' => (int)$leftoverId], $headers, $body, $cookieFile);
+}
+if (!empty($leftovers[1])) {
+    $status = request($social, 'GET', null, $headers, $body, $cookieFile);
+    $socialCsrf = extractCsrf($body);
+}
+
 $socialName = 'Smoke Test Custom ' . substr(md5((string)microtime(true) . 'custom'), 0, 8);
 $socialUrl = 'https://example.com/' . strtolower(substr(md5($socialName), 0, 8));
 $status = postMultipart($social, [
@@ -185,6 +196,10 @@ if ($status >= 500) fail('social-links custom image gerou erro ao salvar');
 $status = request($social, 'GET', null, $headers, $body, $cookieFile);
 pageContains($body, $socialUrl, 'social-links custom image');
 ok('social-links salva imagem customizada em plataforma comum');
+if (preg_match('/<tr>\s*<td><input[^>]*class="row-select"[^>]*value="(\d+)"[^>]*><\/td>\s*<td>footer<\/td>\s*<td>twitch<\/td>\s*<td>' . preg_quote($socialUrl, '/') . '/m', $body, $m2)) {
+    $customId = (int)$m2[1];
+    request($social, 'POST', ['csrf_token' => $socialCsrf, 'action' => 'delete', 'id' => $customId], $headers, $body, $cookieFile);
+}
 
 $tmpBad = tempnam(sys_get_temp_dir(), 'jogatinando_bad_');
 if ($tmpBad === false) {
@@ -266,7 +281,7 @@ if ($status < 300 || $status >= 400) fail('distribution não redirecionou após 
 $status = request($distribution, 'GET', null, $headers, $body, $cookieFile);
 pageContains($body, $campaignName, 'distribution campaign CRUD');
 ok('distribution criou campanha');
-if (!preg_match('/<tr>\s*<td>' . preg_quote($campaignName, '/') . '<\/td>[\s\S]*?<input type="hidden" name="id" value="(\d+)"/m', $body, $m)) {
+if (!preg_match('/<tr>\s*<td><input[^>]*class="row-select"[^>]*><\/td>\s*<td>' . preg_quote($campaignName, '/') . '<\/td>[\s\S]*?<input type="hidden" name="id" value="(\d+)"/m', $body, $m)) {
     fail('não foi possível localizar o ID da campanha criada');
 }
 $campaignId = (int)$m[1];

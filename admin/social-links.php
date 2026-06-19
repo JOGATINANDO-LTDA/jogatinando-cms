@@ -102,6 +102,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             exit;
         }
 
+        $duplicate = dbQueryOne("SELECT id, label FROM social_links WHERE scope = ? AND platform_key = ? AND id != ?", [$scope, $platformKey, $id]);
+        if ($duplicate) {
+            $dupLabel = $duplicate['label'] ?: $platformKey;
+            flashMessage('error', "Já existe um link para {$dupLabel} no escopo '{$scope}'. Edite o existente.");
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/social-links');
+            exit;
+        }
+
         if ($id > 0) {
             if ($existing && !empty($existing['image_path'] ?? '') && $imagePath !== trim((string)($existing['image_path'] ?? ''))) {
                 deleteFile($existing['image_path']);
@@ -127,9 +136,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: ' . ADMIN_URL . '/social-links');
         exit;
     }
+
+    if ($action === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $db->prepare("DELETE FROM social_links WHERE id IN ($placeholders)")->execute($ids);
+            flashMessage('success', count($ids) . ' link(s) removido(s).');
+        }
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/social-links');
+        exit;
+    }
 }
 
-$items = dbQuery('SELECT * FROM social_links ORDER BY scope ASC, sort_order ASC, id ASC');
+$pager = paginateQuery('SELECT COUNT(*) as c FROM social_links', 'SELECT * FROM social_links ORDER BY scope ASC, sort_order ASC, id ASC');
+$items = $pager['items'];
+$totalItems = $pager['total'];
 $editId = (int)($_GET['edit'] ?? 0);
 $editItem = $editId ? dbQueryOne('SELECT * FROM social_links WHERE id = ?', [$editId]) : null;
 $presetKeys = ['youtube','twitch','x','tiktok','facebook','instagram','linkedin','discord','kick','kwai','website'];
@@ -155,12 +178,15 @@ $presetKeys = ['youtube','twitch','x','tiktok','facebook','instagram','linkedin'
                 </div>
                 <div class="form-group">
                     <label for="platform_key">Plataforma</label>
-                    <select id="platform_key" name="platform_key">
-                        <option value="website" <?= ($editItem['platform_key'] ?? 'website') === 'website' ? 'selected' : '' ?>>website</option>
-                        <?php foreach ($presetKeys as $key): if ($key === 'website') continue; ?>
-                            <option value="<?= e($key) ?>" <?= ($editItem['platform_key'] ?? '') === $key ? 'selected' : '' ?>><?= e($key) ?></option>
-                        <?php endforeach; ?>
-                    </select>
+                    <div class="platform-select-row">
+                        <select id="platform_key" name="platform_key">
+                            <option value="website" <?= ($editItem['platform_key'] ?? 'website') === 'website' ? 'selected' : '' ?>>website</option>
+                            <?php foreach ($presetKeys as $key): if ($key === 'website') continue; ?>
+                                <option value="<?= e($key) ?>" <?= ($editItem['platform_key'] ?? '') === $key ? 'selected' : '' ?>><?= e($key) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="platform-icon-preview" id="platformIconPreview"></span>
+                    </div>
                 </div>
             </div>
             <div class="form-row">
@@ -220,7 +246,26 @@ $presetKeys = ['youtube','twitch','x','tiktok','facebook','instagram','linkedin'
             var hint = document.getElementById('socialImageHint');
             var customRow = document.getElementById('customImageRow');
             var custom = document.getElementById('custom_image');
+            var iconPreview = document.getElementById('platformIconPreview');
+            var iconMap = {
+                youtube: 'fa-brands fa-youtube',
+                twitch: 'fa-brands fa-twitch',
+                x: 'fa-brands fa-x-twitter',
+                tiktok: 'fa-brands fa-tiktok',
+                facebook: 'fa-brands fa-facebook-f',
+                instagram: 'fa-brands fa-instagram',
+                linkedin: 'fa-brands fa-linkedin-in',
+                discord: 'fa-brands fa-discord',
+                kick: 'fa-solid fa-link',
+                kwai: 'fa-solid fa-link',
+                website: 'fa-solid fa-globe'
+            };
             if (!platform || !group || !hint) return;
+            function updateIconPreview() {
+                if (!iconPreview) return;
+                var cls = iconMap[platform.value] || 'fa-solid fa-link';
+                iconPreview.innerHTML = '<i class="' + cls + '"></i>';
+            }
             function sync() {
                 var show = platform.value === 'website';
                 if (customRow) customRow.classList.toggle('hidden', show);
@@ -236,9 +281,11 @@ $presetKeys = ['youtube','twitch','x','tiktok','facebook','instagram','linkedin'
                 if (custom) {
                     custom.checked = platform.value === 'website' ? true : false;
                 }
+                updateIconPreview();
                 sync();
             });
             if (custom) custom.addEventListener('change', sync);
+            updateIconPreview();
             sync();
         })();
         </script>
@@ -246,30 +293,48 @@ $presetKeys = ['youtube','twitch','x','tiktok','facebook','instagram','linkedin'
 </div>
 
 <div class="card card-spaced">
-    <div class="card-header"><h2 class="card-title">Itens</h2></div>
-    <div class="table-wrapper">
-        <table>
-            <thead><tr><th>Escopo</th><th>Plataforma</th><th>URL</th><th>Status</th><th>Ações</th></tr></thead>
-            <tbody>
-            <?php foreach ($items as $item): ?>
-                <tr>
-                    <td><?= e($item['scope']) ?></td>
-                    <td><?= e($item['platform_key']) ?></td>
-                    <td><?= e($item['url']) ?></td>
-                    <td><?= !empty($item['active']) ? '<span class="badge badge-active">Ativo</span>' : '<span class="badge badge-inactive">Inativo</span>' ?></td>
-                    <td class="actions">
-                        <a class="btn btn-outline btn-sm" href="?edit=<?= (int)$item['id'] ?>">Editar</a>
-                        <form method="POST" onsubmit="return confirm('Remover link?')">
-                            <?= csrfField() ?>
-                            <input type="hidden" name="action" value="delete">
-                            <input type="hidden" name="id" value="<?= (int)$item['id'] ?>">
-                            <button class="btn btn-outline btn-sm" type="submit">Excluir</button>
-                        </form>
-                    </td>
-                </tr>
-            <?php endforeach; ?>
-            </tbody>
-        </table>
+    <div class="card-header">
+        <h2 class="card-title">Itens (<?= $totalItems ?>)</h2>
+    </div>
+    <div class="card-body">
+        <form method="POST" id="bulkForm">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="delete_selected">
+        </form>
+        <div class="bulk-bar" id="bulkBar">
+            <span class="bulk-count" id="bulkCount">0 selecionados</span>
+            <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button>
+        </div>
+        <?php if (empty($items)): ?>
+            <p class="text-muted">Nenhum item cadastrado.</p>
+        <?php else: ?>
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th><input type="checkbox" id="select-all"></th><th>Escopo</th><th>Plataforma</th><th>URL</th><th>Status</th><th>Ações</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($items as $item): ?>
+                        <tr>
+                            <td><input type="checkbox" class="row-select" value="<?= (int)$item['id'] ?>"></td>
+                            <td><?= e($item['scope']) ?></td>
+                            <td><?= e($item['platform_key']) ?></td>
+                            <td><?= e(mb_substr($item['url'], 0, 50)) ?></td>
+                            <td><?= !empty($item['active']) ? '<span class="badge badge-active">Ativo</span>' : '<span class="badge badge-inactive">Inativo</span>' ?></td>
+                            <td class="actions">
+                                <a class="btn btn-outline btn-sm" href="?edit=<?= (int)$item['id'] ?>">Editar</a>
+                                <form method="POST" onsubmit="return confirm('Remover link?')">
+                                    <?= csrfField() ?>
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="id" value="<?= (int)$item['id'] ?>">
+                                    <button class="btn btn-outline btn-sm" type="submit">Excluir</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?= renderPagination($pager['page'], $pager['pages']) ?>
+        <?php endif; ?>
     </div>
 </div>
 
