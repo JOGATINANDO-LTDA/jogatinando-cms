@@ -487,7 +487,7 @@ if ($action === 'new' || $action === 'edit') {
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         // TinyMCE
-        if (document.getElementById('description')) {
+        if (typeof tinymce !== 'undefined' && document.getElementById('description')) {
             tinymce.init({
                 selector: '#description',
                 height: 280,
