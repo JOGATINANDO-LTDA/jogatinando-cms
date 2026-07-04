@@ -486,6 +486,7 @@ if ($action === 'new' || $action === 'edit') {
     <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // TinyMCE
         if (document.getElementById('description')) {
             tinymce.init({
                 selector: '#description',
@@ -499,6 +500,169 @@ if ($action === 'new' || $action === 'edit') {
                 branding: false,
                 promotion: false,
                 statusbar: true
+            });
+        }
+
+        // File upload drag-and-drop
+        var input = document.getElementById('gameArchiveInput');
+        var info = document.getElementById('gameArchiveInfo');
+        var nameEl = document.getElementById('gameArchiveName');
+        var sizeEl = document.getElementById('gameArchiveSize');
+        var removeBtn = document.getElementById('gameArchiveRemove');
+        var dropZone = document.getElementById('gameArchiveDrop');
+        var progress = document.getElementById('uploadProgress');
+        var submitBtn = document.getElementById('submitBtn');
+        var form = document.getElementById('gameForm');
+
+        function formatSize(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function showFileInfo(file) {
+            if (nameEl) nameEl.textContent = file.name;
+            if (sizeEl) sizeEl.textContent = formatSize(file.size);
+            if (info) info.classList.remove('hidden');
+            if (dropZone) dropZone.classList.add('hidden');
+        }
+
+        function clearFile() {
+            if (input) input.value = '';
+            if (info) info.classList.add('hidden');
+            if (dropZone) dropZone.classList.remove('hidden');
+        }
+
+        if (input) {
+            input.addEventListener('change', function() {
+                if (input.files.length > 0) showFileInfo(input.files[0]);
+            });
+        }
+
+        if (removeBtn) removeBtn.addEventListener('click', clearFile);
+
+        if (dropZone) {
+            ['dragenter', 'dragover'].forEach(function(evt) {
+                dropZone.addEventListener(evt, function(e) { e.preventDefault(); dropZone.classList.add('is-dragover'); });
+            });
+            ['dragleave', 'drop'].forEach(function(evt) {
+                dropZone.addEventListener(evt, function(e) { e.preventDefault(); dropZone.classList.remove('is-dragover'); });
+            });
+            dropZone.addEventListener('drop', function(e) {
+                var files = e.dataTransfer.files;
+                if (files.length > 0) { if (input) input.files = files; showFileInfo(files[0]); }
+            });
+        }
+
+        if (form) {
+            form.addEventListener('submit', function() {
+                if (input && input.files.length > 0) {
+                    if (submitBtn) { submitBtn.disabled = true; submitBtn.textContent = 'Enviando...'; }
+                    if (progress) progress.classList.remove('hidden');
+                    setTimeout(function() {
+                        var statusEl = document.getElementById('uploadStatus');
+                        if (statusEl && progress && !progress.classList.contains('hidden')) {
+                            statusEl.textContent = 'Processando arquivo grande... aguarde';
+                        }
+                    }, 15000);
+                }
+            });
+        }
+
+        // Game type toggle
+        var gameType = document.getElementById('game_type');
+        var externalSection = document.getElementById('externalSection');
+        var externalContainer = document.getElementById('externalContainer');
+        var gameArchiveGroup = document.getElementById('gameArchiveGroup');
+        var isWebPlayable = document.getElementById('is_web_playable');
+        var isOpenSource = document.getElementById('is_open_source');
+        var repoUrlRow = document.getElementById('repoUrlRow');
+
+        function toggleExternalFields() {
+            if (!gameType) return;
+            var isExterno = gameType.value === 'externo';
+            if (externalSection) externalSection.classList.toggle('hidden', !isExterno);
+            if (externalContainer) externalContainer.classList.toggle('hidden', !isExterno);
+            if (gameArchiveGroup) gameArchiveGroup.classList.toggle('hidden', isExterno);
+            if (isWebPlayable) {
+                isWebPlayable.checked = isExterno ? true : isWebPlayable.dataset.original !== undefined ? isWebPlayable.dataset.original === '1' : <?= ($game['is_web_playable'] ?? 1) ? 'true' : 'false' ?>;
+                isWebPlayable.disabled = isExterno;
+            }
+        }
+
+        function toggleRepoUrl() {
+            if (repoUrlRow && isOpenSource) repoUrlRow.classList.toggle('hidden', !isOpenSource.checked);
+        }
+
+        if (isWebPlayable) {
+            isWebPlayable.dataset.original = isWebPlayable.checked ? '1' : '0';
+            isWebPlayable.addEventListener('change', function() {
+                isWebPlayable.dataset.original = isWebPlayable.checked ? '1' : '0';
+            });
+        }
+
+        if (gameType) gameType.addEventListener('change', toggleExternalFields);
+        if (isOpenSource) isOpenSource.addEventListener('change', toggleRepoUrl);
+
+        // Game links
+        var container = document.getElementById('gameLinksContainer');
+        var list = document.getElementById('gameLinksList');
+        var addBtn = document.getElementById('addGameLink');
+
+        var platforms = <?= json_encode(array_map(function($p) {
+            return ['id' => $p['id'], 'name' => $p['name'], 'icon' => $p['icon'] ?? '', 'use_logo' => !empty($p['use_logo']) ? 1 : 0, 'logo_path' => $p['logo_path'] ?? ''];
+        }, $platforms ?? [])) ?>;
+
+        function escHtml(s) { return String(s).replace(/[&<>"']/g, function(c) { return '&#' + c.charCodeAt(0) + ';'; }); }
+
+        function platformThumbHtml(p) {
+            if (p.use_logo && p.logo_path) {
+                return '<img class="platform-thumb" src="' + escHtml(p.logo_path.startsWith('http') ? p.logo_path : '/' + p.logo_path) + '" alt="">';
+            }
+            return '<span class="platform-thumb">' + escHtml(p.icon || '🛒') + '</span>';
+        }
+
+        function createLinkRow(platformId, url) {
+            var selectHtml = '<select name="link_platform[]"><option value="">Selecione...</option>';
+            var thumbHtml = '<span class="platform-thumb">?</span>';
+            platforms.forEach(function(p) {
+                selectHtml += '<option value="' + escHtml(p.id) + '" ' + (p.id == platformId ? 'selected' : '') + '>' + escHtml(p.name) + '</option>';
+                if (p.id == platformId) thumbHtml = platformThumbHtml(p);
+            });
+            selectHtml += '</select>';
+            return '<div class="game-link-row">' +
+                '<div class="form-group game-link-platform"><div class="platform-select-wrap">' + thumbHtml + selectHtml + '</div></div>' +
+                '<div class="form-group game-link-url"><input type="url" name="link_url[]" value="' + escHtml(url) + '" placeholder="https://..."></div>' +
+                '<div class="game-link-action"><button type="button" class="btn btn-danger btn-sm game-link-remove" title="Remover link">🗑️ Excluir</button></div>' +
+            '</div>';
+        }
+
+        if (addBtn) {
+            addBtn.addEventListener('click', function() {
+                var div = document.createElement('div');
+                div.innerHTML = createLinkRow(0, '');
+                if (list) list.appendChild(div.firstElementChild);
+            });
+        }
+
+        if (list) {
+            list.addEventListener('click', function(e) {
+                if (e.target.classList.contains('game-link-remove')) {
+                    e.target.closest('.game-link-row').remove();
+                }
+            });
+
+            list.addEventListener('change', function(e) {
+                if (e.target.matches('select[name="link_platform[]"]')) {
+                    var row = e.target.closest('.game-link-row');
+                    var thumb = row.querySelector('.platform-thumb');
+                    var selected = platforms.find(function(p) { return p.id == e.target.value; });
+                    if (selected) {
+                        thumb.outerHTML = platformThumbHtml(selected);
+                    } else {
+                        thumb.outerHTML = '<span class="platform-thumb">🛒</span>';
+                    }
+                }
             });
         }
     });
