@@ -139,7 +139,7 @@ if ($action === 'new' || $action === 'edit') {
     <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        if (document.getElementById('content')) {
+        if (typeof tinymce !== 'undefined' && document.getElementById('content')) {
             tinymce.init({
                 selector: '#content',
                 height: 350,
