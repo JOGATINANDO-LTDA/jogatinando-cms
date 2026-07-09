@@ -185,7 +185,7 @@ header("Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-i
                     <?php if (!empty($game['description'])): ?>
                     <div class="game-info-description">
                         <h3>Sobre o Jogo</h3>
-                        <p><?= nl2br(e($game['description'])) ?></p>
+                        <?= parseMarkdown($game['description']) ?>
                     </div>
                     <?php endif; ?>
 

@@ -2511,3 +2511,66 @@ tbody tr:last-child td { border-bottom: none; }
 .btn-danger-fill:hover {
   background: oklch(50% 0.20 25);
 }
+
+/* ── Markdown Editor ── */
+.md-toolbar {
+  display: flex;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--bg-deep);
+  border: 1px solid var(--border);
+  border-bottom: none;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  flex-wrap: wrap;
+}
+.md-btn {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 4px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-family: var(--font-mono, monospace);
+}
+.md-btn:hover {
+  background: var(--gold-subtle);
+  border-color: var(--border-gold);
+  color: var(--gold);
+}
+.md-btn[data-action="mermaid"] {
+  color: oklch(70% 0.12 200);
+  border-color: oklch(40% 0.08 200);
+}
+.md-btn[data-action="mermaid"]:hover {
+  background: oklch(70% 0.12 200 / 0.1);
+}
+textarea + .md-toolbar,
+.md-toolbar + textarea {
+  border-radius: 0;
+}
+textarea + .md-toolbar + textarea,
+.md-toolbar + textarea {
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
+}
+.md-toolbar + textarea {
+  border-top: none;
+}
+
+/* ── Mermaid blocks (frontend) ── */
+.mermaid-block {
+  background: oklch(15% 0.02 260);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  margin: 12px 0;
+  overflow-x: auto;
+}
+.mermaid-block pre.mermaid {
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+}

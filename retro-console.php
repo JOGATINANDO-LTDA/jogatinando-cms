@@ -160,7 +160,7 @@ $availableLetters = array_column($letterRows, 'letter');
                             <div class="catalog-content">
                                 <h3><?= e($game['title']) ?></h3>
                                 <?php if (!empty($game['description'])): ?>
-                                    <p><?= e(truncateText($game['description'], 110)) ?></p>
+                                    <p><?= e(truncateText(strip_tags(parseMarkdown($game['description'])), 110)) ?></p>
                                 <?php endif; ?>
                                 <div class="catalog-card-footer">
                                     <span>Jogar</span>

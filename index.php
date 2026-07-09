@@ -312,7 +312,7 @@ $siteSocialLinks = getSocialLinks('site', true);
                     <?php endif; ?>
                     <div class="blog-content">
                         <h3><?= e($game['title']) ?></h3>
-                        <p><?= e(truncateText($game['description'], 150)) ?></p>
+                        <p><?= e(truncateText(strip_tags(parseMarkdown($game['description'])), 150)) ?></p>
                     </div>
                 </a>
                 <?php endforeach; ?>
@@ -347,7 +347,7 @@ $siteSocialLinks = getSocialLinks('site', true);
                     <?php endif; ?>
                     <div class="blog-content">
                         <h3><?= e($post['title']) ?></h3>
-                        <p><?= e(truncateText($post['content'], 150)) ?></p>
+                        <p><?= e(truncateText(strip_tags(parseMarkdown($post['content'])), 150)) ?></p>
                         <time><?= date('d/m/Y', strtotime($post['published_at'])) ?></time>
                         <?php if ($post['external_url']): ?>
                         <a href="<?= e($post['external_url']) ?>" class="btn btn-outline btn-sm" style="margin-top:12px" target="_blank" rel="noopener">Ler mais</a>

@@ -191,7 +191,7 @@ $gameAdBottom = renderAdSlot('game_after_player', 'game', 'all');
                     <?php if ($game['description']): ?>
                     <div class="game-info-description">
                         <h3>Sobre o Jogo</h3>
-                        <p><?= nl2br(e($game['description'])) ?></p>
+                        <?= parseMarkdown($game['description']) ?>
                     </div>
                     <?php endif; ?>
 
@@ -393,6 +393,12 @@ $gameAdBottom = renderAdSlot('game_after_player', 'game', 'all');
                 }
             });
         });
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js"></script>
+    <script>
+        if (typeof mermaid !== 'undefined') {
+            mermaid.initialize({ startOnLoad: true, theme: 'dark' });
+        }
     </script>
 </body>
 </html>

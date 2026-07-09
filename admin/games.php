@@ -483,25 +483,11 @@ if ($action === 'new' || $action === 'edit') {
     </div>
 
     <?php if ($action === 'new' || $action === 'edit'): ?>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/7.6.0/tinymce.min.js"></script>
+    <script src="<?= ADMIN_URL ?>/../assets/js/markdown-editor.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        // TinyMCE
-        if (typeof tinymce !== 'undefined' && document.getElementById('description')) {
-            tinymce.init({
-                selector: '#description',
-                height: 280,
-                menubar: false,
-                plugins: 'link lists code',
-                toolbar: 'bold italic underline | bullist numlist | link | code',
-                content_style: 'body { font-family: Inter, sans-serif; font-size: 14px; color: #e0e0e0; background: #1a1a2e; } a { color: #d4a853; }',
-                skin: 'oxide-dark',
-                content_css: false,
-                branding: false,
-                promotion: false,
-                statusbar: true
-            });
-        }
+        // Markdown editor
+        initMarkdownEditor('description');
 
         // File upload drag-and-drop
         var input = document.getElementById('gameArchiveInput');
@@ -726,7 +712,7 @@ if ($action === 'new' || $action === 'edit') {
                              <td>
                                  <?php $desc = trim($g['description'] ?? ''); ?>
                                  <?php if ($desc !== ''): ?>
-                                     <button data-raw="<?= e($desc) ?>" onclick="openDescModal('<?= e($g['title']) ?>', this)" class="btn btn-outline btn-sm btn-icon desc-open" title="Ver descrição completa">
+                                     <button data-raw="<?= htmlspecialchars(parseMarkdown($desc), ENT_QUOTES, 'UTF-8') ?>" onclick="openDescModal('<?= e($g['title']) ?>', this)" class="btn btn-outline btn-sm btn-icon desc-open" title="Ver descrição completa">
                                          <span class="desc-btn-inner">
                                              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                                              <span class="desc-btn-label">Ver Descrição</span>

@@ -136,24 +136,10 @@ if ($action === 'new' || $action === 'edit') {
     </div>
 
     <?php if ($action === 'new' || $action === 'edit'): ?>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/7.6.0/tinymce.min.js"></script>
+    <script src="<?= ADMIN_URL ?>/../assets/js/markdown-editor.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
-        if (typeof tinymce !== 'undefined' && document.getElementById('content')) {
-            tinymce.init({
-                selector: '#content',
-                height: 350,
-                menubar: false,
-                plugins: 'link lists code',
-                toolbar: 'bold italic underline | bullist numlist | link | code',
-                content_style: 'body { font-family: Inter, sans-serif; font-size: 14px; color: #e0e0e0; background: #1a1a2e; } a { color: #d4a853; }',
-                skin: 'oxide-dark',
-                content_css: false,
-                branding: false,
-                promotion: false,
-                statusbar: true
-            });
-        }
+        initMarkdownEditor('content');
     });
     </script>
     <?php endif; ?>
