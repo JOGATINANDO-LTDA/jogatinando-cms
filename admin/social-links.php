@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$result['success']) {
                 flashMessage('error', $result['message']);
                 ob_end_clean();
-                header('Location: ' . ADMIN_URL . '/social-links' . ($id > 0 ? '?edit=' . $id : ''));
+                header('Location: ' . ADMIN_URL . '/social-links' . ($id > 0 ? '?action=edit&id=' . $id : ''));
                 exit;
             }
             $imagePath = $result['url'];
@@ -153,13 +153,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $pager = paginateQuery('SELECT COUNT(*) as c FROM social_links', 'SELECT * FROM social_links ORDER BY scope ASC, sort_order ASC, id ASC');
 $items = $pager['items'];
 $totalItems = $pager['total'];
-$editId = (int)($_GET['edit'] ?? 0);
+$action = $_GET['action'] ?? 'list';
+$editId = (int)($_GET['id'] ?? $_GET['edit'] ?? 0);
 $editItem = $editId ? dbQueryOne('SELECT * FROM social_links WHERE id = ?', [$editId]) : null;
+if ($action === 'edit' && $editId && !$editItem) {
+    flashMessage('error', 'Link não encontrado.');
+    header('Location: ' . ADMIN_URL . '/social-links');
+    exit;
+}
 $presetKeys = ['youtube','twitch','x','tiktok','facebook','instagram','linkedin','discord','kick','kwai','website'];
 ?>
 
+<?php if ($action === 'new' || $action === 'edit'): ?>
 <div class="card">
-    <div class="card-header"><h2 class="card-title">Gerenciar Redes Sociais</h2></div>
+    <div class="card-header">
+        <h2 class="card-title"><?= $action === 'new' ? 'Novo Link' : 'Editar Link' ?></h2>
+        <a href="social-links" class="btn btn-outline btn-sm">← Voltar</a>
+    </div>
     <div class="card-body">
         <form method="POST" class="form-grid form-grid-limited" enctype="multipart/form-data">
             <?= csrfField() ?>
@@ -292,9 +302,12 @@ $presetKeys = ['youtube','twitch','x','tiktok','facebook','instagram','linkedin'
     </div>
 </div>
 
-<div class="card card-spaced">
+<?php else: ?>
+
+<div class="card">
     <div class="card-header">
-        <h2 class="card-title">Itens (<?= $totalItems ?>)</h2>
+        <h2 class="card-title">Redes Sociais (<?= $totalItems ?>)</h2>
+        <a href="social-links?action=new" class="btn btn-gold btn-sm">+ Novo Link</a>
     </div>
     <div class="card-body">
         <form method="POST" id="bulkForm">
@@ -320,7 +333,7 @@ $presetKeys = ['youtube','twitch','x','tiktok','facebook','instagram','linkedin'
                             <td><?= e(mb_substr($item['url'], 0, 50)) ?></td>
                             <td><?= !empty($item['active']) ? '<span class="badge badge-active">Ativo</span>' : '<span class="badge badge-inactive">Inativo</span>' ?></td>
                             <td class="actions">
-                                <a class="btn btn-outline btn-sm" href="?edit=<?= (int)$item['id'] ?>">Editar</a>
+                                <a class="btn btn-outline btn-sm" href="?action=edit&id=<?= (int)$item['id'] ?>">Editar</a>
                                 <form method="POST" onsubmit="return confirm('Remover link?')">
                                     <?= csrfField() ?>
                                     <input type="hidden" name="action" value="delete">
@@ -337,5 +350,7 @@ $presetKeys = ['youtube','twitch','x','tiktok','facebook','instagram','linkedin'
         <?php endif; ?>
     </div>
 </div>
+
+<?php endif; ?>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

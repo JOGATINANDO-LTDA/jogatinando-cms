@@ -483,7 +483,7 @@ if ($action === 'new' || $action === 'edit') {
     </div>
 
     <?php if ($action === 'new' || $action === 'edit'): ?>
-    <script src="https://cdn.tiny.cloud/1/no-api-key/tinymce/7/tinymce.min.js" referrerpolicy="origin"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tinymce/7.6.0/tinymce.min.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
         // TinyMCE
