@@ -69,7 +69,9 @@ if ($action === 'new' || $action === 'edit') {
     ?>
     <div class="card">
         <div class="card-header"><h2 class="card-title">Perguntas Frequentes (<?= $totalItems ?>)</h2><a href="faq?action=new" class="btn btn-gold btn-sm">+ Nova FAQ</a></div>
-        <?php if (empty($items)): ?><div class="card-body"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><p>Nenhuma FAQ cadastrada.</p></div></div>
+        <?php if (!empty($pager['error'])): ?>
+            <?= renderDbErrorCard($pager['error']) ?>
+        <?php elseif (empty($items)): ?><div class="card-body"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><p>Nenhuma FAQ cadastrada.</p></div></div>
         <?php else: ?>
             <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
             <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>

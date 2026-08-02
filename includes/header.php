@@ -1,6 +1,11 @@
 <?php
 require_once dirname(__DIR__) . '/config.php';
 requireLogin();
+register_shutdown_function(function () {
+    if (ob_get_level() > 0) {
+        ob_end_flush();
+    }
+});
 $currentPage = basename($_SERVER['PHP_SELF'], '.php');
 $siteName = getSetting('site_name', 'CMS de Jogos');
 $initial = strtoupper(substr($_SESSION['admin_username'] ?? 'A', 0, 1));

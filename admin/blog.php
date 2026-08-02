@@ -155,7 +155,9 @@ if ($action === 'new' || $action === 'edit') {
             <h2 class="card-title">Posts do Blog (<?= $totalItems ?>)</h2>
             <a href="blog?action=new" class="btn btn-gold btn-sm">+ Novo Post</a>
         </div>
-        <?php if (empty($posts)): ?>
+        <?php if (!empty($pager['error'])): ?>
+            <?= renderDbErrorCard($pager['error']) ?>
+        <?php elseif (empty($posts)): ?>
             <div class="card-body">
             <div class="empty-state">
                 <div class="empty-icon">

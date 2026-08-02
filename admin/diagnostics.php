@@ -158,5 +158,47 @@ diagOk("Active config existe: " . (file_exists(DATA_PATH . '/config.local.php') 
 ?>
 </section>
 
+<section style="margin-bottom:32px">
+<h2 style="font-size:16px;color:oklch(80% 0.1 85);margin-bottom:12px;border-bottom:1px solid oklch(25% 0.02 260);padding-bottom:8px">Teste de Queries</h2>
+<?php
+if ($db && $dbType) {
+    $queries = [
+        'SELECT COUNT(*) as c FROM banners' => 'banners (count)',
+        'SELECT * FROM banners ORDER BY sort_order ASC, id DESC LIMIT 5 OFFSET 0' => 'banners (list)',
+        'SELECT COUNT(*) as c FROM games g LEFT JOIN engines e ON g.engine = e.name' => 'games+engines (count)',
+        'SELECT g.*, COALESCE(e.active, 0) as engine_active FROM games g LEFT JOIN engines e ON g.engine = e.name ORDER BY g.sort_order ASC, g.id DESC LIMIT 5 OFFSET 0' => 'games+engines (list)',
+        'SELECT COUNT(*) as c FROM blog_posts' => 'blog_posts (count)',
+        'SELECT COUNT(*) as c FROM social_links' => 'social_links (count)',
+        'SELECT COUNT(*) as c FROM testimonials' => 'testimonials (count)',
+        'SELECT COUNT(*) as c FROM faq_items' => 'faq_items (count)',
+        'SELECT COUNT(*) as c FROM team_members' => 'team_members (count)',
+        'SELECT COUNT(*) as c FROM engines' => 'engines (count)',
+        'SELECT COUNT(*) as c FROM store_platforms' => 'store_platforms (count)',
+    ];
+    foreach ($queries as $sql => $label) {
+        try {
+            $start = microtime(true);
+            $result = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+            $ms = round((microtime(true) - $start) * 1000, 1);
+            $count = is_array($result) ? count($result) : 1;
+            diagOk("{$label}: {$count} rows ({$ms}ms)");
+        } catch (Exception $e) {
+            diagFail("{$label}: FALHA", $e->getMessage());
+        }
+    }
+    // Test LIMIT ? OFFSET ? with prepared statement (used by paginateQuery)
+    try {
+        $stmt = $db->prepare('SELECT * FROM banners LIMIT ? OFFSET ?');
+        $stmt->execute([5, 0]);
+        diagOk('Prepared LIMIT/OFFSET: OK');
+    } catch (Exception $e) {
+        diagFail('Prepared LIMIT/OFFSET: FALHA', $e->getMessage());
+    }
+} else {
+    diagFail('Banco não disponível para testes de query');
+}
+?>
+</section>
+
 </div>
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

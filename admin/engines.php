@@ -179,7 +179,9 @@ if ($action === 'new' || $action === 'edit') {
             <h2 class="card-title">Engines (<?= $totalItems ?>)</h2>
             <a href="engines?action=new" class="btn btn-gold btn-sm">+ Nova Engine</a>
         </div>
-        <?php if (empty($engines)): ?>
+        <?php if (!empty($pager['error'])): ?>
+            <?= renderDbErrorCard($pager['error']) ?>
+        <?php elseif (empty($engines)): ?>
             <div class="card-body">
             <div class="empty-state">
                 <div class="empty-icon">🎮</div>

@@ -671,7 +671,9 @@ if ($action === 'new' || $action === 'edit') {
         <div class="card-body">
             <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
             <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>
-        <?php if (empty($games)): ?>
+        <?php if (!empty($pager['error'])): ?>
+            <?= renderDbErrorCard($pager['error']) ?>
+        <?php elseif (empty($games)): ?>
             <div class="empty-state">
                 <div class="empty-icon">
                     <svg viewBox="0 0 24 24"><path d="M6 11h4M8 9v4"/><circle cx="15" cy="10.5" r="0.5" fill="currentColor" stroke="none"/><circle cx="17" cy="12.5" r="0.5" fill="currentColor" stroke="none"/><rect x="2" y="6" width="20" height="12" rx="4"/></svg>
