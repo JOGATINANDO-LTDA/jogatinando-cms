@@ -106,10 +106,10 @@ if (isset($_GET['edit'])) {
         <a href="levels" class="btn btn-outline btn-sm" style="margin-left:8px;">Gerenciar Níveis</a>
     </div>
     <div class="card-body">
-        <form id="newRoleForm" method="POST" class="hidden" style="margin-bottom: 24px; padding: 16px; background: oklch(16% 0.035 265); border: 1px solid var(--border); border-radius: 8px;">
+        <form id="newRoleForm" method="POST" class="hidden form-card">
             <input type="hidden" name="action" value="create">
             <?= csrfField() ?>
-            <div class="form-row" style="margin-bottom: 0;">
+            <div class="form-row" style="margin-bottom:0;">
                 <div class="form-group">
                     <label for="name">Nome do Cargo *</label>
                     <input type="text" id="name" name="name" required placeholder="Ex: CEO Administrador">
@@ -128,11 +128,11 @@ if (isset($_GET['edit'])) {
                     </select>
                 </div>
             </div>
-            <div class="form-group" style="margin-top: 12px;">
+            <div class="form-group">
                 <label for="description">Descrição</label>
-                <textarea id="description" name="description" rows="2" placeholder="Descrição do cargo..." style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:oklch(12% 0.02 260);color:var(--fg);font-size:14px;resize:vertical;"></textarea>
+                <textarea id="description" name="description" rows="2" placeholder="Descrição do cargo..."></textarea>
             </div>
-            <div class="form-actions" style="margin-top: 12px;">
+            <div class="form-actions">
                 <button type="submit" class="btn btn-gold btn-sm">Criar</button>
                 <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('form').classList.add('hidden')">Cancelar</button>
             </div>
@@ -147,10 +147,10 @@ if (isset($_GET['edit'])) {
                     <?php foreach ($roles as $r): ?>
                     <tr>
                         <td><?= $r['id'] ?></td>
-                        <td><strong style="color:var(--fg)"><?= e($r['name']) ?></strong></td>
+                        <td><strong class="text-fg"><?= e($r['name']) ?></strong></td>
                         <td><span class="badge badge-featured"><?= e($r['level_name'] ?? $r['level'] ?? '—') ?></span></td>
                         <td><?= $r['user_count'] ?></td>
-                        <td style="color:var(--fg-muted);font-size:13px;"><?= e($r['description']) ?></td>
+                        <td class="text-muted text-small"><?= e($r['description']) ?></td>
                         <td class="actions">
                             <?php if ($r['id'] == 1): ?>
                                 <?php if ($userId === 1): ?>
@@ -159,7 +159,7 @@ if (isset($_GET['edit'])) {
                                 <button class="btn btn-danger btn-sm btn-icon" disabled title="Cargo mestre não pode ser excluído">🔒</button>
                             <?php else: ?>
                             <a href="?edit=<?= $r['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
-                            <form method="POST" style="display:inline" onsubmit="return confirm('Excluir cargo <?= e($r['name']) ?>?')">
+                            <form method="POST" class="form-inline" onsubmit="return confirm('Excluir cargo <?= e($r['name']) ?>?')">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="id" value="<?= $r['id'] ?>">
                                 <?= csrfField() ?>
@@ -178,23 +178,23 @@ if (isset($_GET['edit'])) {
 <?php if ($editRole): ?>
 <?php if ($editRole['id'] == 1): ?>
     <?php if ($userId !== 1): ?>
-<div class="card" style="margin-top: 24px;">
+<div class="card card-spaced">
     <div class="card-header">
         <h2 class="card-title">Cargo Protegido</h2>
         <a href="roles" class="btn btn-outline btn-sm">Voltar</a>
     </div>
     <div class="card-body">
-        <p style="color:var(--fg-muted);">O cargo <strong><?= e($editRole['name']) ?></strong> é o cargo mestre do sistema e só pode ser editado pelo master.</p>
+        <p class="text-muted">O cargo <strong class="text-fg"><?= e($editRole['name']) ?></strong> é o cargo mestre do sistema e só pode ser editado pelo master.</p>
     </div>
 </div>
     <?php else: ?>
-<div class="card" style="margin-top: 24px;">
+<div class="card card-spaced">
     <div class="card-header">
         <h2 class="card-title">Editar Cargo: <?= e($editRole['name']) ?></h2>
         <a href="roles" class="btn btn-outline btn-sm">Cancelar</a>
     </div>
     <div class="card-body">
-        <div style="padding:12px 16px;background:oklch(75% 0.15 85 / 0.08);border-radius:8px;margin-bottom:16px;font-size:13px;">🔒 Cargo mestre — apenas nome e descrição podem ser alterados.</div>
+        <div class="alert-static alert-static-gold">🔒 Cargo mestre — apenas nome e descrição podem ser alterados.</div>
         <form method="POST">
             <input type="hidden" name="action" value="edit">
             <input type="hidden" name="id" value="1">
@@ -203,11 +203,11 @@ if (isset($_GET['edit'])) {
                 <label for="edit_name">Nome do Cargo *</label>
                 <input type="text" id="edit_name" name="name" required value="<?= e($editRole['name']) ?>">
             </div>
-            <div class="form-group" style="margin-top:12px;">
+            <div class="form-group">
                 <label for="edit_description">Descrição</label>
-                <textarea id="edit_description" name="description" rows="2" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:oklch(12% 0.02 260);color:var(--fg);font-size:14px;resize:vertical;"><?= e($editRole['description']) ?></textarea>
+                <textarea id="edit_description" name="description" rows="2"><?= e($editRole['description']) ?></textarea>
             </div>
-            <button type="submit" class="btn btn-gold btn-sm" style="margin-top:12px;">Salvar</button>
+            <button type="submit" class="btn btn-gold btn-sm">Salvar</button>
         </form>
     </div>
 </div>
@@ -215,7 +215,7 @@ if (isset($_GET['edit'])) {
 <?php else: ?>
 <?php $editLevelRank = 0;
 if ($editRole['level_id']) { $el = $db->prepare("SELECT * FROM levels WHERE id = ?"); $el->execute([$editRole['level_id']]); $ed = $el->fetch(); if ($ed) { foreach ($ed as $k => $v) { if (strpos($k, 'perm_') === 0 && $v) $editLevelRank++; } } } ?>
-<div class="card" style="margin-top: 24px;">
+<div class="card card-spaced">
     <div class="card-header">
         <h2 class="card-title">Editar Cargo: <?= e($editRole['name']) ?></h2>
         <a href="roles" class="btn btn-outline btn-sm">Cancelar</a>
@@ -246,7 +246,7 @@ if ($editRole['level_id']) { $el = $db->prepare("SELECT * FROM levels WHERE id =
             </div>
             <div class="form-group">
                 <label for="edit_description">Descrição</label>
-                <textarea id="edit_description" name="description" rows="2" style="width:100%;padding:10px 12px;border:1px solid var(--border);border-radius:6px;background:oklch(12% 0.02 260);color:var(--fg);font-size:14px;resize:vertical;"><?= e($editRole['description']) ?></textarea>
+                <textarea id="edit_description" name="description" rows="2"><?= e($editRole['description']) ?></textarea>
             </div>
             <button type="submit" class="btn btn-gold btn-sm">Salvar</button>
         </form>
@@ -254,9 +254,5 @@ if ($editRole['level_id']) { $el = $db->prepare("SELECT * FROM levels WHERE id =
 </div>
 <?php endif; ?>
 <?php endif; ?>
-
-<style>
-.hidden { display: none; }
-</style>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

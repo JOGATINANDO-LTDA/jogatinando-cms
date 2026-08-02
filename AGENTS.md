@@ -6,6 +6,47 @@
 2. **Sistema operacional**: Sempre use Windows 11 com PowerShell padrão (Windows PowerShell 5.1, não PowerShell 7/PowerShell Core). Nunca use comandos bash, sh, zsh ou sintaxe de terminal Linux/macOS. Use cmdlets PowerShell (`Get-ChildItem`, `Set-Content`, `Test-Path`, etc.), não comandos Unix (`ls`, `cat`, `chmod`, `grep`, etc.).
 3. **Commit proibido sem autorização explícita**: Nunca faça commit, push, ou qualquer operação de escrita no repositório remoto a menos que o usuário diga EXATAMENTE a palavra "commit" no mesmo contexto.
 4. **Um commit por vez**: Cada permissão de "commit" vale APENAS para o commit atual. Depois de executado, você DEVE esperar um novo "commit" explícito para o próximo. Mesmo que o commit anterior tenha passado, não assuma permissão para o seguinte.
+5. **Browser testing — login obrigatório**: Quando usar `agent-browser` e a URL retornar `/admin/login`, PREENCHA IMEDIATAMENTE as credenciais. NUNCA pare na tela de login.
+   - MySQL (Docker): `sorameshi` / `lotus10`
+   - SQLite: `admin` / `admin1234`
+   - Comandos (encadear sem parar):
+     ```
+     agent-browser find label "Usuário" fill "sorameshi"
+     agent-browser find label "Senha" fill "lotus10"
+     agent-browser find role button click --name "Entrar"
+     agent-browser wait --load networkidle
+     ```
+   - NUNCA use `agent-browser open` em `/admin/login` sem preencher as credenciais no mesmo bloco de comandos.
+6. **Browser testing — sem tela parada**: Após qualquer comando `agent-browser open` ou `agent-browser wait`, a próxima mensagem DEVE conter pelo menos uma ação (fill, click, eval, screenshot, snapshot). Se não houver ação clara:
+   - **Feche o browser**: `agent-browser close`
+   - **Sinalize**: "Browser aberto sem ação definida. Fechado."
+   - NUNCA termine uma mensagem com apenas `agent-browser open` sem encadear ação.
+7. **Browser testing — timeout por ação**: Cada comando `agent-browser` DEVE ter timeout de no máximo 15 segundos. Se um comando não responder dentro desse prazo:
+   - **Feche o browser**: `agent-browser close`
+   - **Sinalize**: "Comando {comando} não respondeu em 15s. Browser fechado."
+   - NUNCA aguarde mais de 15 segundos sem feedback.
+   - Exceção: `agent-browser wait --load networkidle` pode ter timeout de 20s.
+8. **Browser testing — encadeamento determinístico**: Comandos `agent-browser` são determinísticos — cada "Done" significa "comando completado, vá para o próximo". NUNCA pare após um "Done". A regra é:
+   - Cada bloco de teste deve conter 3-5 comandos encadeados com `;` no PowerShell.
+   - Exemplo correto:
+     ```
+     agent-browser --state ./data/browser-state.json open http://localhost:8080/admin/social-links
+     agent-browser eval "document.querySelectorAll('.row-select').length"
+     agent-browser screenshot ./tmp/test.png
+     agent-browser close
+     ```
+   - Exemplo INCORRETO (para no Done):
+     ```
+     agent-browser open http://localhost:8080/admin/social-links
+     ← AQUI O AGENTE PARA. ISSO É ERRO.
+     ```
+   - Sempre feche o browser no final de cada bloco de teste.
+   - Se não souber o que fazer após um comando, feche o browser e sinalize.
+9. **Browser testing — não-interativo por padrão**: O `agent-browser` é headless por padrão (sem janela visível). Os modos são:
+   - **Headless (padrão)**: sem janela, tudo automático, sem interação humana. NUNCA espere interação humana neste modo.
+   - **`--headed`**: janela visível, mas ainda automático. Só ative se o usuário pedir explicitamente (ex: "quero ver a janela do navegador", "desligue o headless"). O usuário pode apenas querer visualizar testes autônomos rodando.
+   - **Interativo**: desative headless E espere comandos do usuário. Só ative se o usuário disser explicitamente que quer interagir (ex: "quero que os testes sejam interativos", "quero interagir com o browser").
+   - Resumo: headless é o padrão. Todas as ações são automáticas. Só mude o modo quando o usuário pedir explicitamente.
 
 ## Project
 
@@ -44,6 +85,8 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 > `config.local.php` é a única forma do sistema saber se está instalado. SQLite e MySQL ambos criam `config.local.php` após o install. Se o arquivo for perdido, install.php aparece — mesmo que o `.db` ainda exista. O usuário clica SQLite (ou MySQL com mesmas credenciais) e os dados são preservados.
 
 > **MySQL auto-create DB**: O install.php conecta primeiro ao MySQL sem database (`CREATE DATABASE IF NOT EXISTS \`$name\``) antes de rodar dbInit. Funciona se o usuário tiver privilégio CREATE. No Docker, `cms_user` não tem — usar database `cms_db` (já existe).
+
+> **Admin credentials**: Em `config.php`, os env vars `ADMIN_USERNAME` e `ADMIN_PASSWORD` do Docker Compose só afetam **MySQL**. Quando `DB_TYPE=sqlite` (via `config.local.php` do install), as credenciais padrão `admin`/`admin1234` são usadas independentemente dos env vars. Isso garante que SQLite sempre use `admin`/`admin1234` mesmo dentro do container Docker.
 
 > **Migrações automáticas**: `dbMigrate()` roda em toda conexão PDO. Se o schema do banco estiver desatualizado, as migrações são aplicadas automaticamente sem perder dados.
 

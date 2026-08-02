@@ -1,0 +1,356 @@
+<?php
+ob_start();
+$pageTitle = 'Redes Sociais';
+$requiredPerm = 'perm_settings';
+require_once __DIR__ . '/../includes/header.php';
+
+$db = getDB();
+
+$ensureSocialLinkSchema = function() use ($db) {
+    $type = getDbType();
+    try {
+        if ($type === 'mysql') {
+            $cols = $db->query("SHOW COLUMNS FROM social_links LIKE 'image_path'")->fetch();
+            if (!$cols) {
+                $db->exec("ALTER TABLE social_links ADD COLUMN image_path VARCHAR(500) NOT NULL DEFAULT '' AFTER url");
+            }
+        } else {
+            $cols = $db->query("PRAGMA table_info(social_links)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('image_path', $cols)) {
+                $db->exec("ALTER TABLE social_links ADD COLUMN image_path TEXT NOT NULL DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+};
+
+$ensureSocialLinkSchema();
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
+        flashMessage('error', 'Token inválido.');
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/social-links');
+        exit;
+    }
+
+    $action = $_POST['action'] ?? 'save';
+    if ($action === 'save') {
+        $ensureSocialLinkSchema();
+        $id = (int)($_POST['id'] ?? 0);
+        $allowedScopes = ['site', 'footer', 'hero', 'header'];
+        $allowedPlatforms = ['youtube', 'twitch', 'x', 'tiktok', 'facebook', 'instagram', 'linkedin', 'discord', 'kick', 'kwai', 'website'];
+        $scope = trim($_POST['scope'] ?? 'site');
+        $platformKey = trim($_POST['platform_key'] ?? 'website');
+        $label = trim($_POST['label'] ?? '');
+        $url = trim($_POST['url'] ?? '');
+        $imagePath = '';
+        $customImage = !empty($_POST['custom_image']) ? 1 : 0;
+        $active = !empty($_POST['active']) ? 1 : 0;
+        $sortOrder = (int)($_POST['sort_order'] ?? 0);
+        $existing = $id > 0 ? dbQueryOne('SELECT * FROM social_links WHERE id = ?', [$id]) : null;
+
+        if (!in_array($scope, $allowedScopes, true)) {
+            flashMessage('error', 'Escopo inválido.');
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/social-links');
+            exit;
+        }
+        if (!in_array($platformKey, $allowedPlatforms, true)) {
+            flashMessage('error', 'Plataforma inválida.');
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/social-links');
+            exit;
+        }
+        if ($url === '' || !filter_var($url, FILTER_VALIDATE_URL)) {
+            flashMessage('error', 'URL inválida.');
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/social-links');
+            exit;
+        }
+        if ($label === '') {
+            $preset = getSocialPlatformPreset($platformKey);
+            $label = $preset['label'];
+        }
+        $shouldUploadImage = $platformKey === 'website' || $customImage;
+        if ($platformKey === 'website') {
+            $customImage = 1;
+        }
+
+        if ($shouldUploadImage && empty($_FILES['image_file']['name']) && empty($existing['image_path'] ?? '')) {
+            flashMessage('error', 'Envie uma imagem para links do tipo website.');
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/social-links');
+            exit;
+        }
+        if ($shouldUploadImage && isset($_FILES['image_file']) && $_FILES['image_file']['error'] === UPLOAD_ERR_OK) {
+            $result = uploadFile($_FILES['image_file'], 'social-links', ['jpg', 'jpeg', 'png', 'gif', 'webp']);
+            if (!$result['success']) {
+                flashMessage('error', $result['message']);
+                ob_end_clean();
+                header('Location: ' . ADMIN_URL . '/social-links' . ($id > 0 ? '?action=edit&id=' . $id : ''));
+                exit;
+            }
+            $imagePath = $result['url'];
+        } elseif ($existing) {
+            $imagePath = trim((string)($existing['image_path'] ?? ''));
+        }
+
+        if ($shouldUploadImage && $imagePath === '') {
+            flashMessage('error', 'A imagem é obrigatória para links do tipo website.');
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/social-links');
+            exit;
+        }
+
+        $duplicate = dbQueryOne("SELECT id, label FROM social_links WHERE scope = ? AND platform_key = ? AND id != ?", [$scope, $platformKey, $id]);
+        if ($duplicate) {
+            $dupLabel = $duplicate['label'] ?: $platformKey;
+            flashMessage('error', "Já existe um link para {$dupLabel} no escopo '{$scope}'. Edite o existente.");
+            ob_end_clean();
+            header('Location: ' . ADMIN_URL . '/social-links');
+            exit;
+        }
+
+        if ($id > 0) {
+            if ($existing && !empty($existing['image_path'] ?? '') && $imagePath !== trim((string)($existing['image_path'] ?? ''))) {
+                deleteFile($existing['image_path']);
+            }
+            $stmt = $db->prepare("UPDATE social_links SET scope = ?, platform_key = ?, label = ?, url = ?, image_path = ?, active = ?, sort_order = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?");
+            $stmt->execute([$scope, $platformKey, $label, $url, $shouldUploadImage ? $imagePath : '', $active, $sortOrder, $id]);
+        } else {
+            $stmt = $db->prepare("INSERT INTO social_links (scope, platform_key, label, url, image_path, active, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$scope, $platformKey, $label, $url, $shouldUploadImage ? $imagePath : '', $active, $sortOrder]);
+        }
+        flashMessage('success', 'Link social salvo.');
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/social-links');
+        exit;
+    }
+
+    if ($action === 'delete') {
+        $id = (int)($_POST['id'] ?? 0);
+        $stmt = $db->prepare('DELETE FROM social_links WHERE id = ?');
+        $stmt->execute([$id]);
+        flashMessage('success', 'Link social removido.');
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/social-links');
+        exit;
+    }
+
+    if ($action === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $db->prepare("DELETE FROM social_links WHERE id IN ($placeholders)")->execute($ids);
+            flashMessage('success', count($ids) . ' link(s) removido(s).');
+        }
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/social-links');
+        exit;
+    }
+}
+
+$pager = paginateQuery('SELECT COUNT(*) as c FROM social_links', 'SELECT * FROM social_links ORDER BY scope ASC, sort_order ASC, id ASC');
+$items = $pager['items'];
+$totalItems = $pager['total'];
+$action = $_GET['action'] ?? 'list';
+$editId = (int)($_GET['id'] ?? $_GET['edit'] ?? 0);
+$editItem = $editId ? dbQueryOne('SELECT * FROM social_links WHERE id = ?', [$editId]) : null;
+if ($action === 'edit' && $editId && !$editItem) {
+    flashMessage('error', 'Link não encontrado.');
+    header('Location: ' . ADMIN_URL . '/social-links');
+    exit;
+}
+$presetKeys = ['youtube','twitch','x','tiktok','facebook','instagram','linkedin','discord','kick','kwai','website'];
+?>
+
+<?php if ($action === 'new' || $action === 'edit'): ?>
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title"><?= $action === 'new' ? 'Novo Link' : 'Editar Link' ?></h2>
+        <a href="social-links" class="btn btn-outline btn-sm">← Voltar</a>
+    </div>
+    <div class="card-body">
+        <form method="POST" class="form-grid form-grid-limited" enctype="multipart/form-data">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="save">
+            <input type="hidden" name="id" value="<?= e((string)($editItem['id'] ?? 0)) ?>">
+            <h3 class="form-section-title">Informações Básicas</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="scope">Escopo</label>
+                    <select id="scope" name="scope">
+                        <option value="site" <?= ($editItem['scope'] ?? 'site') === 'site' ? 'selected' : '' ?>>site</option>
+                        <option value="footer" <?= ($editItem['scope'] ?? '') === 'footer' ? 'selected' : '' ?>>footer</option>
+                        <option value="hero" <?= ($editItem['scope'] ?? '') === 'hero' ? 'selected' : '' ?>>hero</option>
+                        <option value="header" <?= ($editItem['scope'] ?? '') === 'header' ? 'selected' : '' ?>>header</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="platform_key">Plataforma</label>
+                    <div class="platform-select-row">
+                        <select id="platform_key" name="platform_key">
+                            <option value="website" <?= ($editItem['platform_key'] ?? 'website') === 'website' ? 'selected' : '' ?>>website</option>
+                            <?php foreach ($presetKeys as $key): if ($key === 'website') continue; ?>
+                                <option value="<?= e($key) ?>" <?= ($editItem['platform_key'] ?? '') === $key ? 'selected' : '' ?>><?= e($key) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <span class="platform-icon-preview" id="platformIconPreview"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="label">Label</label>
+                    <input type="text" id="label" name="label" value="<?= e($editItem['label'] ?? '') ?>" placeholder="Ex: Canal oficial">
+                </div>
+                <div class="form-group">
+                    <label for="url">URL</label>
+                    <input type="url" id="url" name="url" value="<?= e($editItem['url'] ?? '') ?>" placeholder="https://...">
+                </div>
+            </div>
+
+            <h3 class="form-section-title">Mídia</h3>
+            <?php $isWebsite = ($editItem['platform_key'] ?? 'website') === 'website'; ?>
+            <div class="form-group hidden" id="customImageRow">
+                <div class="toggle-group">
+                    <input type="checkbox" id="custom_image" name="custom_image" value="1" <?= !$isWebsite && !empty($editItem['image_path']) ? 'checked' : '' ?>>
+                    <label for="custom_image">Usar imagem personalizada</label>
+                </div>
+                <div class="field-hint">Plataformas conhecidas usam Font Awesome por padrão. Marque para substituir com uma imagem própria.</div>
+            </div>
+
+            <div class="form-group <?= $isWebsite || !empty($editItem['image_path']) ? '' : 'hidden' ?>" id="socialImageGroup">
+                <label for="image_file">Imagem</label>
+                <div class="file-upload">
+                    <input type="file" id="image_file" name="image_file" accept="image/png,image/jpeg,image/gif,image/webp">
+                    <div class="upload-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div>
+                    <div class="upload-text">Upload de imagem da marca</div>
+                    <div class="upload-hint">JPG, PNG, WebP ou GIF. SVG e scripts não são aceitos.</div>
+                </div>
+                <?php if (!empty($editItem['image_path'] ?? '')): ?>
+                    <img src="<?= e(mediaUrl($editItem['image_path'])) ?>" class="preview-img" alt="Imagem atual">
+                <?php endif; ?>
+                <div class="field-hint" id="socialImageHint"><?= ($editItem['platform_key'] ?? '') === 'website' ? 'Para `website`, o upload é obrigatório.' : 'Quando desmarcado, o ícone do Font Awesome será usado.' ?></div>
+            </div>
+
+            <h3 class="form-section-title">Configurações</h3>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="sort_order">Ordem</label>
+                    <input type="number" id="sort_order" name="sort_order" value="<?= e((string)($editItem['sort_order'] ?? 0)) ?>">
+                </div>
+                <div class="form-group">
+                    <div class="toggle-group">
+                        <input type="checkbox" id="active" name="active" value="1" <?= !empty($editItem['active']) ? 'checked' : '' ?>>
+                        <label for="active">Ativo</label>
+                    </div>
+                </div>
+            </div>
+            <div class="form-actions"><button class="btn btn-gold" type="submit">Salvar</button></div>
+        </form>
+        <script>
+        (function() {
+            var platform = document.getElementById('platform_key');
+            var group = document.getElementById('socialImageGroup');
+            var hint = document.getElementById('socialImageHint');
+            var customRow = document.getElementById('customImageRow');
+            var custom = document.getElementById('custom_image');
+            var iconPreview = document.getElementById('platformIconPreview');
+            var iconMap = {
+                youtube: 'fa-brands fa-youtube',
+                twitch: 'fa-brands fa-twitch',
+                x: 'fa-brands fa-x-twitter',
+                tiktok: 'fa-brands fa-tiktok',
+                facebook: 'fa-brands fa-facebook-f',
+                instagram: 'fa-brands fa-instagram',
+                linkedin: 'fa-brands fa-linkedin-in',
+                discord: 'fa-brands fa-discord',
+                kick: 'fa-solid fa-link',
+                kwai: 'fa-solid fa-link',
+                website: 'fa-solid fa-globe'
+            };
+            if (!platform || !group || !hint) return;
+            function updateIconPreview() {
+                if (!iconPreview) return;
+                var cls = iconMap[platform.value] || 'fa-solid fa-link';
+                iconPreview.innerHTML = '<i class="' + cls + '"></i>';
+            }
+            function sync() {
+                var show = platform.value === 'website';
+                if (customRow) customRow.classList.toggle('hidden', show);
+                if (custom) {
+                    if (show) {
+                        custom.checked = true;
+                    }
+                }
+                if (group) group.classList.toggle('hidden', !(show || (custom && custom.checked)));
+                hint.textContent = show ? 'Para `website`, o upload é obrigatório.' : (custom && custom.checked ? 'Upload ativo.' : 'Quando desmarcado, o ícone do Font Awesome será usado.');
+            }
+            platform.addEventListener('change', function() {
+                if (custom) {
+                    custom.checked = platform.value === 'website' ? true : false;
+                }
+                updateIconPreview();
+                sync();
+            });
+            if (custom) custom.addEventListener('change', sync);
+            updateIconPreview();
+            sync();
+        })();
+        </script>
+    </div>
+</div>
+
+<?php else: ?>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Redes Sociais (<?= $totalItems ?>)</h2>
+        <a href="social-links?action=new" class="btn btn-gold btn-sm">+ Novo Link</a>
+    </div>
+    <div class="card-body">
+        <form method="POST" id="bulkForm">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="delete_selected">
+        </form>
+        <div class="bulk-bar" id="bulkBar">
+            <span class="bulk-count" id="bulkCount">0 selecionados</span>
+            <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button>
+        </div>
+        <?php if (empty($items)): ?>
+            <p class="text-muted">Nenhum item cadastrado.</p>
+        <?php else: ?>
+            <div class="table-wrapper">
+                <table>
+                    <thead><tr><th><input type="checkbox" id="select-all"></th><th>Escopo</th><th>Plataforma</th><th>URL</th><th>Status</th><th>Ações</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($items as $item): ?>
+                        <tr>
+                            <td><input type="checkbox" class="row-select" value="<?= (int)$item['id'] ?>"></td>
+                            <td><?= e($item['scope']) ?></td>
+                            <td><?= e($item['platform_key']) ?></td>
+                            <td><?= e(mb_substr($item['url'], 0, 50)) ?></td>
+                            <td><?= !empty($item['active']) ? '<span class="badge badge-active">Ativo</span>' : '<span class="badge badge-inactive">Inativo</span>' ?></td>
+                            <td class="actions">
+                                <a class="btn btn-outline btn-sm" href="?action=edit&id=<?= (int)$item['id'] ?>">Editar</a>
+                                <form method="POST" onsubmit="return confirm('Remover link?')">
+                                    <?= csrfField() ?>
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="id" value="<?= (int)$item['id'] ?>">
+                                    <button class="btn btn-outline btn-sm" type="submit">Excluir</button>
+                                </form>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?= renderPagination($pager['page'], $pager['pages']) ?>
+        <?php endif; ?>
+    </div>
+</div>
+
+<?php endif; ?>
+
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

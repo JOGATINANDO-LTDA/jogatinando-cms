@@ -1035,6 +1035,353 @@ function migration_029($db, $type) {
     } catch (Exception $e) {}
 }
 
+function migration_034($db, $type) {
+    try {
+        if ($type === 'mysql') {
+            $db->exec("CREATE TABLE IF NOT EXISTS social_links (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                scope VARCHAR(20) NOT NULL DEFAULT 'site',
+                platform_key VARCHAR(50) NOT NULL,
+                label VARCHAR(100) NOT NULL DEFAULT '',
+                url VARCHAR(500) NOT NULL DEFAULT '',
+                image_path VARCHAR(500) NOT NULL DEFAULT '',
+                active TINYINT(1) NOT NULL DEFAULT 1,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } else {
+            $db->exec("CREATE TABLE IF NOT EXISTS social_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                scope TEXT NOT NULL DEFAULT 'site',
+                platform_key TEXT NOT NULL,
+                label TEXT NOT NULL DEFAULT '',
+                url TEXT NOT NULL DEFAULT '',
+                image_path TEXT NOT NULL DEFAULT '',
+                active INTEGER NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )");
+        }
+    } catch (Exception $e) {}
+
+    try {
+        if ($type === 'mysql') {
+            $cols = $db->query("SHOW COLUMNS FROM social_links LIKE 'image_path'")->fetch();
+            if (!$cols) {
+                $db->exec("ALTER TABLE social_links ADD COLUMN image_path VARCHAR(500) NOT NULL DEFAULT '' AFTER url");
+            }
+        } else {
+            $cols = $db->query("PRAGMA table_info(social_links)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (!in_array('image_path', $cols)) {
+                $db->exec("ALTER TABLE social_links ADD COLUMN image_path TEXT NOT NULL DEFAULT ''");
+            }
+        }
+    } catch (Exception $e) {}
+
+    try {
+        if ($type === 'mysql') {
+            $db->exec("CREATE TABLE IF NOT EXISTS ad_slots (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                slot_key VARCHAR(50) NOT NULL UNIQUE,
+                name VARCHAR(100) NOT NULL,
+                provider VARCHAR(30) NOT NULL DEFAULT 'custom_html',
+                code_html LONGTEXT,
+                active TINYINT(1) NOT NULL DEFAULT 0,
+                pages VARCHAR(255) NOT NULL DEFAULT '',
+                devices VARCHAR(100) NOT NULL DEFAULT 'all',
+                sticky TINYINT(1) NOT NULL DEFAULT 0,
+                height_desktop VARCHAR(20) NOT NULL DEFAULT '',
+                height_mobile VARCHAR(20) NOT NULL DEFAULT '',
+                fallback_text VARCHAR(255) NOT NULL DEFAULT '',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } else {
+            $db->exec("CREATE TABLE IF NOT EXISTS ad_slots (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                slot_key TEXT NOT NULL UNIQUE,
+                name TEXT NOT NULL,
+                provider TEXT NOT NULL DEFAULT 'custom_html',
+                code_html TEXT DEFAULT '',
+                active INTEGER NOT NULL DEFAULT 0,
+                pages TEXT NOT NULL DEFAULT '',
+                devices TEXT NOT NULL DEFAULT 'all',
+                sticky INTEGER NOT NULL DEFAULT 0,
+                height_desktop TEXT NOT NULL DEFAULT '',
+                height_mobile TEXT NOT NULL DEFAULT '',
+                fallback_text TEXT NOT NULL DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )");
+        }
+    } catch (Exception $e) {}
+
+    try {
+        if ($type === 'mysql') {
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_platforms (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                slug VARCHAR(100) NOT NULL UNIQUE,
+                icon VARCHAR(50) NOT NULL DEFAULT '',
+                active TINYINT(1) NOT NULL DEFAULT 1,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $db->exec("CREATE TABLE IF NOT EXISTS game_distribution_stats (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                game_id INT NOT NULL,
+                platform_id INT NOT NULL,
+                metric_key VARCHAR(50) NOT NULL,
+                metric_value DECIMAL(18,2) NOT NULL DEFAULT 0,
+                period_start DATE DEFAULT NULL,
+                period_end DATE DEFAULT NULL,
+                source VARCHAR(50) NOT NULL DEFAULT 'manual',
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_gds_game_platform (game_id, platform_id),
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $db->exec("CREATE TABLE IF NOT EXISTS campaigns (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(150) NOT NULL,
+                game_id INT DEFAULT NULL,
+                platform_id INT DEFAULT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'draft',
+                budget DECIMAL(12,2) NOT NULL DEFAULT 0,
+                start_at DATETIME DEFAULT NULL,
+                end_at DATETIME DEFAULT NULL,
+                notes TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $db->exec("CREATE TABLE IF NOT EXISTS campaign_metrics (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                campaign_id INT NOT NULL,
+                metric_key VARCHAR(50) NOT NULL,
+                metric_value DECIMAL(18,2) NOT NULL DEFAULT 0,
+                period_start DATE DEFAULT NULL,
+                period_end DATE DEFAULT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } else {
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_platforms (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                slug TEXT NOT NULL UNIQUE,
+                icon TEXT NOT NULL DEFAULT '',
+                active INTEGER NOT NULL DEFAULT 1,
+                sort_order INTEGER NOT NULL DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )");
+            $db->exec("CREATE TABLE IF NOT EXISTS game_distribution_stats (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER NOT NULL,
+                platform_id INTEGER NOT NULL,
+                metric_key TEXT NOT NULL,
+                metric_value REAL NOT NULL DEFAULT 0,
+                period_start TEXT DEFAULT NULL,
+                period_end TEXT DEFAULT NULL,
+                source TEXT NOT NULL DEFAULT 'manual',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE TABLE IF NOT EXISTS campaigns (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                game_id INTEGER DEFAULT NULL,
+                platform_id INTEGER DEFAULT NULL,
+                status TEXT NOT NULL DEFAULT 'draft',
+                budget REAL NOT NULL DEFAULT 0,
+                start_at TEXT DEFAULT NULL,
+                end_at TEXT DEFAULT NULL,
+                notes TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE SET NULL
+            )");
+            $db->exec("CREATE TABLE IF NOT EXISTS campaign_metrics (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                campaign_id INTEGER NOT NULL,
+                metric_key TEXT NOT NULL,
+                metric_value REAL NOT NULL DEFAULT 0,
+                period_start TEXT DEFAULT NULL,
+                period_end TEXT DEFAULT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (campaign_id) REFERENCES campaigns(id) ON DELETE CASCADE
+            )");
+        }
+    } catch (Exception $e) {}
+
+    try {
+        $count = (int)$db->query("SELECT COUNT(*) FROM social_links")->fetchColumn();
+        if ($count === 0) {
+            $stmt = $db->prepare("INSERT INTO social_links (scope, platform_key, label, url, image_path, active, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)");
+            foreach ([
+                ['site', 'youtube', 'YouTube', '', '', 1, 1],
+                ['site', 'twitch', 'Twitch', '', '', 1, 2],
+                ['site', 'x', 'X', '', '', 1, 3],
+                ['site', 'tiktok', 'TikTok', '', '', 1, 4],
+                ['site', 'facebook', 'Facebook', '', '', 1, 5],
+                ['site', 'instagram', 'Instagram', '', '', 1, 6],
+                ['site', 'linkedin', 'LinkedIn', '', '', 1, 7],
+                ['site', 'kick', 'Kick', '', '', 1, 8],
+                ['site', 'kwai', 'Kwai', '', '', 1, 9],
+            ] as $row) {
+                $stmt->execute($row);
+            }
+        }
+    } catch (Exception $e) {}
+
+    try {
+        $count = (int)$db->query("SELECT COUNT(*) FROM ad_slots")->fetchColumn();
+        if ($count === 0) {
+            $stmt = $db->prepare("INSERT INTO ad_slots (slot_key, name, provider, code_html, active, pages, devices, sticky, height_desktop, height_mobile, fallback_text) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            foreach ([
+                ['home_top', 'Topo da Home', 'custom_html', '', 0, 'home', 'all', 0, '90px', '70px', 'Espaço reservado para anúncio'],
+                ['home_inline_1', 'Inline da Home', 'custom_html', '', 0, 'home', 'all', 0, '250px', '200px', 'Publicidade'],
+                ['game_before_player', 'Antes do Player', 'custom_html', '', 0, 'game', 'desktop,mobile', 0, '90px', '70px', 'Publicidade'],
+                ['game_after_player', 'Depois do Player', 'custom_html', '', 0, 'game', 'desktop,mobile', 0, '90px', '70px', 'Publicidade'],
+                ['catalogo_sidebar', 'Sidebar do Catálogo', 'custom_html', '', 0, 'catalogo', 'desktop', 0, '250px', '', 'Publicidade'],
+                ['mobile_sticky', 'Sticky Mobile', 'custom_html', '', 0, 'all', 'mobile', 1, '', '60px', 'Publicidade'],
+            ] as $row) {
+                $stmt->execute($row);
+            }
+        }
+    } catch (Exception $e) {}
+
+    try {
+        $count = (int)$db->query("SELECT COUNT(*) FROM distribution_platforms")->fetchColumn();
+        if ($count === 0) {
+            $stmt = $db->prepare("INSERT INTO distribution_platforms (name, slug, icon, active, sort_order) VALUES (?, ?, ?, ?, ?)");
+            foreach ([
+                ['Site Próprio', 'site', '🌐', 1, 1],
+                ['Steam', 'steam', '🎮', 1, 2],
+                ['Epic Games', 'epic', '✨', 1, 3],
+                ['Play Store', 'play_store', '📱', 1, 4],
+                ['App Store', 'app_store', '📱', 1, 5],
+                ['GOG', 'gog', '🧩', 0, 6],
+            ] as $row) {
+                $stmt->execute($row);
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+function migration_036($db, $type) {
+    // Distribution integration hub tables
+    try {
+        if ($type === 'mysql') {
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_integrations (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                platform_id INT NOT NULL,
+                name VARCHAR(150) NOT NULL,
+                integration_type VARCHAR(50) NOT NULL DEFAULT 'manual',
+                config_json LONGTEXT,
+                active TINYINT(1) NOT NULL DEFAULT 1,
+                last_sync_at DATETIME DEFAULT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_game_links (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                game_id INT NOT NULL,
+                integration_id INT DEFAULT NULL,
+                platform_id INT NOT NULL,
+                store_url VARCHAR(500) NOT NULL DEFAULT '',
+                store_package_id VARCHAR(255) NOT NULL DEFAULT '',
+                store_status VARCHAR(30) NOT NULL DEFAULT 'pending',
+                version_name VARCHAR(50) NOT NULL DEFAULT '',
+                last_sync_at DATETIME DEFAULT NULL,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                INDEX idx_dgl_game (game_id),
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                FOREIGN KEY (integration_id) REFERENCES distribution_integrations(id) ON DELETE SET NULL,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_sync_logs (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                integration_id INT NOT NULL,
+                game_link_id INT DEFAULT NULL,
+                direction VARCHAR(20) NOT NULL DEFAULT 'pull',
+                status VARCHAR(20) NOT NULL DEFAULT 'success',
+                message TEXT,
+                details_json LONGTEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (integration_id) REFERENCES distribution_integrations(id) ON DELETE CASCADE,
+                FOREIGN KEY (game_link_id) REFERENCES distribution_game_links(id) ON DELETE SET NULL
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        } else {
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_integrations (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform_id INTEGER NOT NULL,
+                name TEXT NOT NULL,
+                integration_type TEXT NOT NULL DEFAULT 'manual',
+                config_json TEXT DEFAULT '',
+                active INTEGER NOT NULL DEFAULT 1,
+                last_sync_at TEXT DEFAULT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_game_links (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER NOT NULL,
+                integration_id INTEGER DEFAULT NULL,
+                platform_id INTEGER NOT NULL,
+                store_url TEXT NOT NULL DEFAULT '',
+                store_package_id TEXT NOT NULL DEFAULT '',
+                store_status TEXT NOT NULL DEFAULT 'pending',
+                version_name TEXT NOT NULL DEFAULT '',
+                last_sync_at TEXT DEFAULT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                FOREIGN KEY (integration_id) REFERENCES distribution_integrations(id) ON DELETE SET NULL,
+                FOREIGN KEY (platform_id) REFERENCES distribution_platforms(id) ON DELETE CASCADE
+            )");
+            $db->exec("CREATE TABLE IF NOT EXISTS distribution_sync_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                integration_id INTEGER NOT NULL,
+                game_link_id INTEGER DEFAULT NULL,
+                direction TEXT NOT NULL DEFAULT 'pull',
+                status TEXT NOT NULL DEFAULT 'success',
+                message TEXT DEFAULT '',
+                details_json TEXT DEFAULT '',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (integration_id) REFERENCES distribution_integrations(id) ON DELETE CASCADE,
+                FOREIGN KEY (game_link_id) REFERENCES distribution_game_links(id) ON DELETE SET NULL
+            )");
+        }
+    } catch (Exception $e) {}
+
+    // Seed Play Store integration entry
+    try {
+        $psId = $db->query("SELECT id FROM distribution_platforms WHERE slug = 'play_store'")->fetchColumn();
+        if ($psId) {
+            $count = (int)$db->query("SELECT COUNT(*) FROM distribution_integrations WHERE platform_id = $psId")->fetchColumn();
+            if ($count === 0) {
+                $db->prepare("INSERT INTO distribution_integrations (platform_id, name, integration_type, active) VALUES (?, ?, ?, ?)")
+                    ->execute([$psId, 'Google Play Console', 'google_play', 1]);
+            }
+        }
+    } catch (Exception $e) {}
+}
+
 function dbSeed($db, $type) {
     // Seed default roles
     $roleCount = $db->query("SELECT COUNT(*) FROM roles")->fetchColumn();
@@ -1067,13 +1414,8 @@ function dbSeed($db, $type) {
     $defaults = [
         ['site_name', SITE_NAME],
         ['site_tagline', SITE_TAGLINE],
-        ['hero_title', 'Crie, Gerencie e Publique <span class="gold">Seus Jogos</span>'],
-        ['hero_subtitle', 'Sistema completo para gerenciar seu portfólio de jogos digitais. Publique em qualquer engine e compartilhe com o mundo.'],
         ['contact_email', 'contato@exemplo.com.br'],
         ['contact_whatsapp', ''],
-        ['youtube_url', ''],
-        ['twitch_url', ''],
-        ['blog_url', ''],
         ['footer_description', 'Sistema de gerenciamento de portfólio de jogos digitais. Publique seus games em diversas engines para qualquer plataforma.'],
     ];
 

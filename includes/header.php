@@ -20,6 +20,7 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="<?= assetUrl('/assets/css/admin.css') ?>">
 </head>
 <body>
@@ -61,6 +62,18 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
                     <span class="nav-label">Blog</span>
                 </a>
                 <?php endif; ?>
+                <a href="<?= ADMIN_URL ?>/social-links" class="nav-item <?= $currentPage === 'social-links' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.07 0l1.5-1.5a5 5 0 10-7.07-7.07L10.5 6"/><path d="M14 11a5 5 0 00-7.07 0L5.43 12.5a5 5 0 107.07 7.07L13.5 18"/></svg></span>
+                    <span class="nav-label">Redes Sociais</span>
+                </a>
+                <a href="<?= ADMIN_URL ?>/ads" class="nav-item <?= $currentPage === 'ads' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="M7 10h10"/><path d="M7 14h6"/></svg></span>
+                    <span class="nav-label">Publicidade</span>
+                </a>
+                <a href="<?= ADMIN_URL ?>/distribution" class="nav-item <?= $currentPage === 'distribution' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16V10"/><path d="M12 16V7"/><path d="M16 16v-4"/></svg></span>
+                    <span class="nav-label">Distribuição</span>
+                </a>
 
                 <div class="nav-section-label">Conteúdo</div>
                 <?php if (can('perm_testimonials')): ?>

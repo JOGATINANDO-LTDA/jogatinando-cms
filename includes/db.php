@@ -106,7 +106,7 @@ function dbMigrate($db, $type = null) {
     // Detect existing DB without schema_version entries
     if ($currentVersion === 0) {
         $tables = getDbTables($db, $type);
-        $coreTables = ['games', 'banners', 'users', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings'];
+        $coreTables = ['games', 'banners', 'users', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings', 'social_links', 'ad_slots', 'distribution_platforms', 'game_distribution_stats', 'campaigns', 'campaign_metrics'];
         $hasExistingData = count(array_intersect($tables, $coreTables)) > 0;
 
         if ($hasExistingData) {
@@ -172,8 +172,11 @@ function getMigrationList() {
              30 => 'create_sync_queue',
              31 => 'normalize_media_urls_s3_settings',
              32 => 'add_sync_queue_retry',
-             33 => 'add_user_setup_token_fields',
-     ];
+         33 => 'add_user_setup_token_fields',
+         34 => 'add_social_links_ads_distribution',
+         35 => 'add_social_links_media_fields',
+         36 => 'add_distribution_integration_hub',
+      ];
 }
 
 function dbInit($dsn = null, $user = null, $pass = null, $type = null) {
@@ -258,7 +261,7 @@ function dbExec($sql, $params = []) {
 function dbDelete($table, $id) {
     $db = getDB();
     if (!$db) return false;
-    $allowed = ['banners','games','blog_posts','testimonials','faq_items','team_members','users','engines','store_platforms','game_links','template_links','retro_games','retro_consoles','levels','roles','site_settings'];
+    $allowed = ['banners','games','blog_posts','testimonials','faq_items','team_members','users','engines','store_platforms','game_links','template_links','retro_games','retro_consoles','levels','roles','site_settings','social_links','ad_slots','distribution_platforms','game_distribution_stats','campaigns','campaign_metrics'];
     if (!in_array($table, $allowed)) return false;
     $stmt = $db->prepare("DELETE FROM `$table` WHERE id = ?");
     return $stmt->execute([$id]);

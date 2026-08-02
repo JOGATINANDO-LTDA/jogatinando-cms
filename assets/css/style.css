@@ -506,6 +506,97 @@ input, textarea, select { font-family: inherit; }
 
 .hero-sub-nav a:hover { color: var(--gold); }
 
+.hero-social-links,
+.footer-social-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+}
+
+.hero-social-links a,
+.footer-social-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border-radius: var(--radius-pill);
+    border: 1px solid var(--border);
+    background: oklch(12% 0.025 260 / 0.8);
+    color: var(--fg-secondary);
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.hero-social-links a:hover,
+.footer-social-links a:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: var(--gold-subtle);
+}
+
+.social-link-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    font-size: 15px;
+    line-height: 1;
+    overflow: hidden;
+}
+
+.social-link-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+}
+
+.social-link-icon i {
+    font-size: inherit;
+    line-height: 1;
+}
+
+.social-link-label {
+    white-space: nowrap;
+}
+
+.ad-slot {
+    width: 100%;
+    margin: 0 0 20px;
+    border: 1px dashed var(--border-gold);
+    border-radius: var(--radius-lg);
+    background: oklch(12% 0.025 260 / 0.72);
+    overflow: hidden;
+}
+
+.ad-slot .ad-fallback {
+    min-height: 90px;
+    display: grid;
+    place-items: center;
+    padding: 16px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    font-size: 12px;
+}
+
+.ad-sticky {
+    position: sticky;
+    top: 84px;
+    z-index: 5;
+}
+
+.ad-slot iframe,
+.ad-slot img,
+.ad-slot video {
+    display: block;
+    width: 100%;
+    height: auto;
+}
+
 /* === Hero Carousel (banner mode) === */
 .hero-carousel {
     position: relative;

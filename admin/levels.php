@@ -172,10 +172,10 @@ if (isset($_GET['edit'])) {
         <button class="btn btn-gold btn-sm" onclick="document.getElementById('newLevelForm').classList.toggle('hidden')">+ Novo Nível</button>
     </div>
     <div class="card-body">
-        <form id="newLevelForm" method="POST" class="hidden" style="margin-bottom: 24px; padding: 16px; background: oklch(16% 0.035 265); border: 1px solid var(--border); border-radius: 8px;">
+        <form id="newLevelForm" method="POST" class="hidden form-card">
             <input type="hidden" name="action" value="create">
             <?= csrfField() ?>
-            <div class="form-row" style="margin-bottom: 0;">
+            <div class="form-row" style="margin-bottom:0;">
                 <div class="form-group">
                     <label for="name">Nome do Nível *</label>
                     <input type="text" id="name" name="name" required placeholder="Ex: Administrador">
@@ -186,18 +186,18 @@ if (isset($_GET['edit'])) {
                 </div>
             </div>
             <?php if ($userId === 1): ?>
-            <div class="form-group" style="margin-top: 8px;">
-                <label><input type="checkbox" name="is_protected" value="1"> Nível protegido</label>
+            <div class="form-group">
+                <label class="label-checkbox"><input type="checkbox" name="is_protected" value="1"> Nível protegido</label>
             </div>
             <?php endif; ?>
-            <div style="margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
+            <div class="perm-grid">
                 <?php foreach ($PERM_LABELS as $col => $label): ?>
-                <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <label class="label-checkbox">
                     <input type="checkbox" name="<?= $col ?>" value="1" checked> <?= $label ?>
                 </label>
                 <?php endforeach; ?>
             </div>
-            <div class="form-actions" style="margin-top: 16px;">
+            <div class="form-actions">
                 <button type="submit" class="btn btn-gold btn-sm">Criar Nível</button>
                 <button type="button" class="btn btn-outline btn-sm" onclick="this.closest('form').classList.add('hidden')">Cancelar</button>
             </div>
@@ -213,14 +213,14 @@ if (isset($_GET['edit'])) {
                     <?php $rank = getPermRank($l); ?>
                     <tr>
                         <td><?= $l['id'] ?></td>
-                        <td><strong style="color:var(--fg)"><?= e($l['name']) ?></strong></td>
-                        <td style="color:var(--fg-muted);font-size:13px;"><?= e($l['slug']) ?></td>
+                        <td><strong class="text-fg"><?= e($l['name']) ?></strong></td>
+                        <td class="text-muted text-small"><?= e($l['slug']) ?></td>
                         <td><span class="badge badge-featured" style="font-size:12px;"><?= $rank ?></span></td>
                         <td style="max-width:300px;">
                             <div style="display:flex;flex-wrap:wrap;gap:4px;">
                                 <?php foreach ($PERM_LABELS as $col => $label): ?>
                                     <?php if ($l[$col]): ?>
-                                    <span style="font-size:11px;padding:2px 6px;border-radius:4px;background:oklch(25% 0.06 145 / 0.3);color:oklch(70% 0.12 145);"><?= $label ?></span>
+                                    <span class="perm-tag"><?= $label ?></span>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
                             </div>
@@ -229,11 +229,11 @@ if (isset($_GET['edit'])) {
                             <?php if ((int)$l['id'] === $protectedLevelId): ?>
                             <span style="color:var(--gold);cursor:not-allowed;" title="Nível de maior rank — proteção permanente">🔒</span>
                             <?php else: ?>
-                            <form method="POST" style="display:inline" onsubmit="return confirm('<?= $l['is_protected'] ? 'Desproteger' : 'Proteger' ?> o nível <?= e($l['name']) ?>?')">
+                            <form method="POST" class="form-inline" onsubmit="return confirm('<?= $l['is_protected'] ? 'Desproteger' : 'Proteger' ?> o nível <?= e($l['name']) ?>?')">
                                 <input type="hidden" name="action" value="toggle_protect">
                                 <input type="hidden" name="id" value="<?= $l['id'] ?>">
                                 <?= csrfField() ?>
-                                <button type="submit" class="btn-icon-toggle" title="<?= $l['is_protected'] ? 'Desproteger' : 'Proteger' ?>" style="background:none;border:none;cursor:pointer;font-size:18px;padding:2px;">
+                                <button type="submit" class="btn-toggle" title="<?= $l['is_protected'] ? 'Desproteger' : 'Proteger' ?>">
                                     <?= $l['is_protected'] ? '🔒' : '🔓' ?>
                                 </button>
                             </form>
@@ -241,11 +241,11 @@ if (isset($_GET['edit'])) {
                         </td>
                         <td class="actions">
                             <a href="?edit=<?= $l['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
-                            <form method="POST" style="display:inline" onsubmit="return confirm('Excluir nível <?= e($l['name']) ?>?')">
+                            <form method="POST" class="form-inline" onsubmit="return confirm('Excluir nível <?= e($l['name']) ?>?')">
                                 <input type="hidden" name="action" value="delete">
                                 <input type="hidden" name="id" value="<?= $l['id'] ?>">
                                 <?= csrfField() ?>
-                                <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir" <?= $l['is_protected'] ? 'disabled style="opacity:0.4;cursor:not-allowed;"' : '' ?>>
+                                <button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir" <?= $l['is_protected'] ? 'disabled' : '' ?>>
                                     🗑️
                                 </button>
                             </form>
@@ -259,7 +259,7 @@ if (isset($_GET['edit'])) {
 </div>
 
 <?php if ($editLevel): ?>
-<div class="card" style="margin-top: 24px;">
+<div class="card card-spaced">
     <div class="card-header">
         <h2 class="card-title">Editar Nível: <?= e($editLevel['name']) ?></h2>
         <a href="levels" class="btn btn-outline btn-sm">Cancelar</a>
@@ -280,13 +280,13 @@ if (isset($_GET['edit'])) {
                 </div>
             </div>
             <?php if ($userId === 1): ?>
-            <div class="form-group" style="margin-top: 8px;">
-                <label><input type="checkbox" name="is_protected" value="1" <?= $editLevel['is_protected'] ? 'checked' : '' ?>> Nível protegido</label>
+            <div class="form-group">
+                <label class="label-checkbox"><input type="checkbox" name="is_protected" value="1" <?= $editLevel['is_protected'] ? 'checked' : '' ?>> Nível protegido</label>
             </div>
             <?php endif; ?>
-            <div style="margin-top: 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px;">
+            <div class="perm-grid">
                 <?php foreach ($PERM_LABELS as $col => $label): ?>
-                <label style="font-size:13px;display:flex;align-items:center;gap:6px;cursor:pointer;">
+                <label class="label-checkbox">
                     <input type="checkbox" name="<?= $col ?>" value="1" <?= $editLevel[$col] ? 'checked' : '' ?>> <?= $label ?>
                 </label>
                 <?php endforeach; ?>
@@ -296,9 +296,5 @@ if (isset($_GET['edit'])) {
     </div>
 </div>
 <?php endif; ?>
-
-<style>
-.hidden { display: none; }
-</style>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

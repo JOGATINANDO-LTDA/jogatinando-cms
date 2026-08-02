@@ -109,6 +109,7 @@ if ($action === 'new' || $action === 'edit') {
                 <?php if ($id > 0): ?><input type="hidden" name="id" value="<?= $id ?>"><?php endif; ?>
                 <?= csrfField() ?>
 
+                <h3 class="form-section-title">Informações Básicas</h3>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="name">Nome *</label>
@@ -117,9 +118,11 @@ if ($action === 'new' || $action === 'edit') {
                     <div class="form-group">
                         <label for="slug">Slug</label>
                         <input type="text" id="slug" name="slug" value="<?= e($console['slug'] ?? '') ?>" placeholder="Ex: snes">
+                        <div class="field-hint">Deixe vazio para gerar automaticamente a partir do nome.</div>
                     </div>
                 </div>
 
+                <h3 class="form-section-title">Configurações</h3>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="icon">Ícone (emoji)</label>
@@ -128,6 +131,7 @@ if ($action === 'new' || $action === 'edit') {
                     <div class="form-group">
                         <label for="emulator_core">Core EmulatorJS</label>
                         <input type="text" id="emulator_core" name="emulator_core" value="<?= e($console['emulator_core'] ?? 'snes9x') ?>" placeholder="Ex: snes9x, genesis_plus_gx, pcsx_rearmed">
+                        <div class="field-hint">Usado como padrão para jogos desse console.</div>
                     </div>
                 </div>
 
@@ -137,22 +141,24 @@ if ($action === 'new' || $action === 'edit') {
                         <input type="number" id="sort_order" name="sort_order" value="<?= (int)($console['sort_order'] ?? 0) ?>">
                     </div>
                     <div class="form-group">
-                        <div class="toggle-group" style="margin-top:28px">
+                        <div class="toggle-group">
                             <input type="checkbox" id="active" name="active" <?= ($console['active'] ?? 1) ? 'checked' : '' ?>>
                             <label for="active">Ativo</label>
                         </div>
                     </div>
                 </div>
 
+                <h3 class="form-section-title">Thumbnail</h3>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Thumbnail (imagem do console)</label>
+                        <label for="thumbnail">Thumbnail (imagem do console)</label>
                         <div class="file-upload">
-                            <input type="file" name="thumbnail" accept="image/*">
+                            <input type="file" id="thumbnail" name="thumbnail" accept="image/png,image/jpeg,image/gif,image/webp">
                             <div class="upload-icon">
                                 <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                             </div>
                             <div class="upload-text">Clique ou arraste uma imagem</div>
+                            <div class="upload-hint">JPG, PNG, GIF ou WebP.</div>
                         </div>
                         <?php if (!empty($console['thumbnail_url'])): ?><img src="<?= e($console['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail"><?php endif; ?>
                     </div>
@@ -198,10 +204,7 @@ if ($action === 'new' || $action === 'edit') {
                         <?php foreach ($consoles as $c): ?>
                         <tr>
                             <td>
-                                <span style="display:inline-flex;align-items:center;gap:8px">
-                                    <span style="font-size:20px"><?= e($c['icon'] ?? '🎮') ?></span>
-                                    <span style="font-weight:600;color:var(--fg)"><?= e($c['name']) ?></span>
-                                </span>
+                                <span class="inline-icon"><span><?= e($c['icon'] ?? '🎮') ?></span><span><?= e($c['name']) ?></span></span>
                             </td>
                             <td><code><?= e($c['slug']) ?></code></td>
                             <td class="hide-tablet"><code><?= e($c['emulator_core']) ?></code></td>
@@ -214,14 +217,14 @@ if ($action === 'new' || $action === 'edit') {
                                 <?php endif; ?>
                             </td>
                             <td class="actions">
-                                <form method="POST" style="display:inline">
+                                <form method="POST" class="inline-actions">
                                     <input type="hidden" name="action" value="toggle">
                                     <input type="hidden" name="id" value="<?= $c['id'] ?>">
                                     <?= csrfField() ?>
                                     <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $c['active'] ? 'Desativar' : 'Ativar' ?>"><?= $c['active'] ? '🔴' : '🟢' ?></button>
                                 </form>
                                 <a href="consoles?action=edit&id=<?= $c['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
-                                <form method="POST" style="display:inline" onsubmit="return confirm('Excluir emulador <?= e($c['name']) ?>?')">
+                                <form method="POST" class="inline-actions" onsubmit="return confirm('Excluir emulador <?= e($c['name']) ?>?')">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="id" value="<?= $c['id'] ?>">
                                     <?= csrfField() ?>

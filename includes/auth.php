@@ -27,22 +27,20 @@ function isLoggedIn() {
 function requireLogin() {
     if (!isLoggedIn()) {
         $uri = $_SERVER['REQUEST_URI'] ?? '';
-        if (strpos($uri, '/admin/login') === 0) {
-            header('Location: ' . ADMIN_URL . '/login');
-        } else {
-            header('Location: ' . ADMIN_URL . '/login?redirect=' . urlencode($uri));
+        if (strpos($uri, '/admin/login') !== 0) {
+            $_SESSION['login_redirect'] = $uri;
         }
+        header('Location: ' . ADMIN_URL . '/login');
         exit;
     }
     $timeout = 1800;
     if (isset($_SESSION['admin_last_activity']) && (time() - $_SESSION['admin_last_activity']) > $timeout) {
         clearSession();
         $uri = $_SERVER['REQUEST_URI'] ?? '';
-        if (strpos($uri, '/admin/login') === 0) {
-            header('Location: ' . ADMIN_URL . '/login');
-        } else {
-            header('Location: ' . ADMIN_URL . '/login?redirect=' . urlencode($uri));
+        if (strpos($uri, '/admin/login') !== 0) {
+            $_SESSION['login_redirect'] = $uri;
         }
+        header('Location: ' . ADMIN_URL . '/login');
         exit;
     }
     $_SESSION['admin_last_activity'] = time();
@@ -248,17 +246,25 @@ function logout() {
     exit;
 }
 
-function getCSRFToken() {
+function getCSRFToken($action = '') {
     if (empty($_SESSION['csrf_token'])) {
         $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
     }
-    return $_SESSION['csrf_token'];
+    if ($action === '') {
+        return $_SESSION['csrf_token'];
+    }
+    return hash_hmac('sha256', 'csrf:' . $action, $_SESSION['csrf_token']);
 }
 
-function verifyCSRF($token) {
-    return isset($_SESSION['csrf_token']) && hash_equals($_SESSION['csrf_token'], $token);
+function verifyCSRF($token, $action = '') {
+    if (!isset($_SESSION['csrf_token'])) return false;
+    if ($action === '') {
+        return hash_equals($_SESSION['csrf_token'], $token);
+    }
+    $expected = hash_hmac('sha256', 'csrf:' . $action, $_SESSION['csrf_token']);
+    return hash_equals($expected, $token);
 }
 
-function csrfField() {
-    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(getCSRFToken()) . '">';
+function csrfField($action = '') {
+    return '<input type="hidden" name="csrf_token" value="' . htmlspecialchars(getCSRFToken($action)) . '">';
 }

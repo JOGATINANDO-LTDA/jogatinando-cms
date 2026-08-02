@@ -6,6 +6,24 @@ require_once __DIR__ . '/../includes/header.php';
 
 $db = getDB();
 
+function validateTableSchema($table, $column) {
+    $allowed = [
+        'games' => ['thumbnail_url'],
+        'blog_posts' => ['thumbnail_url'],
+        'banners' => ['image_url'],
+        'team_members' => ['avatar_url'],
+        'testimonials' => ['avatar_url'],
+        'users' => ['avatar_url'],
+        'retro_games' => ['rom_path', 'thumbnail_url'],
+        'game_templates' => ['thumbnail_url'],
+        'retro_consoles' => ['thumbnail_url'],
+        'store_platforms' => ['logo_path'],
+    ];
+    if (!isset($allowed[$table]) || !in_array($column, $allowed[$table], true)) {
+        throw new InvalidArgumentException("Tabela/coluna não permitida: {$table}.{$column}");
+    }
+}
+
 function enqueueFile($localPath, $s3Name, $refTable = '', $refColumn = '', $refId = null) {
     if (!file_exists($localPath)) return false;
     try {
@@ -144,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         $count = 0;
         $seen = [];
         foreach ($tables as $t) {
+            validateTableSchema($t['table'], $t['column']);
             $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} != '' AND {$t['column']} IS NOT NULL");
             foreach ($rows as $row) {
                 $url = $row[$t['column']];
@@ -231,6 +250,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         flush();
         flashMessage('success', "{$restored} arquivos restaurados do S3.");
         ob_end_flush();
+    }
+
+    if ($_POST['action'] === 'sync_images') {
+        $directories = ['thumbnails', 'banners', 'blog', 'avatars', 'platforms'];
+        foreach ($directories as $dir) {
+            $localDir = UPLOAD_PATH . '/' . $dir;
+            if (!is_dir($localDir)) continue;
+            $s3Prefix = 'uploads/' . $dir;
+            $r = syncDirToS3($localDir, $s3Prefix);
+            array_push($results, ...$r);
+            if (empty($r)) $results[] = "⏭ {$dir} (sem arquivos)";
+        }
+        flashMessage('success', 'Imagens sincronizadas.');
     }
 
     if ($_POST['action'] === 'sync_games') {
@@ -351,6 +383,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ];
             $updated = 0;
             foreach ($tables as $t) {
+                validateTableSchema($t['table'], $t['column']);
                 $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE '/uploads/%'");
                 foreach ($rows as $row) {
                     $oldUrl = $row[$t['column']];
@@ -387,6 +420,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ['table' => 'store_platforms', 'column' => 'logo_path'],
             ];
             foreach ($tables as $t) {
+                validateTableSchema($t['table'], $t['column']);
                 $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE ?", [$publicUrl . '%']);
                 foreach ($rows as $row) {
                     $url = $row[$t['column']];
@@ -429,6 +463,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         ];
         $fixed = 0;
         foreach ($tables as $t) {
+            validateTableSchema($t['table'], $t['column']);
             $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%' OR {$t['column']} LIKE '/uploads/%'");
             foreach ($rows as $row) {
                 $old = $row[$t['column']];
@@ -684,6 +719,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         $referenced = [];
         foreach ($tables as $t) {
+            validateTableSchema($t['table'], $t['column']);
             $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%' OR {$t['column']} LIKE '/uploads/%'");
             foreach ($rows as $row) {
                 $parts = explode('/uploads/', $row[$t['column']], 2);
@@ -770,6 +806,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         $referenced = [];
         foreach ($tables as $t) {
+            validateTableSchema($t['table'], $t['column']);
             $rows = dbQuery("SELECT id, {$t['column']} FROM {$t['table']} WHERE {$t['column']} LIKE 'http%' OR {$t['column']} LIKE '/uploads/%'");
             foreach ($rows as $row) {
                 $parts = explode('/uploads/', $row[$t['column']], 2);
@@ -1091,6 +1128,13 @@ var syncStopped = false;
 var syncCompleted = false;
 var badgeTimer = null;
 
+function closeOverlay() {
+    syncRunning = false;
+    syncCompleted = true;
+    hideBadge();
+    document.getElementById('sync-overlay').style.display = 'none';
+}
+
 function updateBadgeStats() {
     var totalEl = document.getElementById('queue-total');
     var subEl = document.getElementById('queue-sub');
@@ -1112,32 +1156,6 @@ function hideBadge() {
     if (!badge) return;
     badge.style.display = 'none';
     if (badgeTimer) { clearTimeout(badgeTimer); badgeTimer = null; }
-}
-
-function updateQueueUI(stats) {
-    var el = document.getElementById('queue-total');
-    if (el) el.textContent = stats.total;
-    var sub = document.getElementById('queue-sub');
-    if (sub) sub.textContent = stats.done + ' ok, ' + stats.pending + ' pend, ' + stats.failed + ' falhas';
-    var txt = document.getElementById('queue-text');
-    if (txt) txt.textContent = stats.pending + ' pendente(s), ' + stats.done + ' concluído(s), ' + stats.failed + ' falha(s).';
-    document.getElementById('sync-done').textContent = stats.done;
-    document.getElementById('sync-pending').textContent = stats.pending;
-    document.getElementById('sync-failed-count').textContent = stats.failed;
-    var total = parseInt(stats.total) || 0;
-    var done = parseInt(stats.done) || 0;
-    var failed = parseInt(stats.failed) || 0;
-    if (total > 0) {
-        var pct = Math.round((done + failed) / total * 100);
-        document.getElementById('sync-progress-fill').style.width = pct + '%';
-        document.getElementById('sync-progress-text').textContent = (done + failed) + ' / ' + total;
-    }
-    if (stats.total > 0) {
-        var card = document.getElementById('queue-card');
-        if (!card) {
-            // recreate queue card if it was removed
-        }
-    }
 }
 
 function parseJSON(r) {
@@ -1162,16 +1180,15 @@ function updateQueueUI(stats) {
     document.getElementById('sync-pending').textContent = stats.pending;
     document.getElementById('sync-failed-count').textContent = stats.failed;
     var total = parseInt(stats.total) || 0;
+    var done = parseInt(stats.done) || 0;
+    var failed = parseInt(stats.failed) || 0;
     if (total > 0) {
-        var pct = Math.round((parseInt(stats.done) + parseInt(stats.failed)) / total * 100);
+        var pct = Math.round((done + failed) / total * 100);
         document.getElementById('sync-progress-fill').style.width = pct + '%';
-        document.getElementById('sync-progress-text').textContent = (parseInt(stats.done) + parseInt(stats.failed)) + ' / ' + total;
-    }
-    if (stats.total > 0) {
-        var card = document.getElementById('queue-card');
-        if (!card) {
-            // recreate queue card if it was removed
-        }
+        document.getElementById('sync-progress-text').textContent = (done + failed) + ' / ' + total;
+    } else {
+        document.getElementById('sync-progress-fill').style.width = '100%';
+        document.getElementById('sync-progress-text').textContent = '0 / 0';
     }
 }
 
@@ -1210,26 +1227,49 @@ function processQueueBatch() {
             if (parseInt(stats.pending) > 0 && !syncStopped) {
                 return processQueueBatch();
             } else {
+                var totalDone = parseInt(stats.total) || 0;
+                document.getElementById('sync-file-text').textContent = '✅ Completo — ' + totalDone + ' arquivo(s)';
+                var failedCount = parseInt(stats.failed) || 0;
+                updateBadgeStats();
+                if (failedCount > 0) {
+                    var btn = document.getElementById('sync-stop-btn');
+                    if (btn) {
+                        var retryBtn = document.getElementById('sync-retry-btn');
+                        btn.textContent = 'Fechar';
+                        btn.classList.remove('btn-outline');
+                        btn.classList.add('btn-gold');
+                        if (retryBtn) retryBtn.style.display = 'inline-block';
+                    }
+                } else {
+                    setTimeout(closeOverlay, 1500);
+                }
                 syncRunning = false;
                 syncCompleted = true;
-                hideBadge();
-                updateBadgeStats();
-                var btn = document.getElementById('sync-stop-btn');
-                if (btn) {
-                    var retryBtn = document.getElementById('sync-retry-btn');
-                    btn.textContent = 'Fechar';
-                    btn.classList.remove('btn-outline');
-                    btn.classList.add('btn-gold');
-                    if (retryBtn) retryBtn.style.display = parseInt(stats.failed) > 0 ? 'inline-block' : 'none';
-                }
                 return stats;
             }
         });
     }).catch(function(err) {
         syncRunning = false;
         document.getElementById('sync-file-text').textContent = 'Erro: ' + err.message;
+        setTimeout(closeOverlay, 2000);
         return null;
     });
+}
+
+function resetOverlay(actionTitle) {
+    var titleEl = document.querySelector('#sync-overlay h3');
+    if (titleEl) titleEl.textContent = actionTitle || 'Sincronizando com S3';
+    document.getElementById('sync-overlay').style.display = 'flex';
+    document.getElementById('sync-errors').style.display = 'none';
+    document.getElementById('sync-errors').innerHTML = '';
+    document.getElementById('sync-retry-btn').style.display = 'none';
+    document.getElementById('sync-file-text').textContent = 'Enfileirando...';
+    var stopBtn = document.getElementById('sync-stop-btn');
+    if (stopBtn) {
+        stopBtn.textContent = 'Fechar';
+        stopBtn.classList.remove('btn-gold');
+        stopBtn.classList.add('btn-outline');
+    }
 }
 
 function startSync() {
@@ -1237,17 +1277,7 @@ function startSync() {
     syncStopped = false;
     syncCompleted = false;
     hideBadge();
-    document.getElementById('sync-overlay').style.display = 'flex';
-    document.getElementById('sync-errors').style.display = 'none';
-    document.getElementById('sync-errors').innerHTML = '';
-    var stopBtn = document.getElementById('sync-stop-btn');
-    if (stopBtn) {
-        stopBtn.textContent = 'Fechar';
-        stopBtn.classList.remove('btn-gold');
-        stopBtn.classList.add('btn-outline');
-    }
-    document.getElementById('sync-retry-btn').style.display = 'none';
-    document.getElementById('sync-file-text').textContent = 'Enfileirando...';
+    resetOverlay('Sincronizando com S3');
 
     var fd = new FormData();
     fd.append('action', 'sync_all');
@@ -1264,6 +1294,7 @@ function startSync() {
             var errDiv = document.getElementById('sync-errors');
             errDiv.style.display = 'block';
             errDiv.textContent = '❌ ' + msg;
+            setTimeout(closeOverlay, 2000);
         }
     }).then(function(stats) {
         if (stats) {
@@ -1276,6 +1307,7 @@ function startSync() {
         var errDiv = document.getElementById('sync-errors');
         errDiv.style.display = 'block';
         errDiv.textContent = '❌ ' + err.message;
+        setTimeout(closeOverlay, 2000);
     });
 }
 
@@ -1289,8 +1321,8 @@ function retryFailed() {
     document.getElementById('sync-errors').style.display = 'none';
     fetch(window.location.href, { method: 'POST', body: fd }).then(parseJSON).then(function(data) {
         if (data.success) {
-            return fetchQueueStatus().then(function(stats) {
-                updateQueueUI(stats);
+        return fetchQueueStatus().then(function(stats) {
+            updateQueueUI(stats);
                 if (parseInt(stats.pending) > 0) {
                     processQueueBatch();
                 }
@@ -1323,10 +1355,7 @@ if (processQueueBtn) {
         if (syncRunning) return;
         syncStopped = false;
         syncRunning = true;
-        document.getElementById('sync-overlay').style.display = 'flex';
-        document.getElementById('sync-errors').style.display = 'none';
-        document.getElementById('sync-errors').innerHTML = '';
-        document.getElementById('sync-retry-btn').style.display = 'none';
+        resetOverlay('Processando fila...');
         processQueueBatch();
     });
 }
@@ -1379,6 +1408,21 @@ var confirmMsgs = {
     check_integrity: 'Verificar integridade das referências entre BD e S3?\n\nLista objetos no S3, compara com URLs do BD, mostra órfãos e quebrados.',
     clean_orphans_s3: 'Remover objetos órfãos do S3?\n\nIsso deletará TODOS os objetos do bucket que não têm referência no banco de dados.',
 };
+var overlayTitles = {
+    sync_images: 'Sincronizando imagens...',
+    sync_games: 'Sincronizando jogos...',
+    sync_roms: 'Sincronizando ROMs...',
+    restore_from_s3: 'Restaurando do S3...',
+    fix_broken_urls: 'Corrigindo URLs...',
+    update_db_urls: 'Atualizando URLs...',
+    revert_db_urls: 'Revertendo URLs...',
+    clean_images: 'Limpando imagens locais...',
+    clean_games: 'Limpando jogos locais...',
+    clean_roms: 'Limpando ROMs locais...',
+    process_sync_queue: 'Processando fila...',
+    check_integrity: 'Verificando integridade...',
+    clean_orphans_s3: 'Limpando objetos órfãos...',
+};
 document.querySelectorAll('form[method="POST"]').forEach(function(f) {
     f.addEventListener('submit', function(e) {
         var inp = this.querySelector('input[name="action"]');
@@ -1389,7 +1433,7 @@ document.querySelectorAll('form[method="POST"]').forEach(function(f) {
             e.preventDefault();
             return;
         }
-        document.getElementById('sync-overlay').style.display = 'flex';
+        resetOverlay(overlayTitles[inp.value] || 'Processando...');
     });
 });
 </script>

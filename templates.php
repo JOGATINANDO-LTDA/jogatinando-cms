@@ -5,6 +5,7 @@ $pageTitle = 'Templates';
 $siteName = getSetting('site_name', SITE_NAME);
 $siteTagline = getSetting('site_tagline', SITE_TAGLINE);
 $footerDescription = getSetting('footer_description', '');
+$templatesAd = renderAdSlot('home_inline_1', 'templates', 'all');
 
 $engine = trim($_GET['engine'] ?? '');
 $search = trim($_GET['search'] ?? '');
@@ -39,6 +40,7 @@ $engines = dbQuery('SELECT name, slug, icon FROM engines WHERE active = 1 ORDER 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="<?= assetUrl('/assets/css/style.css') ?>">
 </head>
 <body>
@@ -77,6 +79,7 @@ $engines = dbQuery('SELECT name, slug, icon FROM engines WHERE active = 1 ORDER 
 
     <main class="section section-dark catalog-page">
         <div class="container">
+            <?= $templatesAd ?>
             <div class="section-title catalog-title">
                 <h2><span class="gold">Templates</span> para Downloads</h2>
                 <p>Bases prontas para novos projetos. Filtre por engine e faça download do código fonte.</p>
@@ -166,14 +169,7 @@ $engines = dbQuery('SELECT name, slug, icon FROM engines WHERE active = 1 ORDER 
         </div>
     </main>
 
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-bottom" style="border-top:0;padding-top:0">
-                <p>&copy; <?= date('Y') ?> <?= e($siteName) ?>. Todos os direitos reservados.</p>
-                <p><a href="/">Voltar para a home</a></p>
-            </div>
-        </div>
-    </footer>
+    <?php require_once __DIR__ . '/includes/footer-front.php'; ?>
 
     <script src="<?= assetUrl('/assets/js/main.js') ?>"></script>
 </body>

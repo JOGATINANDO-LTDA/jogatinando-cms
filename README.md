@@ -110,6 +110,10 @@ O `docker-compose.yml` usa **bind mount** (`..:/var/www/html`) por padrão — q
 
 Os volumes nomeados `cms-data` e `cms-uploads` persistem o banco SQLite e os uploads por cima do bind mount nos subdiretórios `data/` e `uploads/`.
 
+### Higiene de arquivos PHP
+
+Use `scripts/check-php-prefix.ps1` para detectar arquivos PHP com BOM ou qualquer byte antes de `<?php`.
+
 ### Rebuild sem cache
 
 ```bash

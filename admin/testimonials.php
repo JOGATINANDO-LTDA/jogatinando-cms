@@ -36,6 +36,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
     if ($_POST['action'] === 'delete') { $item = dbQueryOne("SELECT avatar_url FROM testimonials WHERE id = ?", [$id]); if ($item && !empty($item['avatar_url'])) deleteFile($item['avatar_url']); dbDelete('testimonials', $id); flashMessage('success', 'Depoimento excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials'); exit; }
     if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM testimonials WHERE id = ?", [$id]); if ($r) dbExec("UPDATE testimonials SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials'); exit; }
+    if ($_POST['action'] === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            foreach ($ids as $tid) { $t = dbQueryOne("SELECT avatar_url FROM testimonials WHERE id = ?", [$tid]); if ($t && !empty($t['avatar_url'])) deleteFile($t['avatar_url']); }
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            dbExec("DELETE FROM testimonials WHERE id IN ($placeholders)", $ids);
+            flashMessage('success', count($ids) . ' depoimento(s) removido(s).');
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/testimonials'); exit;
+    }
 }
 
 if ($action === 'new' || $action === 'edit') {
@@ -59,9 +69,13 @@ if ($action === 'new' || $action === 'edit') {
             <h3 class="form-section-title">Avatar</h3>
 
             <div class="form-group">
-                <div class="file-upload"><input type="file" name="avatar" accept="image/*">
-                <div class="upload-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-                <div class="upload-text">Upload de avatar</div></div>
+                <label for="avatar">Avatar</label>
+                <div class="file-upload">
+                    <input type="file" id="avatar" name="avatar" accept="image/png,image/jpeg,image/gif,image/webp">
+                    <div class="upload-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+                    <div class="upload-text">Upload de avatar</div>
+                    <div class="upload-hint">JPG, PNG, WebP ou GIF.</div>
+                </div>
                 <?php if (!empty($item['avatar_url'])): ?><img src="<?= e($item['avatar_url']) ?>" class="preview-img" alt="Avatar"><?php endif; ?>
             </div>
 
@@ -69,7 +83,7 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-row">
                 <div class="form-group"><label for="sort_order">Ordem</label><input type="number" id="sort_order" name="sort_order" value="<?= (int)($item['sort_order'] ?? 0) ?>"></div>
-                <div class="form-group"><div class="toggle-group" style="margin-top:28px"><input type="checkbox" id="active" name="active" <?= ($item['active'] ?? 1) ? 'checked' : '' ?>><label for="active">Ativo</label></div></div>
+                <div class="form-group"><div class="toggle-group"><input type="checkbox" id="active" name="active" <?= ($item['active'] ?? 1) ? 'checked' : '' ?>><label for="active">Ativo</label></div></div>
             </div>
             <div class="form-actions"><button type="submit" class="btn btn-gold">Salvar</button><a href="testimonials" class="btn btn-outline">Cancelar</a></div>
         </form>
@@ -77,30 +91,38 @@ if ($action === 'new' || $action === 'edit') {
     </div>
     <?php
 } else {
-    $items = dbQuery("SELECT * FROM testimonials ORDER BY sort_order ASC");
+    $pager = paginateQuery('SELECT COUNT(*) as c FROM testimonials', 'SELECT * FROM testimonials ORDER BY sort_order ASC');
+    $items = $pager['items'];
+    $totalItems = $pager['total'];
     ?>
     <div class="card">
-        <div class="card-header"><h2 class="card-title">Depoimentos</h2><a href="testimonials?action=new" class="btn btn-gold btn-sm">+ Novo</a></div>
+        <div class="card-header"><h2 class="card-title">Depoimentos (<?= $totalItems ?>)</h2><a href="testimonials?action=new" class="btn btn-gold btn-sm">+ Novo</a></div>
         <?php if (empty($items)): ?><div class="card-body"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><p>Nenhum depoimento cadastrado.</p></div></div>
         <?php else: ?>
-            <div class="table-wrapper">
-                <table>
-                    <thead><tr><th>Nome</th><th>Cargo</th><th>Depoimento</th><th>Status</th><th>Ações</th></tr></thead>
-                    <tbody>
-                        <?php foreach ($items as $t): ?>
-                        <tr>
-                            <td><strong style="color:var(--fg)"><?= e($t['name']) ?></strong></td>
-                            <td><?= e($t['role']) ?></td>
-                            <td><?= e(truncateText($t['quote'], 60)) ?></td>
-                            <td><?= $t['active'] ? '<span class="badge badge-active">Ativo</span>' : '<span class="badge badge-inactive">Inativo</span>' ?></td>
-                            <td class="actions">
-                                <form method="POST" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $t['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $t['active'] ? '🔴' : '🟢' ?></button></form>
-                                <a href="testimonials?action=edit&id=<?= $t['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
-                                <form method="POST" style="display:inline" onsubmit="return confirm('Excluir?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $t['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
-                            </td>
-                        </tr><?php endforeach; ?>
-                    </tbody>
-                </table>
+            <div class="card-body">
+                <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+                <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th><input type="checkbox" id="select-all"></th><th>Nome</th><th>Cargo</th><th>Depoimento</th><th>Status</th><th>Ações</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($items as $t): ?>
+                            <tr>
+                                <td><input type="checkbox" class="row-select" value="<?= (int)$t['id'] ?>"></td>
+                                <td><strong><?= e($t['name']) ?></strong></td>
+                                <td><?= e($t['role']) ?></td>
+                                <td><?= e(truncateText($t['quote'], 60)) ?></td>
+                                <td><?= $t['active'] ? '<span class="badge badge-active">Ativo</span>' : '<span class="badge badge-inactive">Inativo</span>' ?></td>
+                                <td class="actions">
+                                    <form method="POST" class="inline-actions"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $t['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $t['active'] ? '🔴' : '🟢' ?></button></form>
+                                    <a href="testimonials?action=edit&id=<?= $t['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
+                                    <form method="POST" class="inline-actions" onsubmit="return confirm('Excluir?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $t['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
+                                </td>
+                            </tr><?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?= renderPagination($pager['page'], $pager['pages']) ?>
             </div>
         <?php endif; ?>
     </div>

@@ -81,10 +81,10 @@ $heroTitle = getSetting('hero_title', 'Criamos <span class="gold">Jogos</span><b
 $heroSubtitle = getSetting('hero_subtitle', 'Estúdio brasileiro especializado em desenvolvimento de jogos sob medida. Da ideia ao lançamento — em qualquer engine que seu projeto exigir.');
 $contactEmail = getSetting('contact_email', '');
 $contactWhatsapp = getSetting('contact_whatsapp', '');
-$youtubeUrl = getSetting('youtube_url', '');
-$twitchUrl = getSetting('twitch_url', '');
-$blogUrl = getSetting('blog_url', '');
 $footerDescription = getSetting('footer_description', '');
+$homeTopAd = renderAdSlot('home_top', 'home', 'all');
+$homeInlineAd = renderAdSlot('home_inline_1', 'home', 'all');
+$siteSocialLinks = getSocialLinks('site', true);
 
 ?>
 <!DOCTYPE html>
@@ -98,6 +98,7 @@ $footerDescription = getSetting('footer_description', '');
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700;800;900&family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css" referrerpolicy="no-referrer">
     <link rel="stylesheet" href="<?= assetUrl('/assets/css/style.css') ?>">
 </head>
 <body>
@@ -148,6 +149,7 @@ $footerDescription = getSetting('footer_description', '');
 
     <!-- Hero -->
     <section id="home" class="hero">
+        <?= $homeTopAd ?>
         <div class="hero-bg"></div>
         <div class="hero-particles" id="heroParticles"></div>
         <div class="hero-content">
@@ -187,14 +189,16 @@ $footerDescription = getSetting('footer_description', '');
                 <a href="#games" class="btn btn-gold">Ver Portfólio</a>
                 <a href="#contact" class="btn btn-outline">Solicitar Orçamento</a>
             </div>
+            <?php if (!empty($siteSocialLinks)): ?>
             <div class="hero-sub-nav">
-                <?php if ($youtubeUrl): ?><a href="<?= e($youtubeUrl) ?>" target="_blank" rel="noopener">YouTube</a><?php endif; ?>
-                <?php if ($twitchUrl): ?><a href="<?= e($twitchUrl) ?>" target="_blank" rel="noopener">Twitch</a><?php endif; ?>
-                <?php if ($blogUrl): ?><a href="<?= e($blogUrl) ?>" target="_blank" rel="noopener">Blog</a><?php endif; ?>
+                <?= renderSocialLinks('site', 'hero-social-links') ?>
             </div>
+            <?php endif; ?>
             <?php endif; ?>
         </div>
     </section>
+
+    <?= $homeInlineAd ?>
 
     <!-- Ornament -->
     <div class="ornament-divider">
@@ -308,7 +312,7 @@ $footerDescription = getSetting('footer_description', '');
                     <?php endif; ?>
                     <div class="blog-content">
                         <h3><?= e($game['title']) ?></h3>
-                        <p><?= e(truncateText($game['description'], 150)) ?></p>
+                        <p><?= e(truncateText(strip_tags(parseMarkdown($game['description'])), 150)) ?></p>
                     </div>
                 </a>
                 <?php endforeach; ?>
@@ -343,7 +347,7 @@ $footerDescription = getSetting('footer_description', '');
                     <?php endif; ?>
                     <div class="blog-content">
                         <h3><?= e($post['title']) ?></h3>
-                        <p><?= e(truncateText($post['content'], 150)) ?></p>
+                        <p><?= e(truncateText(strip_tags(parseMarkdown($post['content'])), 150)) ?></p>
                         <time><?= date('d/m/Y', strtotime($post['published_at'])) ?></time>
                         <?php if ($post['external_url']): ?>
                         <a href="<?= e($post['external_url']) ?>" class="btn btn-outline btn-sm" style="margin-top:12px" target="_blank" rel="noopener">Ler mais</a>
@@ -352,11 +356,9 @@ $footerDescription = getSetting('footer_description', '');
                 </article>
                 <?php endforeach; ?>
             </div>
-            <?php if ($blogUrl): ?>
             <div class="section-footer">
-                <a href="<?= e($blogUrl) ?>" class="btn btn-outline" target="_blank" rel="noopener">Ver Blog Completo →</a>
+                <a href="/admin/blog" class="btn btn-outline" target="_blank" rel="noopener">Ver Blog Completo →</a>
             </div>
-            <?php endif; ?>
         </div>
     </section>
 
@@ -567,16 +569,7 @@ $footerDescription = getSetting('footer_description', '');
     </div>
 
     <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <div class="footer-grid">
-                <div class="footer-brand">
-                    <div class="logo">
-                        <div class="logo-shield">
-<img src="<?= siteLogoUrl() ?>" alt="Logo">
-                </div>
-            </div>
-        </footer>
+    <?php require_once __DIR__ . '/includes/footer-front.php'; ?>
 
     <script src="<?= assetUrl('/assets/js/main.js') ?>"></script>
     <script>

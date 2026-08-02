@@ -211,11 +211,14 @@ if (!defined('ALLOWED_IMAGE_EXTENSIONS')) define('ALLOWED_IMAGE_EXTENSIONS', ['j
 // Admin credentials (seed-only, used by migration_001 / dbSeed)
 if (!defined('ADMIN_USERNAME')) {
     $envUser = getenv('ADMIN_USERNAME') ?: '';
-    define('ADMIN_USERNAME', $envUser !== '' ? $envUser : 'admin');
+    $isSqlite = defined('DB_TYPE') && DB_TYPE === 'sqlite';
+    define('ADMIN_USERNAME', !$isSqlite && $envUser !== '' ? $envUser : 'admin');
 }
 if (!defined('ADMIN_PASSWORD_HASH')) {
     $envPass = getenv('ADMIN_PASSWORD') ?: '';
-    define('ADMIN_PASSWORD_HASH', password_hash($envPass !== '' ? $envPass : 'admin1234', PASSWORD_DEFAULT));
+    $isSqlite = defined('DB_TYPE') && DB_TYPE === 'sqlite';
+    $pass = !$isSqlite && $envPass !== '' ? $envPass : 'admin1234';
+    define('ADMIN_PASSWORD_HASH', password_hash($pass, PASSWORD_DEFAULT));
 }
 
 // Site info
@@ -235,6 +238,7 @@ require_once ROOT_PATH . '/includes/db.php';
 require_once ROOT_PATH . '/includes/auth.php';
 require_once ROOT_PATH . '/includes/functions.php';
 require_once ROOT_PATH . '/includes/storage.php';
+require_once ROOT_PATH . '/includes/markdown.php';
 
 // Redirect to install if not set up yet
 requireInstalled();

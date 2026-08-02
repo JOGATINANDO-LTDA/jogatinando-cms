@@ -25,6 +25,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     }
     if ($_POST['action'] === 'delete') { dbDelete('faq_items', $id); flashMessage('success', 'FAQ excluída.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/faq'); exit; }
     if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM faq_items WHERE id = ?", [$id]); if ($r) dbExec("UPDATE faq_items SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/faq'); exit; }
+    if ($_POST['action'] === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            dbExec("DELETE FROM faq_items WHERE id IN ($placeholders)", $ids);
+            flashMessage('success', count($ids) . ' item(ns) removido(s).');
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/faq'); exit;
+    }
 }
 
 if ($action === 'new' || $action === 'edit') {
@@ -54,18 +63,23 @@ if ($action === 'new' || $action === 'edit') {
     </div>
     <?php
 } else {
-    $items = dbQuery("SELECT * FROM faq_items ORDER BY sort_order ASC");
+    $pager = paginateQuery('SELECT COUNT(*) as c FROM faq_items', 'SELECT * FROM faq_items ORDER BY sort_order ASC');
+    $items = $pager['items'];
+    $totalItems = $pager['total'];
     ?>
     <div class="card">
-        <div class="card-header"><h2 class="card-title">Perguntas Frequentes</h2><a href="faq?action=new" class="btn btn-gold btn-sm">+ Nova FAQ</a></div>
+        <div class="card-header"><h2 class="card-title">Perguntas Frequentes (<?= $totalItems ?>)</h2><a href="faq?action=new" class="btn btn-gold btn-sm">+ Nova FAQ</a></div>
         <?php if (empty($items)): ?><div class="card-body"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 015.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg></div><p>Nenhuma FAQ cadastrada.</p></div></div>
         <?php else: ?>
+            <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+            <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>
             <div class="table-wrapper">
                 <table>
-                    <thead><tr><th>Ordem</th><th>Pergunta</th><th>Resposta</th><th>Status</th><th>Ações</th></tr></thead>
+                    <thead><tr><th><input type="checkbox" id="select-all"></th><th>Ordem</th><th>Pergunta</th><th>Resposta</th><th>Status</th><th>Ações</th></tr></thead>
                     <tbody>
                         <?php foreach ($items as $f): ?>
                         <tr>
+                            <td><input type="checkbox" class="row-select" form="bulkForm" name="ids[]" value="<?= (int)$f['id'] ?>"></td>
                             <td><?= (int)$f['sort_order'] ?></td>
                             <td><strong style="color:var(--fg)"><?= e($f['question']) ?></strong></td>
                             <td><?= e(truncateText(strip_tags($f['answer']), 60)) ?></td>
@@ -79,6 +93,7 @@ if ($action === 'new' || $action === 'edit') {
                     </tbody>
                 </table>
             </div>
+            <?= renderPagination($pager['page'], $pager['pages']) ?>
         <?php endif; ?>
     </div>
     <?php

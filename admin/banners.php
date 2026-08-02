@@ -100,6 +100,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Location: ' . ADMIN_URL . '/banners');
         exit;
     }
+
+    if ($_POST['action'] === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            $toDelete = dbQuery("SELECT image_url FROM banners WHERE id IN ($placeholders)", $ids);
+            foreach ($toDelete as $row) {
+                if (!empty($row['image_url'])) {
+                    $imgPath = UPLOAD_PATH . str_replace('/uploads', '', $row['image_url']);
+                    if (file_exists($imgPath)) @unlink($imgPath);
+                }
+            }
+            dbExec("DELETE FROM banners WHERE id IN ($placeholders)", $ids);
+            flashMessage('success', count($ids) . ' item(ns) removido(s).');
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/banners'); exit;
+    }
 }
 
 if ($action === 'new' || $action === 'edit') {
@@ -193,11 +210,13 @@ if ($action === 'new' || $action === 'edit') {
     </div>
     <?php
 } else {
-    $banners = dbQuery("SELECT * FROM banners ORDER BY sort_order ASC, id DESC");
+    $pager = paginateQuery('SELECT COUNT(*) as c FROM banners', 'SELECT * FROM banners ORDER BY sort_order ASC, id DESC');
+    $banners = $pager['items'];
+    $totalItems = $pager['total'];
     ?>
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Todos os Banners</h2>
+            <h2 class="card-title">Todos os Banners (<?= $totalItems ?>)</h2>
             <a href="banners?action=new" class="btn btn-gold btn-sm">+ Novo Banner</a>
         </div>
         <?php if (empty($banners)): ?>
@@ -210,10 +229,13 @@ if ($action === 'new' || $action === 'edit') {
             </div>
             </div>
         <?php else: ?>
+            <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+            <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>
             <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="select-all"></th>
                             <th>Ordem</th>
                             <th>Título</th>
                             <th>Subtítulo</th>
@@ -225,6 +247,7 @@ if ($action === 'new' || $action === 'edit') {
                     <tbody>
                         <?php foreach ($banners as $b): ?>
                         <tr>
+                            <td><input type="checkbox" class="row-select" form="bulkForm" name="ids[]" value="<?= (int)$b['id'] ?>"></td>
                             <td><?= (int)$b['sort_order'] ?></td>
                             <td><strong style="color:var(--fg)"><?= e($b['title']) ?></strong></td>
                             <td><?= e(truncateText($b['subtitle'], 40)) ?></td>
@@ -256,6 +279,7 @@ if ($action === 'new' || $action === 'edit') {
                     </tbody>
                 </table>
             </div>
+            <?= renderPagination($pager['page'], $pager['pages']) ?>
         <?php endif; ?>
     </div>
     <?php

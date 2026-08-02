@@ -211,4 +211,126 @@ document.addEventListener('DOMContentLoaded', function() {
       });
     }
   });
+
+  // Multi-select / bulk actions
+  // New pattern: multiple groups via data-bulk-group (used by pages with multiple tables)
+  var groups = document.querySelectorAll('[data-bulk-group]');
+  var groupNames = [];
+  groups.forEach(function(el) {
+    var g = el.getAttribute('data-bulk-group');
+    if (groupNames.indexOf(g) === -1) groupNames.push(g);
+  });
+
+  if (groupNames.length > 0) {
+    groupNames.forEach(function(group) {
+      var selectAll = document.querySelector('[data-bulk-group="' + group + '"].select-all');
+      var bulkBar = document.querySelector('[data-bulk-group="' + group + '"].bulk-bar');
+      var bulkCount = bulkBar ? bulkBar.querySelector('.bulk-count') : null;
+      var bulkBtn = bulkBar ? bulkBar.querySelector('.bulk-delete-btn') : null;
+      var bulkForm = document.querySelector('[data-bulk-group="' + group + '"].bulk-form');
+
+      function updateBulk() {
+        var checks = document.querySelectorAll('.row-select[data-bulk-group="' + group + '"]');
+        var selected = 0;
+        checks.forEach(function(c) { if (c.checked) selected++; });
+        if (bulkCount) bulkCount.textContent = selected + ' selecionado' + (selected !== 1 ? 's' : '');
+        if (bulkBar) bulkBar.classList.toggle('active', selected > 0);
+        if (bulkBtn) bulkBtn.disabled = selected === 0;
+        if (selectAll) {
+          selectAll.indeterminate = selected > 0 && selected < checks.length;
+          selectAll.checked = selected > 0 && selected === checks.length;
+        }
+      }
+
+      if (selectAll) {
+        selectAll.addEventListener('change', function() {
+          document.querySelectorAll('.row-select[data-bulk-group="' + group + '"]').forEach(function(c) { c.checked = selectAll.checked; });
+          updateBulk();
+        });
+      }
+
+      document.querySelectorAll('.row-select[data-bulk-group="' + group + '"]').forEach(function(cb) {
+        cb.addEventListener('change', updateBulk);
+      });
+
+      if (bulkBtn && bulkForm) {
+        bulkBtn.addEventListener('click', function(e) {
+          e.preventDefault();
+          var selected = document.querySelectorAll('.row-select[data-bulk-group="' + group + '"]:checked');
+          if (selected.length === 0) return;
+          if (!confirm('Excluir ' + selected.length + ' item(ns)? Esta ação não pode ser desfeita.')) return;
+          bulkForm.querySelectorAll('input[name="ids[]"]').forEach(function(el) { el.remove(); });
+          selected.forEach(function(c) {
+            var inp = document.createElement('input');
+            inp.type = 'hidden';
+            inp.name = 'ids[]';
+            inp.value = c.value;
+            bulkForm.appendChild(inp);
+          });
+          bulkForm.submit();
+        });
+      }
+
+      updateBulk();
+    });
+  } else {
+    // Legacy pattern: single table per page using IDs (select-all, bulkForm, etc.)
+    var selectAll = document.getElementById('select-all');
+    var bulkBar = document.getElementById('bulkBar');
+    var bulkCount = document.getElementById('bulkCount');
+    var bulkBtn = document.getElementById('bulkDeleteBtn');
+    var bulkForm = document.getElementById('bulkForm');
+
+    function updateBulk() {
+      var checks = document.querySelectorAll('.row-select');
+      var selected = 0;
+      checks.forEach(function(c) { if (c.checked) selected++; });
+      if (bulkCount) bulkCount.textContent = selected + ' selecionado' + (selected !== 1 ? 's' : '');
+      if (bulkBar) bulkBar.classList.toggle('active', selected > 0);
+      if (bulkBtn) bulkBtn.disabled = selected === 0;
+      if (selectAll) {
+        selectAll.indeterminate = selected > 0 && selected < checks.length;
+        selectAll.checked = selected > 0 && selected === checks.length;
+      }
+    }
+
+    if (selectAll) {
+      selectAll.addEventListener('change', function() {
+        document.querySelectorAll('.row-select').forEach(function(c) { c.checked = selectAll.checked; });
+        updateBulk();
+      });
+    }
+
+    document.querySelectorAll('.row-select').forEach(function(cb) {
+      cb.addEventListener('change', updateBulk);
+    });
+
+    if (bulkBtn && bulkForm) {
+      bulkBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        var selected = document.querySelectorAll('.row-select:checked');
+        if (selected.length === 0) return;
+        if (!confirm('Excluir ' + selected.length + ' item(ns)? Esta ação não pode ser desfeita.')) return;
+        var idsInput = document.getElementById('bulkIds');
+        if (!idsInput) {
+          idsInput = document.createElement('input');
+          idsInput.type = 'hidden';
+          idsInput.name = 'ids[]';
+          idsInput.id = 'bulkIds';
+          bulkForm.appendChild(idsInput);
+        }
+        bulkForm.querySelectorAll('input[name="ids[]"]').forEach(function(el) { el.remove(); });
+        selected.forEach(function(c) {
+          var inp = document.createElement('input');
+          inp.type = 'hidden';
+          inp.name = 'ids[]';
+          inp.value = c.value;
+          bulkForm.appendChild(inp);
+        });
+        bulkForm.submit();
+      });
+    }
+
+    updateBulk();
+  }
 });

@@ -108,6 +108,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         exit;
     }
 
+    if ($_POST['action'] === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            dbExec("DELETE FROM retro_games WHERE id IN ($placeholders)", $ids);
+            flashMessage('success', count($ids) . ' jogo(s) retro removido(s).');
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/retro-games'); exit;
+    }
+
     if ($_POST['action'] === 'toggle') {
         $game = dbQueryOne("SELECT active FROM retro_games WHERE id = ?", [$id]);
         if ($game) {
@@ -139,6 +149,7 @@ if ($action === 'new' || $action === 'edit') {
                 <?php if ($id > 0): ?><input type="hidden" name="id" value="<?= $id ?>"><?php endif; ?>
                 <?= csrfField() ?>
 
+                <h3 class="form-section-title">Informações Básicas</h3>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="title">Título *</label>
@@ -166,21 +177,24 @@ if ($action === 'new' || $action === 'edit') {
                             <option value="original" <?= ($game['type'] ?? 'original') === 'original' ? 'selected' : '' ?>>Original</option>
                             <option value="modified" <?= ($game['type'] ?? '') === 'modified' ? 'selected' : '' ?>>Modificado</option>
                         </select>
+                        <div class="field-hint">Use "Modificado" para hacks, traduções e versões customizadas.</div>
                     </div>
                 </div>
 
-                <div class="form-row" id="modDescRow" style="display:<?= ($game['type'] ?? 'original') === 'modified' ? 'flex' : 'none' ?>">
-                    <div class="form-group" style="flex:1">
+                <div class="form-row hidden" id="modDescRow">
+                    <div class="form-group">
                         <label for="modification_description">Descrição da Modificação</label>
                         <input type="text" id="modification_description" name="modification_description" value="<?= e($game['modification_description'] ?? '') ?>" maxlength="60" placeholder="Ex: Tradução PT-BR, Novo jogo, Hack de levels">
-                        <small class="field-hint">Máximo de 60 caracteres. Descreva resumidamente o que foi modificado.</small>
+                        <div class="field-hint">Máximo de 60 caracteres. Descreva resumidamente o que foi modificado.</div>
                     </div>
                 </div>
 
+                <h3 class="form-section-title">Jogabilidade</h3>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="emulator_core">Core EmulatorJS</label>
                         <input type="text" id="emulator_core" name="emulator_core" value="<?= e($game['emulator_core'] ?? '') ?>" placeholder="Deixe em branco para usar o core do console">
+                        <div class="field-hint">Deixe vazio para herdar o core padrão do console.</div>
                     </div>
                     <div class="form-group">
                         <label for="sort_order">Ordem</label>
@@ -188,45 +202,52 @@ if ($action === 'new' || $action === 'edit') {
                     </div>
                 </div>
 
-                <div class="form-group">
-                    <label for="description">Descrição</label>
-                    <textarea id="description" name="description" rows="4"><?= e($game['description'] ?? '') ?></textarea>
-                </div>
-
+                <h3 class="form-section-title">Descrição</h3>
                 <div class="form-row">
                     <div class="form-group">
-                        <label>Thumbnail</label>
+                        <label for="description">Descrição</label>
+                        <textarea id="description" name="description" rows="4"><?= e($game['description'] ?? '') ?></textarea>
+                    </div>
+                </div>
+
+                <h3 class="form-section-title">Mídia</h3>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="thumbnail">Thumbnail</label>
                         <div class="file-upload">
-                            <input type="file" name="thumbnail" accept="image/*">
+                            <input type="file" id="thumbnail" name="thumbnail" accept="image/png,image/jpeg,image/gif,image/webp">
                             <div class="upload-icon">
                                 <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                             </div>
                             <div class="upload-text">Clique ou arraste uma imagem</div>
+                            <div class="upload-hint">JPG, PNG, GIF ou WebP.</div>
                         </div>
                         <?php if (!empty($game['thumbnail_url'])): ?><img src="<?= e($game['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail"><?php endif; ?>
                     </div>
                     <div class="form-group">
-                        <label>ROM</label>
+                        <label for="rom">ROM</label>
                         <div class="file-upload">
-                            <input type="file" name="rom" accept=".sfc,.smc,.zip,.nes,.gb,.gba,.bin,.iso,.cue,.chd">
+                            <input type="file" id="rom" name="rom" accept=".sfc,.smc,.zip,.nes,.gb,.gba,.bin,.iso,.cue,.chd">
                             <div class="upload-icon">
                                 <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
                             </div>
                             <div class="upload-text">Envie a ROM</div>
+                            <div class="upload-hint">Formatos suportados: ROMs, ZIP, BIN, ISO, CUE e CHD.</div>
                         </div>
                         <?php if (!empty($game['rom_path'])): ?><p class="hint">Arquivo atual: <?= e($game['rom_path']) ?></p><?php endif; ?>
                     </div>
                 </div>
 
+                <h3 class="form-section-title">Configurações</h3>
                 <div class="form-row">
                     <div class="form-group">
-                        <div class="toggle-group" style="margin-top:28px">
+                        <div class="toggle-group">
                             <input type="checkbox" id="featured" name="featured" <?= ($game['featured'] ?? 0) ? 'checked' : '' ?>>
                             <label for="featured">Destaque</label>
                         </div>
                     </div>
                     <div class="form-group">
-                        <div class="toggle-group" style="margin-top:28px">
+                        <div class="toggle-group">
                             <input type="checkbox" id="active" name="active" <?= ($game['active'] ?? 1) ? 'checked' : '' ?>>
                             <label for="active">Ativo</label>
                         </div>
@@ -264,32 +285,32 @@ if ($action === 'new' || $action === 'edit') {
         $where .= " AND r.title LIKE ?";
         $params[] = '%' . $_GET['search'] . '%';
     }
-    $games = dbQuery("SELECT r.*, c.name as console_name, c.icon as console_icon FROM retro_games r LEFT JOIN retro_consoles c ON c.slug = r.console WHERE $where ORDER BY r.active DESC, r.sort_order ASC, r.created_at DESC", $params);
+    $pager = paginateQuery("SELECT COUNT(*) as c FROM retro_games r WHERE $where", "SELECT r.*, c.name as console_name, c.icon as console_icon FROM retro_games r LEFT JOIN retro_consoles c ON c.slug = r.console WHERE $where ORDER BY r.active DESC, r.sort_order ASC, r.created_at DESC", $params);
+    $games = $pager['items'];
+    $totalItems = $pager['total'];
     ?>
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Jogos Retro</h2>
+            <h2 class="card-title">Jogos Retro (<?= $totalItems ?>)</h2>
             <a href="retro-games?action=new" class="btn btn-gold btn-sm">+ Novo Jogo Retro</a>
         </div>
         <div class="card-body">
-            <form method="GET" class="filters-form" style="display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:16px">
-                <div class="form-group" style="margin-bottom:0;min-width:180px">
-                    <label for="filter-console" style="font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:4px;display:block">Console</label>
-                    <select id="filter-console" name="console" onchange="this.form.submit()" style="min-height:40px;padding:0 12px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--bg-input);color:var(--fg)">
+            <form method="GET" class="filters-form">
+                <div class="form-group">
+                    <label for="filter-console">Console</label>
+                    <select id="filter-console" name="console" onchange="this.form.submit()">
                         <option value="">Todos</option>
                         <?php foreach ($allConsoles as $ac): ?>
                             <option value="<?= e($ac['slug']) ?>" <?= (isset($_GET['console']) && $_GET['console'] === $ac['slug']) ? 'selected' : '' ?>><?= e($ac['icon'] ?? '') ?> <?= e($ac['name']) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
-                <div class="form-group" style="margin-bottom:0;min-width:200px">
-                    <label for="filter-search" style="font-size:12px;text-transform:uppercase;letter-spacing:0.04em;color:var(--muted);margin-bottom:4px;display:block">Buscar</label>
-                    <div style="display:flex;gap:8px">
-                        <input type="search" id="filter-search" name="search" value="<?= e($_GET['search'] ?? '') ?>" placeholder="Buscar por título..." style="min-height:40px;padding:0 12px;border-radius:var(--radius-md);border:1px solid var(--border);background:var(--bg-input);color:var(--fg);flex:1;min-width:120px">
-                        <button type="submit" class="btn btn-outline btn-sm" style="min-height:40px">OK</button>
-                        <?php if (!empty($_GET['console']) || !empty($_GET['search'])): ?>
-                            <a href="retro-games" class="btn btn-outline btn-sm" style="min-height:40px">Limpar</a>
-                        <?php endif; ?>
+                <div class="form-group">
+                    <label for="filter-search">Buscar</label>
+                    <div class="filters-actions">
+                        <input type="search" id="filter-search" name="search" value="<?= e($_GET['search'] ?? '') ?>" placeholder="Buscar por título...">
+                        <button type="submit" class="btn btn-outline btn-sm">OK</button>
+                        <a href="retro-games" class="btn btn-outline btn-sm">Limpar</a>
                     </div>
                 </div>
             </form>
@@ -302,10 +323,13 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
             </div>
         <?php else: ?>
+            <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+            <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>
             <div class="table-wrapper">
                 <table>
                     <thead>
                         <tr>
+                            <th><input type="checkbox" id="select-all"></th>
                             <th>Título</th>
                             <th>Console</th>
                             <th class="hide-tablet">Tipo</th>
@@ -316,8 +340,9 @@ if ($action === 'new' || $action === 'edit') {
                     <tbody>
                         <?php foreach ($games as $g): ?>
                         <tr>
-                            <td><strong style="color:var(--fg)"><?= e($g['title']) ?></strong></td>
-                            <td><span style="display:inline-flex;align-items:center;gap:8px"><span style="font-size:20px"><?= e($g['console_icon'] ?? '🎮') ?></span><span><?= e($g['console_name'] ?? $g['console']) ?></span></span></td>
+                            <td><input type="checkbox" class="row-select" value="<?= (int)$g['id'] ?>"></td>
+                            <td><strong><?= e($g['title']) ?></strong></td>
+                            <td><span class="inline-icon"><span><?= e($g['console_icon'] ?? '🎮') ?></span><span><?= e($g['console_name'] ?? $g['console']) ?></span></span></td>
                             <td class="hide-tablet"><?= e($g['type'] === 'modified' ? ($g['modification_description'] ?: 'Modificado') : 'Original') ?></td>
                             <td>
                                 <?php if ($g['active']): ?>
@@ -327,14 +352,14 @@ if ($action === 'new' || $action === 'edit') {
                                 <?php endif; ?>
                             </td>
                             <td class="actions">
-                                <form method="POST" style="display:inline">
+                                <form method="POST" class="inline-actions">
                                     <input type="hidden" name="action" value="toggle">
                                     <input type="hidden" name="id" value="<?= $g['id'] ?>">
                                     <?= csrfField() ?>
                                     <button type="submit" class="btn btn-outline btn-sm btn-icon" title="<?= $g['active'] ? 'Desativar' : 'Ativar' ?>"><?= $g['active'] ? '🔴' : '🟢' ?></button>
                                 </form>
                                 <a href="retro-games?action=edit&id=<?= $g['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
-                                <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este jogo retro?')">
+                                <form method="POST" class="inline-actions" onsubmit="return confirm('Excluir este jogo retro?')">
                                     <input type="hidden" name="action" value="delete">
                                     <input type="hidden" name="id" value="<?= $g['id'] ?>">
                                     <?= csrfField() ?>
@@ -346,6 +371,7 @@ if ($action === 'new' || $action === 'edit') {
                     </tbody>
                 </table>
             </div>
+            <?= renderPagination($pager['page'], $pager['pages']) ?>
         <?php endif; ?>
     </div>
     <?php

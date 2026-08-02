@@ -80,7 +80,7 @@ if ($sessionPath && $sessionPath !== '') {
 } else {
     diagWarn('Session save path: default do PHP');
 }
-diagOk('Session ID: ' . session_id());
+// diagOk('Session ID: ' . session_id());
 ?>
 </section>
 

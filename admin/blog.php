@@ -50,6 +50,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
     if ($_POST['action'] === 'delete') { $post = dbQueryOne("SELECT thumbnail_url FROM blog_posts WHERE id = ?", [$id]); if ($post && !empty($post['thumbnail_url'])) deleteFile($post['thumbnail_url']); dbDelete('blog_posts', $id); flashMessage('success', 'Post excluído.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog'); exit; }
     if ($_POST['action'] === 'toggle') { $r = dbQueryOne("SELECT active FROM blog_posts WHERE id = ?", [$id]); if ($r) dbExec("UPDATE blog_posts SET active = ? WHERE id = ?", [1 - $r['active'], $id]); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog'); exit; }
+    if ($_POST['action'] === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            foreach ($ids as $bid) { $p = dbQueryOne("SELECT thumbnail_url FROM blog_posts WHERE id = ?", [$bid]); if ($p && !empty($p['thumbnail_url'])) deleteFile($p['thumbnail_url']); }
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            dbExec("DELETE FROM blog_posts WHERE id IN ($placeholders)", $ids);
+            flashMessage('success', count($ids) . ' post(s) removido(s).');
+        }
+        ob_end_clean();
+        header('Location: ' . ADMIN_URL . '/blog');
+        exit;
+    }
 }
 
 if ($action === 'new' || $action === 'edit') {
@@ -77,29 +89,31 @@ if ($action === 'new' || $action === 'edit') {
                 <div class="form-group">
                     <label for="slug">Slug (URL)</label>
                     <input type="text" id="slug" name="slug" value="<?= e($post['slug'] ?? '') ?>">
-                    <p class="hint">Gerado automaticamente do título</p>
+                    <div class="field-hint">Gerado automaticamente do título</div>
                 </div>
                 <div class="form-group">
                     <label for="external_url">URL Externa (opcional)</label>
                     <input type="url" id="external_url" name="external_url" value="<?= e($post['external_url'] ?? '') ?>" placeholder="https://gamenews.xo.je/...">
-                    <p class="hint">Se preenchido, o link aponta para URL externa</p>
+                    <div class="field-hint">Se preenchido, o link aponta para URL externa</div>
                 </div>
             </div>
             <div class="form-group">
                 <label for="content">Conteúdo</label>
                 <textarea id="content" name="content" rows="12"><?= e($post['content'] ?? '') ?></textarea>
-                <p class="hint">Use HTML para formatação</p>
+                <div class="field-hint">Use HTML para formatação</div>
             </div>
 
             <h3 class="form-section-title">Thumbnail</h3>
 
             <div class="form-group">
+                <label for="thumbnail">Thumbnail</label>
                 <div class="file-upload">
-                    <input type="file" name="thumbnail" accept="image/*">
+                    <input type="file" id="thumbnail" name="thumbnail" accept="image/png,image/jpeg,image/gif,image/webp">
                     <div class="upload-icon">
                         <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
                     </div>
                     <div class="upload-text">Clique ou arraste uma imagem</div>
+                    <div class="upload-hint">JPG, PNG, GIF ou WebP.</div>
                 </div>
                 <?php if (!empty($post['thumbnail_url'])): ?><img src="<?= e($post['thumbnail_url']) ?>" class="preview-img" alt="Thumbnail"><?php endif; ?>
             </div>
@@ -118,15 +132,27 @@ if ($action === 'new' || $action === 'edit') {
                 <a href="blog" class="btn btn-outline">Cancelar</a>
             </div>
         </form>
-        </div>
     </div>
+    </div>
+
+    <?php if ($action === 'new' || $action === 'edit'): ?>
+    <script src="<?= ADMIN_URL ?>/../assets/js/markdown-editor.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        initMarkdownEditor('content');
+    });
+    </script>
+    <?php endif; ?>
+
     <?php
 } else {
-    $posts = dbQuery("SELECT * FROM blog_posts ORDER BY created_at DESC");
+    $pager = paginateQuery('SELECT COUNT(*) as c FROM blog_posts', 'SELECT * FROM blog_posts ORDER BY created_at DESC');
+    $posts = $pager['items'];
+    $totalItems = $pager['total'];
     ?>
     <div class="card">
         <div class="card-header">
-            <h2 class="card-title">Posts do Blog</h2>
+            <h2 class="card-title">Posts do Blog (<?= $totalItems ?>)</h2>
             <a href="blog?action=new" class="btn btn-gold btn-sm">+ Novo Post</a>
         </div>
         <?php if (empty($posts)): ?>
@@ -139,26 +165,35 @@ if ($action === 'new' || $action === 'edit') {
             </div>
             </div>
         <?php else: ?>
-            <div class="table-wrapper">
-                <table>
-                    <thead><tr><th>Título</th><th>Slug</th><th>Externa</th><th>Status</th><th>Data</th><th>Ações</th></tr></thead>
-                    <tbody>
-                        <?php foreach ($posts as $p): ?>
-                        <tr>
-                            <td><strong style="color:var(--fg)"><?= e($p['title']) ?></strong></td>
-                            <td><code style="font-size:12px;color:var(--muted)"><?= e($p['slug']) ?></code></td>
-                            <td><?= $p['external_url'] ? '🔗 Externo' : '📄 Interno' ?></td>
-                            <td><?= $p['active'] ? '<span class="badge badge-active">Publicado</span>' : '<span class="badge badge-inactive">Rascunho</span>' ?></td>
-                            <td><?= timeAgo($p['created_at']) ?></td>
-                            <td class="actions">
-                                <form method="POST" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $p['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $p['active'] ? '🔴' : '🟢' ?></button></form>
-                                <a href="blog?action=edit&id=<?= $p['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
-                                <form method="POST" style="display:inline" onsubmit="return confirm('Excluir este post?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $p['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
-                            </td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+            <div class="card-body">
+                <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+                <div class="bulk-bar" id="bulkBar">
+                    <span class="bulk-count" id="bulkCount">0 selecionados</span>
+                    <button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button>
+                </div>
+                <div class="table-wrapper">
+                    <table>
+                        <thead><tr><th><input type="checkbox" id="select-all"></th><th>Título</th><th>Slug</th><th>Externa</th><th>Status</th><th>Data</th><th>Ações</th></tr></thead>
+                        <tbody>
+                            <?php foreach ($posts as $p): ?>
+                            <tr>
+                                <td><input type="checkbox" class="row-select" value="<?= (int)$p['id'] ?>"></td>
+                                <td><strong><?= e($p['title']) ?></strong></td>
+                                <td><code class="slug-code"><?= e($p['slug']) ?></code></td>
+                                <td><?= $p['external_url'] ? '🔗 Externo' : '📄 Interno' ?></td>
+                                <td><?= $p['active'] ? '<span class="badge badge-active">Publicado</span>' : '<span class="badge badge-inactive">Rascunho</span>' ?></td>
+                                <td><?= timeAgo($p['created_at']) ?></td>
+                                <td class="actions">
+                                    <form method="POST" class="inline-actions"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $p['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $p['active'] ? '🔴' : '🟢' ?></button></form>
+                                    <a href="blog?action=edit&id=<?= $p['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
+                                    <form method="POST" class="inline-actions" onsubmit="return confirm('Excluir este post?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $p['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+                <?= renderPagination($pager['page'], $pager['pages']) ?>
             </div>
         <?php endif; ?>
     </div>

@@ -61,6 +61,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         }
         ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit;
     }
+    if ($_POST['action'] === 'delete_selected') {
+        $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
+        if (!empty($ids)) {
+            $placeholders = implode(',', array_fill(0, count($ids), '?'));
+            dbExec("DELETE FROM team_members WHERE id IN ($placeholders) AND user_id IS NULL", $ids);
+            flashMessage('success', count($ids) . ' item(ns) removido(s).');
+        }
+        ob_end_clean(); header('Location: ' . ADMIN_URL . '/team'); exit;
+    }
 }
 
 if ($action === 'new' || $action === 'edit') {
@@ -88,7 +97,7 @@ if ($action === 'new' || $action === 'edit') {
                         <option value="<?= e($r['name']) ?>" <?= ($member['role'] ?? '') === $r['name'] ? 'selected' : '' ?>><?= e($r['name']) ?></option>
                         <?php endforeach; ?>
                     </select>
-                    <a href="roles?action=new" style="display:block;margin-top:4px;font-size:13px;color:var(--gold);">+ Criar novo cargo</a>
+                    <a href="roles?action=new" class="field-hint link-action">+ Criar novo cargo</a>
                 </div>
             </div>
             <div class="form-group"><label for="bio">Bio</label><textarea id="bio" name="bio" rows="4"><?= e($member['bio'] ?? '') ?></textarea></div>
@@ -96,9 +105,13 @@ if ($action === 'new' || $action === 'edit') {
             <h3 class="form-section-title">Avatar</h3>
 
             <div class="form-group">
-                <div class="file-upload"><input type="file" name="avatar" accept="image/*">
-                <div class="upload-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
-                <div class="upload-text">Upload de foto</div></div>
+                <label for="avatar">Avatar</label>
+                <div class="file-upload">
+                    <input type="file" id="avatar" name="avatar" accept="image/png,image/jpeg,image/gif,image/webp">
+                    <div class="upload-icon"><svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+                    <div class="upload-text">Upload de foto</div>
+                    <div class="upload-hint">JPG, PNG, WebP ou GIF.</div>
+                </div>
                 <?php if (!empty($member['avatar_url'])): ?><img src="<?= e($member['avatar_url']) ?>" class="preview-img" alt="Avatar"><?php endif; ?>
             </div>
 
@@ -114,7 +127,7 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-row">
                 <div class="form-group"><label for="sort_order">Ordem</label><input type="number" id="sort_order" name="sort_order" value="<?= (int)($member['sort_order'] ?? 0) ?>"></div>
-                <div class="form-group"><div class="toggle-group" style="margin-top:28px"><input type="checkbox" id="active" name="active" <?= ($member['active'] ?? 1) ? 'checked' : '' ?>><label for="active">Ativo</label></div></div>
+                <div class="form-group"><div class="toggle-group"><input type="checkbox" id="active" name="active" <?= ($member['active'] ?? 1) ? 'checked' : '' ?>><label for="active">Ativo</label></div></div>
             </div>
             <div class="form-actions"><button type="submit" class="btn btn-gold">Salvar</button><a href="team" class="btn btn-outline">Cancelar</a></div>
         </form>
@@ -122,38 +135,44 @@ if ($action === 'new' || $action === 'edit') {
     </div>
     <?php
 } else {
-    $members = dbQuery("SELECT * FROM team_members ORDER BY sort_order ASC");
+    $pager = paginateQuery('SELECT COUNT(*) as c FROM team_members', 'SELECT * FROM team_members ORDER BY sort_order ASC');
+    $members = $pager['items'];
+    $totalItems = $pager['total'];
     ?>
     <div class="card">
-        <div class="card-header"><h2 class="card-title">Equipe</h2><a href="team?action=new" class="btn btn-gold btn-sm">+ Novo Membro</a></div>
+        <div class="card-header"><h2 class="card-title">Equipe (<?= $totalItems ?>)</h2><a href="team?action=new" class="btn btn-gold btn-sm">+ Novo Membro</a></div>
         <?php if (empty($members)): ?><div class="card-body"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><p>Nenhum membro cadastrado.</p></div></div>
         <?php else: ?>
+            <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
+            <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>
             <div class="table-wrapper">
                 <table>
-                    <thead><tr><th>Nome</th><th>Cargo</th><th>YouTube</th><th>Twitch</th><th>Status</th><th>Ações</th></tr></thead>
+                    <thead><tr><th><input type="checkbox" id="select-all"></th><th>Nome</th><th>Cargo</th><th>YouTube</th><th>Twitch</th><th>Status</th><th>Ações</th></tr></thead>
                     <tbody>
                         <?php foreach ($members as $m): ?>
                         <tr>
-                            <td><strong style="color:var(--fg)"><?= e($m['name']) ?></strong><?php if (!empty($m['user_id'])): ?><span class="badge badge-featured" style="margin-left:6px;font-size:10px">Master</span><?php endif; ?></td>
+                            <td><input type="checkbox" class="row-select" form="bulkForm" name="ids[]" value="<?= (int)$m['id'] ?>"></td>
+                            <td><strong><?= e($m['name']) ?></strong><?php if (!empty($m['user_id'])): ?><span class="badge badge-featured master-badge">Master</span><?php endif; ?></td>
                             <td><?= e($m['role']) ?></td>
                             <td><?= $m['social_youtube'] ? '🔗' : '—' ?></td>
                             <td><?= $m['social_twitch'] ? '🔗' : '—' ?></td>
                             <td><?= $m['active'] ? '<span class="badge badge-active">Ativo</span>' : '<span class="badge badge-inactive">Inativo</span>' ?></td>
                             <td class="actions">
                                 <?php if (empty($m['user_id']) || $userId === 1): ?>
-                                <form method="POST" style="display:inline"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $m['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $m['active'] ? '🔴' : '🟢' ?></button></form>
+                                <form method="POST" class="inline-actions"><input type="hidden" name="action" value="toggle"><input type="hidden" name="id" value="<?= $m['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-outline btn-sm btn-icon"><?= $m['active'] ? '🔴' : '🟢' ?></button></form>
                                 <?php endif; ?>
                                 <?php if (empty($m['user_id']) || $userId === 1): ?>
                                 <a href="team?action=edit&id=<?= $m['id'] ?>" class="btn btn-outline btn-sm btn-icon" title="Editar">✏️</a>
                                 <?php endif; ?>
                                 <?php if (empty($m['user_id'])): ?>
-                                <form method="POST" style="display:inline" onsubmit="return confirm('Excluir?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $m['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
+                                <form method="POST" class="inline-actions" onsubmit="return confirm('Excluir?')"><input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="<?= $m['id'] ?>"><?= csrfField() ?><button type="submit" class="btn btn-danger btn-sm btn-icon" title="Excluir">🗑️</button></form>
                                 <?php endif; ?>
                             </td>
                         </tr><?php endforeach; ?>
                     </tbody>
                 </table>
             </div>
+            <?= renderPagination($pager['page'], $pager['pages']) ?>
         <?php endif; ?>
     </div>
     <?php

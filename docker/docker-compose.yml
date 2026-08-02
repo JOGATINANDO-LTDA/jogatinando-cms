@@ -9,7 +9,6 @@ services:
     volumes:
       - ..:/var/www/html
       - cms-data:/var/www/html/data
-      - cms-uploads:/var/www/html/uploads
     environment:
       - SITE_URL=http://localhost:8080
       - DB_TYPE=mysql
@@ -53,8 +52,6 @@ services:
 
 volumes:
   cms-data:
-    driver: local
-  cms-uploads:
     driver: local
   cms-mysql:
     driver: local
