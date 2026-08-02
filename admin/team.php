@@ -141,7 +141,9 @@ if ($action === 'new' || $action === 'edit') {
     ?>
     <div class="card">
         <div class="card-header"><h2 class="card-title">Equipe (<?= $totalItems ?>)</h2><a href="team?action=new" class="btn btn-gold btn-sm">+ Novo Membro</a></div>
-        <?php if (empty($members)): ?><div class="card-body"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><p>Nenhum membro cadastrado.</p></div></div>
+        <?php if (!empty($pager['error'])): ?>
+            <?= renderDbErrorCard($pager['error']) ?>
+        <?php elseif (empty($members)): ?><div class="card-body"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/></svg></div><p>Nenhum membro cadastrado.</p></div></div>
         <?php else: ?>
             <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>
             <div class="bulk-bar" id="bulkBar"><span class="bulk-count" id="bulkCount">0 selecionados</span><button type="button" class="btn btn-danger btn-sm" id="bulkDeleteBtn" disabled>Excluir Selecionados</button></div>

@@ -97,7 +97,9 @@ if ($action === 'new' || $action === 'edit') {
     ?>
     <div class="card">
         <div class="card-header"><h2 class="card-title">Depoimentos (<?= $totalItems ?>)</h2><a href="testimonials?action=new" class="btn btn-gold btn-sm">+ Novo</a></div>
-        <?php if (empty($items)): ?><div class="card-body"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><p>Nenhum depoimento cadastrado.</p></div></div>
+        <?php if (!empty($pager['error'])): ?>
+            <?= renderDbErrorCard($pager['error']) ?>
+        <?php elseif (empty($items)): ?><div class="card-body"><div class="empty-state"><div class="empty-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></div><p>Nenhum depoimento cadastrado.</p></div></div>
         <?php else: ?>
             <div class="card-body">
                 <form method="POST" id="bulkForm"><?= csrfField() ?><input type="hidden" name="action" value="delete_selected"></form>

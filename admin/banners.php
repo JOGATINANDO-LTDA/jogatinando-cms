@@ -219,7 +219,9 @@ if ($action === 'new' || $action === 'edit') {
             <h2 class="card-title">Todos os Banners (<?= $totalItems ?>)</h2>
             <a href="banners?action=new" class="btn btn-gold btn-sm">+ Novo Banner</a>
         </div>
-        <?php if (empty($banners)): ?>
+        <?php if (!empty($pager['error'])): ?>
+            <?= renderDbErrorCard($pager['error']) ?>
+        <?php elseif (empty($banners)): ?>
             <div class="card-body">
             <div class="empty-state">
                 <div class="empty-icon">

@@ -1022,13 +1022,18 @@ function imageCreateFromFile($path) {
 }
 
 function paginateQuery($countSql, $dataSql, $params = [], $perPage = 20) {
-    $page = max(1, (int)($_GET['page'] ?? 1));
-    $total = (int)(dbQueryOne($countSql, $params)['c'] ?? 0);
-    $pages = max(1, (int)ceil($total / $perPage));
-    $page = min($page, $pages);
-    $offset = ($page - 1) * $perPage;
-    $items = dbQuery($dataSql . " LIMIT ? OFFSET ?", array_merge($params, [$perPage, $offset]));
-    return compact('items', 'total', 'page', 'pages', 'perPage');
+    try {
+        $page = max(1, (int)($_GET['page'] ?? 1));
+        $total = (int)(dbQueryOne($countSql, $params)['c'] ?? 0);
+        $pages = max(1, (int)ceil($total / $perPage));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $perPage;
+        $items = dbQuery($dataSql . " LIMIT ? OFFSET ?", array_merge($params, [$perPage, $offset]));
+        return compact('items', 'total', 'page', 'pages', 'perPage');
+    } catch (Exception $e) {
+        error_log("paginateQuery failed: " . $e->getMessage() . " | SQL: $countSql");
+        return ['items' => [], 'total' => 0, 'page' => 1, 'pages' => 1, 'perPage' => $perPage, 'error' => $e->getMessage()];
+    }
 }
 
 function renderPagination($page, $pages) {
@@ -1049,14 +1054,27 @@ function renderPagination($page, $pages) {
     return $html;
 }
 
-function paginateQueryPrefix($prefix, $countSql, $dataSql, $params = [], $perPage = 20) {
-    $page = max(1, (int)($_GET[$prefix] ?? 1));
-    $total = (int)(dbQueryOne($countSql, $params)['c'] ?? 0);
-    $pages = max(1, (int)ceil($total / $perPage));
-    $page = min($page, $pages);
-    $offset = ($page - 1) * $perPage;
-    $items = dbQuery($dataSql . " LIMIT ? OFFSET ?", array_merge($params, [$perPage, $offset]));
-    return compact('items', 'total', 'page', 'pages', 'perPage');
+function renderDbErrorCard($error) {
+    return '<div class="card-body">'
+        . '<div class="empty-state">'
+        . '<div class="empty-icon" style="font-size:32px">⚠️</div>'
+        . '<p style="color:var(--warn)">Erro ao carregar dados.</p>'
+        . '<p style="font-size:12px;color:var(--muted)">' . e($error) . '</p>'
+        . '<p style="font-size:12px;color:var(--muted);margin-top:8px">Tente recarregar a página. Se o problema persistir, verifique o log de erros.</p>'
+        . '</div></div>';
+}function paginateQueryPrefix($prefix, $countSql, $dataSql, $params = [], $perPage = 20) {
+    try {
+        $page = max(1, (int)($_GET[$prefix] ?? 1));
+        $total = (int)(dbQueryOne($countSql, $params)['c'] ?? 0);
+        $pages = max(1, (int)ceil($total / $perPage));
+        $page = min($page, $pages);
+        $offset = ($page - 1) * $perPage;
+        $items = dbQuery($dataSql . " LIMIT ? OFFSET ?", array_merge($params, [$perPage, $offset]));
+        return compact('items', 'total', 'page', 'pages', 'perPage');
+    } catch (Exception $e) {
+        error_log("paginateQueryPrefix failed: " . $e->getMessage() . " | SQL: $countSql");
+        return ['items' => [], 'total' => 0, 'page' => 1, 'pages' => 1, 'perPage' => $perPage, 'error' => $e->getMessage()];
+    }
 }
 
 function renderPaginationPrefix($prefix, $page, $pages) {

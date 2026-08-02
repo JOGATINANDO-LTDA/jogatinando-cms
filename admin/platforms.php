@@ -219,7 +219,9 @@ if ($action === 'new' || $action === 'edit') {
             <h2 class="card-title">Plataformas de Distribuição (<?= $totalItems ?>)</h2>
             <a href="platforms?action=new" class="btn btn-gold btn-sm">+ Nova Plataforma</a>
         </div>
-        <?php if (empty($platforms)): ?>
+        <?php if (!empty($pager['error'])): ?>
+            <?= renderDbErrorCard($pager['error']) ?>
+        <?php elseif (empty($platforms)): ?>
             <div class="card-body">
             <div class="empty-state">
                 <div class="empty-icon">🛒</div>
