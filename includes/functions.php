@@ -1028,7 +1028,7 @@ function paginateQuery($countSql, $dataSql, $params = [], $perPage = 20) {
         $pages = max(1, (int)ceil($total / $perPage));
         $page = min($page, $pages);
         $offset = ($page - 1) * $perPage;
-        $items = dbQuery($dataSql . " LIMIT ? OFFSET ?", array_merge($params, [$perPage, $offset]));
+        $items = dbQuery($dataSql . " LIMIT " . (int)$perPage . " OFFSET " . (int)$offset, $params);
         return compact('items', 'total', 'page', 'pages', 'perPage');
     } catch (Exception $e) {
         error_log("paginateQuery failed: " . $e->getMessage() . " | SQL: $countSql");
@@ -1069,7 +1069,7 @@ function renderDbErrorCard($error) {
         $pages = max(1, (int)ceil($total / $perPage));
         $page = min($page, $pages);
         $offset = ($page - 1) * $perPage;
-        $items = dbQuery($dataSql . " LIMIT ? OFFSET ?", array_merge($params, [$perPage, $offset]));
+        $items = dbQuery($dataSql . " LIMIT " . (int)$perPage . " OFFSET " . (int)$offset, $params);
         return compact('items', 'total', 'page', 'pages', 'perPage');
     } catch (Exception $e) {
         error_log("paginateQueryPrefix failed: " . $e->getMessage() . " | SQL: $countSql");

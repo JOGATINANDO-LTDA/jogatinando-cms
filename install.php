@@ -1,10 +1,15 @@
 <?php
 
+$isReconfigure = isset($_GET['reconfigure']) && $_GET['reconfigure'] === '1';
+
 // Early guard: redirect if already installed (before loading config.php)
-$installDataDir = __DIR__ . '/data';
-if (file_exists($installDataDir . '/config.local.php') || file_exists(dirname(__DIR__) . '/config.local.php')) {
-    header('Location: /');
-    exit;
+// Bypass if ?reconfigure=1 (allows reconfiguration without deleting config.local.php)
+if (!$isReconfigure) {
+    $installDataDir = __DIR__ . '/data';
+    if (file_exists($installDataDir . '/config.local.php') || file_exists(dirname(__DIR__) . '/config.local.php')) {
+        header('Location: /');
+        exit;
+    }
 }
 
 require_once 'config.php';
@@ -30,15 +35,17 @@ if (empty($_SESSION['install_csrf'])) {
     $_SESSION['install_csrf'] = bin2hex(random_bytes(32));
 }
 
-$sqliteDb = defined('DATA_PATH') ? DATA_PATH . '/jogatinando.db' : __DIR__ . '/data/jogatinando.db';
-if (file_exists($sqliteDb) && filesize($sqliteDb) > 4096) {
-    header('Location: /');
-    exit;
-}
+if (!$isReconfigure) {
+    $sqliteDb = defined('DATA_PATH') ? DATA_PATH . '/jogatinando.db' : __DIR__ . '/data/jogatinando.db';
+    if (file_exists($sqliteDb) && filesize($sqliteDb) > 4096) {
+        header('Location: /');
+        exit;
+    }
 
-if (file_exists(DATA_PATH . '/config.local.php') || file_exists(dirname(ROOT_PATH) . '/config.local.php')) {
-    header('Location: /');
-    exit;
+    if (file_exists(DATA_PATH . '/config.local.php') || file_exists(dirname(ROOT_PATH) . '/config.local.php')) {
+        header('Location: /');
+        exit;
+    }
 }
 
 $message = '';
@@ -53,7 +60,7 @@ if ($db) {
     } catch (Exception $e) {}
 }
 
-if ($isInstalled) {
+if ($isInstalled && !$isReconfigure) {
     header('Location: /');
     exit;
 }
