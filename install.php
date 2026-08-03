@@ -35,6 +35,16 @@ if (empty($_SESSION['install_csrf'])) {
     $_SESSION['install_csrf'] = bin2hex(random_bytes(32));
 }
 
+// Reconfigure requires admin login
+if ($isReconfigure) {
+    require_once __DIR__ . '/includes/auth.php';
+    if (!isLoggedIn()) {
+        $_SESSION['install_redirect'] = $_SERVER['REQUEST_URI'];
+        header('Location: ' . ADMIN_URL . '/login');
+        exit;
+    }
+}
+
 if (!$isReconfigure) {
     $sqliteDb = defined('DATA_PATH') ? DATA_PATH . '/jogatinando.db' : __DIR__ . '/data/jogatinando.db';
     if (file_exists($sqliteDb) && filesize($sqliteDb) > 4096) {
