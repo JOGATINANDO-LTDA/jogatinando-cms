@@ -102,7 +102,11 @@ foreach ($checks as $label => $path) {
         diagOk("{$label}: {$path}{$d}{$w}");
     } else {
         if (str_contains($label, 'config.local.php')) {
-            diagWarn("{$label}: {$path} — não encontrado", 'Se estiver em produção, criar via install.php');
+            $recoveryUrl = '/install.php?reconfigure=1';
+            echo '<div style="padding:6px 12px;margin:4px 0;border-radius:6px;background:oklch(65% 0.2 85 / 0.12);border-left:3px solid oklch(65% 0.2 85);color:oklch(80% 0.18 85)">';
+            echo e($label) . ': ' . e($path) . ' — não encontrado<br>';
+            echo '<a href="' . e($recoveryUrl) . '" style="display:inline-block;margin-top:6px;padding:6px 16px;border-radius:6px;background:oklch(65% 0.2 85);color:#fff;text-decoration:none;font-size:13px;font-weight:600">Recriar config.local.php</a>';
+            echo '</div>';
         } else {
             diagWarn("{$label}: {$path} — não encontrado");
         }

@@ -216,7 +216,10 @@ function redirectOrError($msg, $detail) {
 }
 
 function requireInstalled() {
-    if (basename($_SERVER['PHP_SELF']) === 'install.php') return;
+    $self = $_SERVER['PHP_SELF'] ?? '';
+    $script = $_SERVER['SCRIPT_FILENAME'] ?? '';
+    $isInstallPage = (strpos($self, 'install.php') !== false) || (strpos($script, 'install.php') !== false);
+    if ($isInstallPage) return;
     try {
         $db = getDB();
         if (!$db) {
