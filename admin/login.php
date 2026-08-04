@@ -39,12 +39,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } elseif (login($username, $password)) {
                 unset($_SESSION['login_attempts'], $_SESSION['login_lockout']);
                 @unlink($ipLockFile);
-                $redirect = $_SESSION['login_redirect'] ?? '';
-                unset($_SESSION['login_redirect']);
-                if ($redirect && strpos($redirect, '/admin') === 0) {
-                    header('Location: ' . $redirect);
+                $installRedirect = $_SESSION['install_redirect'] ?? null;
+                unset($_SESSION['install_redirect']);
+                if ($installRedirect) {
+                    header('Location: ' . $installRedirect);
                 } else {
-                    header('Location: ' . ADMIN_URL . '/dashboard');
+                    $redirect = $_SESSION['login_redirect'] ?? '';
+                    unset($_SESSION['login_redirect']);
+                    if ($redirect && strpos($redirect, '/admin') === 0) {
+                        header('Location: ' . $redirect);
+                    } else {
+                        header('Location: ' . ADMIN_URL . '/dashboard');
+                    }
                 }
                 exit;
             } else {
