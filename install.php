@@ -19,28 +19,28 @@ if (defined('INSTALL_LOCK') && INSTALL_LOCK === true) {
     die('Sistema j&aacute; configurado. Remova INSTALL_LOCK de config.php para reativar o instalador.');
 }
 
-// Block if maintenance mode is active (renderMaintenancePage already loaded via config.php)
-$dataPath = defined('DATA_PATH') ? DATA_PATH : __DIR__ . '/data';
-if (file_exists($dataPath . '/.maintenance') || file_exists(dirname(__DIR__) . '/.maintenance')) {
-    renderMaintenancePage();
-    exit;
-}
-
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
-// CSRF token
 if (empty($_SESSION['install_csrf'])) {
     $_SESSION['install_csrf'] = bin2hex(random_bytes(32));
 }
 
-// Reconfigure requires admin login
+// Reconfigure requires admin login — check BEFORE maintenance block
 if ($isReconfigure) {
     require_once __DIR__ . '/includes/auth.php';
     if (!isLoggedIn()) {
         $_SESSION['install_redirect'] = $_SERVER['REQUEST_URI'];
         header('Location: ' . ADMIN_URL . '/login');
+        exit;
+    }
+    // Admin logado pode acessar mesmo em manutenção
+} else {
+    // Block if maintenance mode is active (only for non-reconfigure)
+    $dataPath = defined('DATA_PATH') ? DATA_PATH : __DIR__ . '/data';
+    if (file_exists($dataPath . '/.maintenance') || file_exists(dirname(__DIR__) . '/.maintenance')) {
+        renderMaintenancePage();
         exit;
     }
 }

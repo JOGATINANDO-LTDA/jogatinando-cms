@@ -48,6 +48,11 @@ if (file_exists(LOCAL_CONFIG_PERSISTENT)) {
 } elseif (file_exists(LOCAL_CONFIG)) {
     require_once LOCAL_CONFIG;
     $activeConfig = LOCAL_CONFIG;
+    // Auto-copy to persistent path for resilience (e.g. Docker volume reset)
+    $persistentDir = dirname(ROOT_PATH);
+    if (is_writable($persistentDir)) {
+        @copy(LOCAL_CONFIG, LOCAL_CONFIG_PERSISTENT);
+    }
 }
 
 if (!defined('INSTALL_LOCK')) {

@@ -186,13 +186,15 @@ if ($db && $dbType) {
             diagFail("{$label}: FALHA", $e->getMessage());
         }
     }
-    // Test LIMIT ? OFFSET ? with prepared statement (used by paginateQuery)
+    // Test LIMIT/OFFSET interpolated as int (MariaDB compat — paginateQuery behavior)
     try {
-        $stmt = $db->prepare('SELECT * FROM banners LIMIT ? OFFSET ?');
-        $stmt->execute([5, 0]);
-        diagOk('Prepared LIMIT/OFFSET: OK');
+        $perPage = 5;
+        $offset = 0;
+        $stmt = $db->query('SELECT * FROM banners LIMIT ' . (int)$perPage . ' OFFSET ' . (int)$offset);
+        $stmt->fetchAll();
+        diagOk('LIMIT/OFFSET (int): OK');
     } catch (Exception $e) {
-        diagFail('Prepared LIMIT/OFFSET: FALHA', $e->getMessage());
+        diagFail('LIMIT/OFFSET (int): FALHA', $e->getMessage());
     }
 } else {
     diagFail('Banco não disponível para testes de query');
