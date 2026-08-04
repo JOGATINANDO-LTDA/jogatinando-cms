@@ -10,6 +10,26 @@ if ($userId !== 1) {
     exit;
 }
 
+// Handle POST actions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['diag_action'])) {
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
+        header('Location: ' . ADMIN_URL . '/diagnostics');
+        exit;
+    }
+    if ($_POST['diag_action'] === 'copy_config') {
+        $src = DATA_PATH . '/config.local.php';
+        $dst = dirname(ROOT_PATH) . '/config.local.php';
+        if (file_exists($src) && !file_exists($dst)) {
+            $content = file_get_contents($src);
+            $dir = dirname($dst);
+            if (!is_dir($dir)) @mkdir($dir, 0755, true);
+            file_put_contents($dst, $content);
+        }
+        header('Location: ' . ADMIN_URL . '/diagnostics');
+        exit;
+    }
+}
+
 $db = getDB();
 $dbType = getDbType();
 
@@ -87,12 +107,17 @@ if ($sessionPath && $sessionPath !== '') {
 <section style="margin-bottom:32px">
 <h2 style="font-size:16px;color:oklch(80% 0.1 85);margin-bottom:12px;border-bottom:1px solid oklch(25% 0.02 260);padding-bottom:8px">Arquivos</h2>
 <?php
+$dataConfig = DATA_PATH . '/config.local.php';
+$persistentConfig = dirname(ROOT_PATH) . '/config.local.php';
+$hasData = file_exists($dataConfig);
+$hasPersistent = file_exists($persistentConfig);
+
 $checks = [
     'ROOT_PATH' => ROOT_PATH,
     'DATA_PATH' => DATA_PATH,
     'UPLOAD_PATH' => UPLOAD_PATH,
-    'data/config.local.php' => DATA_PATH . '/config.local.php',
-    'config.local.php (fora webroot)' => dirname(ROOT_PATH) . '/config.local.php',
+    'data/config.local.php' => $dataConfig,
+    'config.local.php (fora webroot)' => $persistentConfig,
     'data/sessions/' => DATA_PATH . '/sessions',
 ];
 foreach ($checks as $label => $path) {
@@ -102,15 +127,29 @@ foreach ($checks as $label => $path) {
         diagOk("{$label}: {$path}{$d}{$w}");
     } else {
         if (str_contains($label, 'config.local.php')) {
-            $recoveryUrl = '/install.php?reconfigure=1';
-            echo '<div style="padding:6px 12px;margin:4px 0;border-radius:6px;background:oklch(65% 0.2 85 / 0.12);border-left:3px solid oklch(65% 0.2 85);color:oklch(80% 0.18 85)">';
-            echo e($label) . ': ' . e($path) . ' — não encontrado<br>';
-            echo '<a href="' . e($recoveryUrl) . '" style="display:inline-block;margin-top:6px;padding:6px 16px;border-radius:6px;background:oklch(65% 0.2 85);color:#fff;text-decoration:none;font-size:13px;font-weight:600">Recriar config.local.php</a>';
-            echo '</div>';
+            diagWarn("{$label}: {$path} — não encontrado");
         } else {
             diagWarn("{$label}: {$path} — não encontrado");
         }
     }
+}
+
+// Recovery actions for config.local.php
+if ($hasData && !$hasPersistent) {
+    echo '<div style="margin-top:12px;padding:10px 14px;border-radius:8px;background:oklch(65% 0.2 85 / 0.12);border:1px solid oklch(65% 0.2 85 / 0.3)">';
+    echo '<strong style="color:oklch(80% 0.18 85)">Config existe em data/ mas não no path persistente.</strong><br>';
+    echo '<span style="color:oklch(60% 0.1 85);font-size:13px">Se o volume Docker resetar, a config será perdida.</span><br>';
+    echo '<form method="POST" style="margin-top:8px;display:inline">';
+    echo '<input type="hidden" name="diag_action" value="copy_config">';
+    echo '<input type="hidden" name="csrf_token" value="' . e(getCSRFToken()) . '">';
+    echo '<button type="submit" style="padding:6px 16px;border-radius:6px;background:oklch(65% 0.2 85);color:#fff;border:none;font-size:13px;font-weight:600;cursor:pointer">Copiar para path persistente</button>';
+    echo '</form>';
+    echo '</div>';
+} elseif (!$hasData && !$hasPersistent) {
+    echo '<div style="margin-top:12px;padding:10px 14px;border-radius:8px;background:oklch(55% 0.25 25 / 0.12);border:1px solid oklch(55% 0.25 25 / 0.3)">';
+    echo '<strong style="color:oklch(75% 0.2 25)">Config local não encontrada em nenhum path.</strong><br>';
+    echo '<a href="/install.php?reconfigure=1" style="display:inline-block;margin-top:6px;padding:6px 16px;border-radius:6px;background:oklch(65% 0.2 85);color:#fff;text-decoration:none;font-size:13px;font-weight:600">Recriar via install.php</a>';
+    echo '</div>';
 }
 ?>
 </section>
