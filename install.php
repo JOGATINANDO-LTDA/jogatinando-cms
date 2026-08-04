@@ -83,8 +83,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             dbInit(null, null, null, 'sqlite');
             writeLocalConfig('sqlite');
             $message = 'success';
-            session_destroy();
-            disableInstallFile();
+            if (!$isReconfigure) {
+                session_destroy();
+                disableInstallFile();
+            }
         } catch (Exception $ex) {
             error_log('Install SQLite error: ' . $ex->getMessage());
             $message = 'error:Erro ao inicializar SQLite. Verifique permissões do diretório data/.';
@@ -229,7 +231,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $mysql->exec("REPLACE INTO site_settings (`key`, `value`) VALUES ('site_name', " . $mysql->quote($siteName) . ")");
             }
             $message = 'success';
-            session_destroy();
+            if (!$isReconfigure) {
+                session_destroy();
+            }
             writeLocalConfig('mysql', $host, $port, $name, $dbUser, $dbPass);
             disableInstallFile();
         } catch (Exception $ex) {
