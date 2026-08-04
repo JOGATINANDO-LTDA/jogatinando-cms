@@ -14,11 +14,13 @@ if ($uri === '/admin/setup-password') {
 
 
 if ($uri === '/install') {
-    // Early guard: redirect only if config.local.php exists (in data/ or outside webroot)
-    $dataDir = __DIR__ . '/data';
-    if (file_exists($dataDir . '/config.local.php') || file_exists(dirname(__DIR__) . '/config.local.php')) {
-        header('Location: /');
-        exit;
+    $isReconfigure = isset($_GET['reconfigure']) && $_GET['reconfigure'] === '1';
+    if (!$isReconfigure) {
+        $dataDir = __DIR__ . '/data';
+        if (file_exists($dataDir . '/config.local.php') || file_exists(dirname(__DIR__) . '/config.local.php')) {
+            header('Location: /');
+            exit;
+        }
     }
     $_SERVER['PHP_SELF'] = '/install.php';
     require __DIR__ . '/install.php';
