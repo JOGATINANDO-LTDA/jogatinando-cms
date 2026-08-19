@@ -55,7 +55,7 @@ function login($username, $password) {
                l.perm_banners, l.perm_games, l.perm_blog, l.perm_testimonials,
                l.perm_faq, l.perm_team, l.perm_users, l.perm_roles,
                l.perm_engines, l.perm_platforms, l.perm_consoles,
-               l.perm_retro_games, l.perm_optimizer,
+               l.perm_retro_games,
                l.perm_settings
         FROM users u
         LEFT JOIN roles r ON u.role_id = r.id
@@ -104,7 +104,7 @@ function loadSessionPermissions() {
     if (!isLoggedIn()) return;
     $db = getDB();
     if (!$db) return;
-    $stmt = $db->prepare("SELECT l.perm_banners, l.perm_games, l.perm_blog, l.perm_testimonials, l.perm_faq, l.perm_team, l.perm_users, l.perm_roles, l.perm_engines, l.perm_platforms, l.perm_consoles, l.perm_retro_games, l.perm_optimizer, l.perm_settings FROM levels l JOIN roles r ON r.level_id = l.id JOIN users u ON u.role_id = r.id WHERE u.id = ?");
+    $stmt = $db->prepare("SELECT l.perm_banners, l.perm_games, l.perm_blog, l.perm_testimonials, l.perm_faq, l.perm_team, l.perm_users, l.perm_roles, l.perm_engines, l.perm_platforms, l.perm_consoles, l.perm_retro_games, l.perm_settings FROM levels l JOIN roles r ON r.level_id = l.id JOIN users u ON u.role_id = r.id WHERE u.id = ?");
     $stmt->execute([$_SESSION['admin_user_id']]);
     $level = $stmt->fetch(PDO::FETCH_ASSOC);
     $_SESSION['admin_permissions'] = [];
@@ -124,7 +124,7 @@ function getSessionRank() {
 function getLevelRank($levelId) {
     if (!$levelId) return 0;
     $db = getDB();
-    $stmt = $db->prepare("SELECT perm_banners, perm_games, perm_blog, perm_testimonials, perm_faq, perm_team, perm_users, perm_roles, perm_engines, perm_platforms, perm_consoles, perm_retro_games, perm_optimizer, perm_settings FROM levels WHERE id = ?");
+    $stmt = $db->prepare("SELECT perm_banners, perm_games, perm_blog, perm_testimonials, perm_faq, perm_team, perm_users, perm_roles, perm_engines, perm_platforms, perm_consoles, perm_retro_games, perm_settings FROM levels WHERE id = ?");
     $stmt->execute([$levelId]);
     $level = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$level) return 0;
@@ -135,7 +135,7 @@ function requireRole($minLevel) {
     requireLogin();
     $rank = getSessionRank();
     $db = getDB();
-    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_optimizer + perm_settings) as r FROM levels WHERE slug = ?");
+    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_settings) as r FROM levels WHERE slug = ?");
     $stmt->execute([$minLevel]);
     $required = (int)$stmt->fetchColumn();
     if ($required === 0) $required = 10;
@@ -151,14 +151,14 @@ function getAssignableRoles($db) {
         return $db->query("SELECT r.id, r.name, l.name AS level_name, l.slug AS level_slug, r.description FROM roles r LEFT JOIN levels l ON r.level_id = l.id WHERE r.id != 1 ORDER BY r.id")->fetchAll();
     }
     $currentRank = getSessionRank();
-    $stmt = $db->prepare("SELECT r.id, r.name, l.name AS level_name, l.slug AS level_slug, r.description FROM roles r LEFT JOIN levels l ON r.level_id = l.id WHERE r.id != 1 AND (l.perm_banners + l.perm_games + l.perm_blog + l.perm_testimonials + l.perm_faq + l.perm_team + l.perm_users + l.perm_roles + l.perm_engines + l.perm_platforms + l.perm_consoles + l.perm_retro_games + l.perm_optimizer + l.perm_settings) < ? ORDER BY r.id");
+    $stmt = $db->prepare("SELECT r.id, r.name, l.name AS level_name, l.slug AS level_slug, r.description FROM roles r LEFT JOIN levels l ON r.level_id = l.id WHERE r.id != 1 AND (l.perm_banners + l.perm_games + l.perm_blog + l.perm_testimonials + l.perm_faq + l.perm_team + l.perm_users + l.perm_roles + l.perm_engines + l.perm_platforms + l.perm_consoles + l.perm_retro_games + l.perm_settings) < ? ORDER BY r.id");
     $stmt->execute([$currentRank]);
     return $stmt->fetchAll();
 }
 
 function getRoleLevelRank($level) {
     $db = getDB();
-    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_optimizer + perm_settings) as r FROM levels WHERE slug = ?");
+    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_settings) as r FROM levels WHERE slug = ?");
     $stmt->execute([$level]);
     $rank = (int)$stmt->fetchColumn();
     return $rank > 0 ? $rank : -1;
@@ -172,7 +172,7 @@ function canManageRole($targetLevel) {
     if (($_SESSION['admin_user_id'] ?? 0) === 1) return true;
     $currentRank = getSessionRank();
     $db = getDB();
-    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_optimizer + perm_settings) as r FROM levels WHERE slug = ?");
+    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_settings) as r FROM levels WHERE slug = ?");
     $stmt->execute([$targetLevel]);
     $targetRank = (int)$stmt->fetchColumn();
     return $currentRank > $targetRank;

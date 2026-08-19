@@ -20,7 +20,6 @@ $PERM_LABELS = [
     'perm_platforms' => 'Plataformas',
     'perm_consoles' => 'Emuladores',
     'perm_retro_games' => 'Jogos Retro',
-    'perm_optimizer' => 'Otimizador',
     'perm_settings' => 'Configurações',
 ];
 
@@ -32,7 +31,7 @@ function getPermRank($row) {
     return $count;
 }
 
-$levels = $db->query("SELECT * FROM levels ORDER BY (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_optimizer + perm_settings) DESC, name ASC")->fetchAll();
+$levels = $db->query("SELECT * FROM levels ORDER BY (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_settings) DESC, name ASC")->fetchAll();
 
 $protectedLevelId = null;
 $maxRank = -1;
