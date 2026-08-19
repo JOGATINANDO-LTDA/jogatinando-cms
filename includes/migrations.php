@@ -1621,3 +1621,73 @@ function migration_037($db, $type) {
         }
     } catch (Exception $e) {}
 }
+
+// ── Migration 038: Create AI system tables ──
+function migration_038($db, $type) {
+    $pkType = $type === 'mysql' ? 'INT' : 'INTEGER';
+
+    $db->exec("CREATE TABLE IF NOT EXISTS ai_providers (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        slug TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        base_url TEXT NOT NULL,
+        auth_type TEXT DEFAULT 'bearer',
+        models_endpoint TEXT DEFAULT '/v1/models',
+        chat_endpoint TEXT DEFAULT '/v1/chat/completions',
+        supports_streaming INTEGER DEFAULT 1,
+        active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS ai_configs (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        provider_id $pkType NOT NULL,
+        user_id $pkType,
+        api_key TEXT,
+        model_slug TEXT,
+        max_tokens INTEGER DEFAULT 4096,
+        temperature REAL DEFAULT 0.7,
+        system_prompt TEXT,
+        is_default INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (provider_id) REFERENCES ai_providers(id) ON DELETE CASCADE
+    )");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS ai_usage (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        config_id $pkType NOT NULL,
+        feature TEXT NOT NULL,
+        prompt_tokens INTEGER DEFAULT 0,
+        completion_tokens INTEGER DEFAULT 0,
+        cost_cents INTEGER DEFAULT 0,
+        latency_ms INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (config_id) REFERENCES ai_configs(id) ON DELETE CASCADE
+    )");
+
+    // Seed default providers
+    $providers = [
+        ['zen', 'OpenCode Zen', 'https://opencode.ai/zen/v1', 'bearer', '/v1/models', '/v1/chat/completions', 1],
+        ['ollama', 'Ollama (Local)', 'http://localhost:11434/v1', 'bearer', '/v1/models', '/v1/chat/completions', 1],
+        ['lmstudio', 'LM Studio (Local)', 'http://localhost:1234/v1', 'bearer', '/v1/models', '/v1/chat/completions', 1],
+        ['openai-compat', 'OpenAI Compatible', 'https://api.openai.com/v1', 'bearer', '/v1/models', '/v1/chat/completions', 1],
+    ];
+
+    $stmt = $db->prepare("INSERT OR IGNORE INTO ai_providers (slug, name, base_url, auth_type, models_endpoint, chat_endpoint, supports_streaming) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    foreach ($providers as $p) {
+        $stmt->execute($p);
+    }
+
+    // Set Zen as default
+    $db->exec("UPDATE ai_providers SET active = 1 WHERE slug = 'zen'");
+
+    // Seed default Zen config (free tier, no API key needed)
+    $zenId = $db->query("SELECT id FROM ai_providers WHERE slug = 'zen'")->fetchColumn();
+    if ($zenId) {
+        $exists = $db->query("SELECT COUNT(*) FROM ai_configs WHERE provider_id = {$zenId}")->fetchColumn();
+        if (!$exists) {
+            $db->exec("INSERT INTO ai_configs (provider_id, model_slug, max_tokens, temperature, system_prompt, is_default)
+                       VALUES ({$zenId}, 'mimo-v2.5-free', 4096, 0.7, 'Você é um assistente útil.', 1)");
+        }
+    }
+}
