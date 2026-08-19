@@ -1560,10 +1560,10 @@ function migration_031($db, $type) {
                 $pos = strpos($url, '/uploads/');
                 if ($pos !== false) {
                     $u->execute([substr($url, $pos), $row['id']]);
-                }
             }
-        } catch (Exception $e) {}
-    }
+        }
+    } catch (Exception $e) {}
+}
 
     // Normalize site_logo_url and site_favicon_url
     try {
@@ -1577,6 +1577,46 @@ function migration_031($db, $type) {
                 if ($pos !== false) {
                     $u->execute([substr($row['value'], $pos), $key]);
                 }
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+// ── Migration 037: Drop dead tables and permissions ──
+function migration_037($db, $type) {
+
+    // Drop template_links table (foreign key first)
+    try {
+        $db->exec("DROP TABLE IF EXISTS template_links");
+    } catch (Exception $e) {}
+
+    // Drop game_templates table
+    try {
+        $db->exec("DROP TABLE IF EXISTS game_templates");
+    } catch (Exception $e) {}
+
+    // Remove perm_templates column from levels (if exists)
+    try {
+        if ($type === 'mysql') {
+            $cols = $db->query("SHOW COLUMNS FROM levels LIKE 'perm_templates'")->fetch();
+            if ($cols) $db->exec("ALTER TABLE levels DROP COLUMN perm_templates");
+        } else {
+            $cols = $db->query("PRAGMA table_info(levels)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (in_array('perm_templates', $cols)) {
+                $db->exec("ALTER TABLE levels DROP COLUMN perm_templates");
+            }
+        }
+    } catch (Exception $e) {}
+
+    // Remove perm_optimizer column from levels (if exists)
+    try {
+        if ($type === 'mysql') {
+            $cols = $db->query("SHOW COLUMNS FROM levels LIKE 'perm_optimizer'")->fetch();
+            if ($cols) $db->exec("ALTER TABLE levels DROP COLUMN perm_optimizer");
+        } else {
+            $cols = $db->query("PRAGMA table_info(levels)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (in_array('perm_optimizer', $cols)) {
+                $db->exec("ALTER TABLE levels DROP COLUMN perm_optimizer");
             }
         }
     } catch (Exception $e) {}

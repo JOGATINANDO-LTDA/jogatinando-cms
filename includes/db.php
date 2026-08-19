@@ -176,6 +176,7 @@ function getMigrationList() {
          34 => 'add_social_links_ads_distribution',
          35 => 'add_social_links_media_fields',
          36 => 'add_distribution_integration_hub',
+         37 => 'drop_dead_tables_and_permissions',
       ];
 }
 
