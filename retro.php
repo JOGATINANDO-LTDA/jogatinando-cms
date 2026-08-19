@@ -38,7 +38,6 @@ $consoles = dbQuery("SELECT * FROM retro_consoles WHERE active = 1 ORDER BY sort
             <ul class="navbar-menu">
                 <li><a href="/">Início</a></li>
                 <li><a href="/catalogo">Catálogo</a></li>
-                <li><a href="/templates">Templates</a></li>
                 <li><a href="/retro">Retro</a></li>
             </ul>
             <button class="navbar-toggle" id="mobileToggle" aria-label="Menu">
@@ -53,7 +52,6 @@ $consoles = dbQuery("SELECT * FROM retro_consoles WHERE active = 1 ORDER BY sort
         </button>
         <a href="/" class="mobile-link">Início</a>
         <a href="/catalogo" class="mobile-link">Catálogo</a>
-        <a href="/templates" class="mobile-link">Templates</a>
         <a href="/retro" class="mobile-link">Retro</a>
     </div>
 

@@ -118,7 +118,6 @@ $siteSocialLinks = getSocialLinks('site', true);
                 <li><a href="#home">Início</a></li>
                 <li><a href="#categories">Categorias</a></li>
                 <li><a href="/catalogo">Catálogo</a></li>
-                <li><a href="/templates">Templates</a></li>
                 <?php if (!empty($blogPosts)): ?><li><a href="#blog">Blog</a></li><?php endif; ?>
                 <?php if (!empty($testimonials)): ?><li><a href="#testimonials">Depoimentos</a></li><?php endif; ?>
                 <?php if (!empty($faqItems)): ?><li><a href="#faq">FAQ</a></li><?php endif; ?>
@@ -139,7 +138,6 @@ $siteSocialLinks = getSocialLinks('site', true);
         <a href="#home" class="mobile-link">Início</a>
         <a href="#categories" class="mobile-link">Categorias</a>
         <a href="/catalogo" class="mobile-link">Catálogo</a>
-        <a href="/templates" class="mobile-link">Templates</a>
         <?php if (!empty($blogPosts)): ?><a href="#blog" class="mobile-link">Blog</a><?php endif; ?>
         <?php if (!empty($testimonials)): ?><a href="#testimonials" class="mobile-link">Depoimentos</a><?php endif; ?>
         <?php if (!empty($faqItems)): ?><a href="#faq" class="mobile-link">FAQ</a><?php endif; ?>
@@ -214,7 +212,7 @@ $siteSocialLinks = getSocialLinks('site', true);
         <div class="container">
             <div class="section-title">
                 <h2>Explore por <span class="gold">Categoria</span></h2>
-                <p>Autorais, clientes, templates e emulação em uma única navegação</p>
+                <p>Autorais, clientes e emulação em uma única navegação</p>
             </div>
             <div class="games-ring-wrapper category-ring-wrapper">
                 <button class="games-nav-btn games-nav-prev" aria-label="Anterior">
@@ -258,19 +256,6 @@ $siteSocialLinks = getSocialLinks('site', true);
                             <h3>Externos</h3>
                             <p class="game-engine">Jogos hospedados externamente</p>
                             <p class="game-desc">Títulos que rodam em sites de terceiros via iframe.</p>
-                        </div>
-                    </a>
-                    <a href="/templates" class="game-card category-card" data-index="3">
-                        <div class="game-thumb">
-                            <div class="game-thumb-placeholder">📦</div>
-                            <div class="game-badges">
-                                <span class="game-badge-featured">Templates</span>
-                            </div>
-                        </div>
-                        <div class="game-info">
-                            <h3>Templates</h3>
-                            <p class="game-engine">Bases prontas para novos projetos</p>
-                            <p class="game-desc">Estruturas reutilizáveis por engine.</p>
                         </div>
                     </a>
                     <a href="/retro" class="game-card category-card" data-index="4">

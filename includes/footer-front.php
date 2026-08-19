@@ -15,13 +15,11 @@
                 <h4>Navegação</h4>
                 <a href="/">Home</a>
                 <a href="/catalogo">Catálogo</a>
-                <a href="/templates">Templates</a>
                 <a href="/retro">Retro</a>
             </div>
             <div class="footer-col">
                 <h4>Links</h4>
                 <a href="/catalogo">Jogos</a>
-                <a href="/templates">Templates</a>
             </div>
             <div class="footer-col">
                 <h4>Redes</h4>

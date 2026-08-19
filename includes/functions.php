@@ -404,7 +404,6 @@ function revertS3Urls() {
         ['table' => 'users', 'column' => 'avatar_url'],
         ['table' => 'retro_games', 'column' => 'rom_path'],
         ['table' => 'retro_games', 'column' => 'thumbnail_url'],
-        ['table' => 'game_templates', 'column' => 'thumbnail_url'],
         ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
         ['table' => 'store_platforms', 'column' => 'logo_path'],
     ];

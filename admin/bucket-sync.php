@@ -15,7 +15,6 @@ function validateTableSchema($table, $column) {
         'testimonials' => ['avatar_url'],
         'users' => ['avatar_url'],
         'retro_games' => ['rom_path', 'thumbnail_url'],
-        'game_templates' => ['thumbnail_url'],
         'retro_consoles' => ['thumbnail_url'],
         'store_platforms' => ['logo_path'],
     ];
@@ -154,7 +153,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ['table' => 'users', 'column' => 'avatar_url'],
             ['table' => 'retro_games', 'column' => 'rom_path'],
             ['table' => 'retro_games', 'column' => 'thumbnail_url'],
-            ['table' => 'game_templates', 'column' => 'thumbnail_url'],
             ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
             ['table' => 'store_platforms', 'column' => 'logo_path'],
         ];
@@ -377,7 +375,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ['table' => 'users', 'column' => 'avatar_url'],
                 ['table' => 'retro_games', 'column' => 'rom_path'],
                 ['table' => 'retro_games', 'column' => 'thumbnail_url'],
-                ['table' => 'game_templates', 'column' => 'thumbnail_url'],
                 ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
                 ['table' => 'store_platforms', 'column' => 'logo_path'],
             ];
@@ -415,7 +412,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ['table' => 'users', 'column' => 'avatar_url'],
                 ['table' => 'retro_games', 'column' => 'rom_path'],
                 ['table' => 'retro_games', 'column' => 'thumbnail_url'],
-                ['table' => 'game_templates', 'column' => 'thumbnail_url'],
                 ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
                 ['table' => 'store_platforms', 'column' => 'logo_path'],
             ];
@@ -457,7 +453,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ['table' => 'users', 'column' => 'avatar_url'],
             ['table' => 'retro_games', 'column' => 'rom_path'],
             ['table' => 'retro_games', 'column' => 'thumbnail_url'],
-            ['table' => 'game_templates', 'column' => 'thumbnail_url'],
             ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
             ['table' => 'store_platforms', 'column' => 'logo_path'],
         ];
@@ -704,7 +699,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ['table' => 'users', 'column' => 'avatar_url'],
             ['table' => 'retro_games', 'column' => 'rom_path'],
             ['table' => 'retro_games', 'column' => 'thumbnail_url'],
-            ['table' => 'game_templates', 'column' => 'thumbnail_url'],
             ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
             ['table' => 'store_platforms', 'column' => 'logo_path'],
         ];
@@ -734,18 +728,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $parts = explode('/uploads/', $val, 2);
             if (isset($parts[1])) {
                 $referenced['uploads/' . $parts[1]] = true;
-            }
-        }
-
-        // game_templates.game_path → S3 key
-        $tmplPaths = dbQuery("SELECT game_path FROM game_templates WHERE game_path IS NOT NULL AND game_path != ''");
-        foreach ($tmplPaths as $tp) {
-            if (str_starts_with($tp['game_path'], '/uploads/')) {
-                $parts = explode('/uploads/', $tp['game_path'], 2);
-                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
-            } elseif (str_starts_with($tp['game_path'], 'http')) {
-                $parts = explode('/uploads/', $tp['game_path'], 2);
-                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
             }
         }
 
@@ -791,7 +773,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ['table' => 'users', 'column' => 'avatar_url'],
             ['table' => 'retro_games', 'column' => 'rom_path'],
             ['table' => 'retro_games', 'column' => 'thumbnail_url'],
-            ['table' => 'game_templates', 'column' => 'thumbnail_url'],
             ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
             ['table' => 'store_platforms', 'column' => 'logo_path'],
         ];
@@ -821,18 +802,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $parts = explode('/uploads/', $val, 2);
             if (isset($parts[1])) {
                 $referenced['uploads/' . $parts[1]] = true;
-            }
-        }
-
-        // game_templates.game_path → S3 key
-        $tmplPaths = dbQuery("SELECT game_path FROM game_templates WHERE game_path IS NOT NULL AND game_path != ''");
-        foreach ($tmplPaths as $tp) {
-            if (str_starts_with($tp['game_path'], '/uploads/')) {
-                $parts = explode('/uploads/', $tp['game_path'], 2);
-                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
-            } elseif (str_starts_with($tp['game_path'], 'http')) {
-                $parts = explode('/uploads/', $tp['game_path'], 2);
-                if (isset($parts[1])) $referenced['uploads/' . $parts[1]] = true;
             }
         }
 

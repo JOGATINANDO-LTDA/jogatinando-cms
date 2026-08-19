@@ -121,18 +121,6 @@ if ($uri === '/catalogo') {
     exit;
 }
 
-if ($uri === '/templates') {
-    require __DIR__ . '/templates.php';
-    exit;
-}
-
-if (preg_match('#^/template/([a-zA-Z0-9-]+)/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
-    $_GET['engine'] = $matches[1];
-    $_GET['slug'] = $matches[2];
-    require __DIR__ . '/template.php';
-    exit;
-}
-
 if ($uri === '/retro') {
     require __DIR__ . '/retro.php';
     exit;

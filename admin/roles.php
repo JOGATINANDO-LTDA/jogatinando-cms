@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/header.php';
 $userId = $_SESSION['admin_user_id'] ?? 0;
 $db = getDB();
 
-$levelsList = $db->query("SELECT * FROM levels ORDER BY (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_templates + perm_optimizer + perm_settings) DESC")->fetchAll();
+$levelsList = $db->query("SELECT * FROM levels ORDER BY (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_optimizer + perm_settings) DESC")->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     if (!verifyCSRF($_POST['csrf_token'] ?? '')) { flashMessage('error', 'Token inválido.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/roles'); exit; }
@@ -88,7 +88,7 @@ $roles = $db->query("
            (SELECT COUNT(*) FROM users u WHERE u.role_id = r.id) AS user_count
     FROM roles r
     LEFT JOIN levels l ON r.level_id = l.id
-    ORDER BY (SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_templates + perm_optimizer + perm_settings) FROM levels WHERE id = r.level_id) DESC, r.name ASC
+    ORDER BY (SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_optimizer + perm_settings) FROM levels WHERE id = r.level_id) DESC, r.name ASC
 ")->fetchAll();
 
 $editRole = null;
