@@ -18,10 +18,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($_POST['action'] === 'save') {
         $saveId = (int)($_POST['id'] ?? 0);
-        $existing = $saveId > 0 ? dbQueryOne("SELECT logo_path FROM store_platforms WHERE id = ?", [$saveId]) : null;
+        $existing = $saveId > 0 ? dbQueryOne("SELECT logo_path FROM platforms WHERE id = ?", [$saveId]) : null;
         $name = trim($_POST['name']);
         $slug = !empty(trim($_POST['slug'])) ? generateSlug(trim($_POST['slug'])) : generateSlug($name);
         $icon = trim($_POST['icon']);
+        $visibility = trim($_POST['visibility'] ?? 'public');
         $sortOrder = (int)($_POST['sort_order'] ?? 0);
         $active = isset($_POST['active']) ? 1 : 0;
         $useLogo = isset($_POST['use_logo']) ? 1 : 0;
@@ -45,12 +46,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 if ($saveId > 0) {
-                    dbExec("UPDATE store_platforms SET name=?, slug=?, icon=?, use_logo=?, logo_path=?, sort_order=?, active=? WHERE id=?",
-                        [$name, $slug, $icon, $useLogo, $logoPath, $sortOrder, $active, $saveId]);
+                    dbExec("UPDATE platforms SET name=?, slug=?, icon=?, visibility=?, use_logo=?, logo_path=?, sort_order=?, active=? WHERE id=?",
+                        [$name, $slug, $icon, $visibility, $useLogo, $logoPath, $sortOrder, $active, $saveId]);
                     flashMessage('success', 'Plataforma atualizada com sucesso.');
                 } else {
-                    dbExec("INSERT INTO store_platforms (name, slug, icon, use_logo, logo_path, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                        [$name, $slug, $icon, $useLogo, $logoPath, $sortOrder, $active]);
+                    dbExec("INSERT INTO platforms (name, slug, icon, visibility, use_logo, logo_path, sort_order, active) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                        [$name, $slug, $icon, $visibility, $useLogo, $logoPath, $sortOrder, $active]);
                     flashMessage('success', 'Plataforma criada com sucesso.');
                 }
             } catch (Exception $ex) {
@@ -67,11 +68,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($usedGames && $usedGames['cnt'] > 0) {
             flashMessage('error', 'Não é possível excluir: existem jogos vinculados a esta plataforma.');
         } else {
-            $delPlatform = dbQueryOne("SELECT logo_path FROM store_platforms WHERE id = ?", [$id]);
+            $delPlatform = dbQueryOne("SELECT logo_path FROM platforms WHERE id = ?", [$id]);
             if ($delPlatform && !empty($delPlatform['logo_path'])) {
                 deleteFile(UPLOAD_PATH . '/' . $delPlatform['logo_path']);
             }
-            dbDelete('store_platforms', $id);
+            dbDelete('platforms', $id);
             flashMessage('success', 'Plataforma excluída.');
         }
         ob_end_clean();
@@ -83,16 +84,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $ids = array_filter(array_map('intval', $_POST['ids'] ?? []));
         if (!empty($ids)) {
             $placeholders = implode(',', array_fill(0, count($ids), '?'));
-            dbExec("DELETE FROM store_platforms WHERE id IN ($placeholders)", $ids);
+            dbExec("DELETE FROM platforms WHERE id IN ($placeholders)", $ids);
             flashMessage('success', count($ids) . ' plataforma(s) removida(s).');
         }
         ob_end_clean(); header('Location: ' . ADMIN_URL . '/platforms'); exit;
     }
 
     if ($_POST['action'] === 'toggle') {
-        $p = dbQueryOne("SELECT active FROM store_platforms WHERE id = ?", [$id]);
+        $p = dbQueryOne("SELECT active FROM platforms WHERE id = ?", [$id]);
         if ($p) {
-            dbExec("UPDATE store_platforms SET active = ? WHERE id = ?", [1 - $p['active'], $id]);
+            dbExec("UPDATE platforms SET active = ? WHERE id = ?", [1 - $p['active'], $id]);
         }
         ob_end_clean();
         header('Location: ' . ADMIN_URL . '/platforms');
@@ -101,7 +102,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 if ($action === 'new' || $action === 'edit') {
-    $platform = $id > 0 ? dbQueryOne("SELECT * FROM store_platforms WHERE id = ?", [$id]) : null;
+    $platform = $id > 0 ? dbQueryOne("SELECT * FROM platforms WHERE id = ?", [$id]) : null;
     if ($action === 'edit' && !$platform) {
         flashMessage('error', 'Plataforma não encontrada.');
         header('Location: ' . ADMIN_URL . '/platforms');
@@ -134,6 +135,16 @@ if ($action === 'new' || $action === 'edit') {
             </div>
 
             <h3 class="form-section-title">Configurações</h3>
+
+            <div class="form-group">
+                <label for="visibility">Visibilidade</label>
+                <select id="visibility" name="visibility" class="form-input">
+                    <option value="public" <?= (($platform['visibility'] ?? 'public') === 'public') ? 'selected' : '' ?>>Pública (aparece nos links de jogos)</option>
+                    <option value="both" <?= (($platform['visibility'] ?? '') === 'both') ? 'selected' : '' ?>>Ambas (links públicos + tracking interno)</option>
+                    <option value="internal" <?= (($platform['visibility'] ?? '') === 'internal') ? 'selected' : '' ?>>Interna (tracking apenas)</option>
+                </select>
+                <div class="field-hint">Pública: visível na página do jogo. Interna: usado apenas no dashboard de distribuição. Ambas: as duas coisas.</div>
+            </div>
 
             <div class="form-row">
                 <div class="form-group">
@@ -209,7 +220,7 @@ if ($action === 'new' || $action === 'edit') {
     </script>
     <?php
 } else {
-    $pager = paginateQuery('SELECT COUNT(*) as c FROM store_platforms', 'SELECT p.*, (SELECT COUNT(*) FROM game_links WHERE platform_id = p.id) as link_count FROM store_platforms p ORDER BY p.active DESC, p.sort_order ASC, p.name ASC');
+    $pager = paginateQuery('SELECT COUNT(*) as c FROM platforms', 'SELECT p.*, (SELECT COUNT(*) FROM game_links WHERE platform_id = p.id) as link_count FROM platforms p ORDER BY p.active DESC, p.sort_order ASC, p.name ASC');
     $platforms = $pager['items'];
     $totalItems = $pager['total'];
     ?>
@@ -238,6 +249,7 @@ if ($action === 'new' || $action === 'edit') {
                             <th>Plataforma</th>
                             <th>Slug</th>
                             <th class="hide-tablet">Links</th>
+                            <th class="hide-tablet">Visibilidade</th>
                             <th>Status</th>
                             <th>Ações</th>
                         </tr>
@@ -260,6 +272,14 @@ if ($action === 'new' || $action === 'edit') {
                             </td>
                             <td><code><?= e($p['slug']) ?></code></td>
                             <td class="hide-tablet"><?= (int)$p['link_count'] ?></td>
+                            <td class="hide-tablet">
+                                <?php
+                                $vis = $p['visibility'] ?? 'public';
+                                $labels = ['public' => 'Pública', 'both' => 'Ambas', 'internal' => 'Interna'];
+                                $classes = ['public' => 'info', 'both' => 'success', 'internal' => 'muted'];
+                                ?>
+                                <span class="badge badge-<?= $classes[$vis] ?>"><?= $labels[$vis] ?? $vis ?></span>
+                            </td>
                             <td>
                                 <?php if ($p['active']): ?>
                                     <span class="badge badge-active">Ativa</span>

@@ -405,7 +405,7 @@ function revertS3Urls() {
         ['table' => 'retro_games', 'column' => 'rom_path'],
         ['table' => 'retro_games', 'column' => 'thumbnail_url'],
         ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
-        ['table' => 'store_platforms', 'column' => 'logo_path'],
+        ['table' => 'platforms', 'column' => 'logo_path'],
     ];
 
     $s3Bases = _revertS3BaseUrls();
@@ -690,14 +690,17 @@ function renderAdSlot($slotKey, $pageKey = 'all', $deviceKey = 'all') {
 }
 
 function getDistributionPlatforms($activeOnly = true) {
-    $sql = "SELECT * FROM distribution_platforms";
-    if ($activeOnly) $sql .= " WHERE active = 1";
+    $sql = "SELECT * FROM platforms WHERE visibility IN ('internal', 'both')";
+    if ($activeOnly) $sql .= " AND active = 1";
     $sql .= " ORDER BY sort_order ASC, id ASC";
     return dbQuery($sql);
 }
 
-function getDistributionStatsByGame($gameId) {
-    return dbQuery("SELECT dps.*, p.name as platform_name, p.icon as platform_icon FROM game_distribution_stats dps LEFT JOIN distribution_platforms p ON p.id = dps.platform_id WHERE dps.game_id = ? ORDER BY p.sort_order ASC, dps.id ASC", [$gameId]);
+function getPublicStorePlatforms($activeOnly = true) {
+    $sql = "SELECT * FROM platforms WHERE visibility IN ('public', 'both')";
+    if ($activeOnly) $sql .= " AND active = 1";
+    $sql .= " ORDER BY sort_order ASC, id ASC";
+    return dbQuery($sql);
 }
 
 function uploadAndExtractGame($file, $engine, $gameTitle) {

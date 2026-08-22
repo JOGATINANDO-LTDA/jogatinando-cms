@@ -16,7 +16,7 @@ function validateTableSchema($table, $column) {
         'users' => ['avatar_url'],
         'retro_games' => ['rom_path', 'thumbnail_url'],
         'retro_consoles' => ['thumbnail_url'],
-        'store_platforms' => ['logo_path'],
+        'platforms' => ['logo_path'],
     ];
     if (!isset($allowed[$table]) || !in_array($column, $allowed[$table], true)) {
         throw new InvalidArgumentException("Tabela/coluna não permitida: {$table}.{$column}");
@@ -154,7 +154,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ['table' => 'retro_games', 'column' => 'rom_path'],
             ['table' => 'retro_games', 'column' => 'thumbnail_url'],
             ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
-            ['table' => 'store_platforms', 'column' => 'logo_path'],
+            ['table' => 'platforms', 'column' => 'logo_path'],
         ];
         $restored = 0; $skipped = 0; $failed = 0;
         $count = 0;
@@ -376,7 +376,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ['table' => 'retro_games', 'column' => 'rom_path'],
                 ['table' => 'retro_games', 'column' => 'thumbnail_url'],
                 ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
-                ['table' => 'store_platforms', 'column' => 'logo_path'],
+                ['table' => 'platforms', 'column' => 'logo_path'],
             ];
             $updated = 0;
             foreach ($tables as $t) {
@@ -413,7 +413,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 ['table' => 'retro_games', 'column' => 'rom_path'],
                 ['table' => 'retro_games', 'column' => 'thumbnail_url'],
                 ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
-                ['table' => 'store_platforms', 'column' => 'logo_path'],
+                ['table' => 'platforms', 'column' => 'logo_path'],
             ];
             foreach ($tables as $t) {
                 validateTableSchema($t['table'], $t['column']);
@@ -454,7 +454,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ['table' => 'retro_games', 'column' => 'rom_path'],
             ['table' => 'retro_games', 'column' => 'thumbnail_url'],
             ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
-            ['table' => 'store_platforms', 'column' => 'logo_path'],
+            ['table' => 'platforms', 'column' => 'logo_path'],
         ];
         $fixed = 0;
         foreach ($tables as $t) {
@@ -700,7 +700,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ['table' => 'retro_games', 'column' => 'rom_path'],
             ['table' => 'retro_games', 'column' => 'thumbnail_url'],
             ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
-            ['table' => 'store_platforms', 'column' => 'logo_path'],
+            ['table' => 'platforms', 'column' => 'logo_path'],
         ];
         $prefixes = ['uploads/thumbnails/', 'uploads/banners/', 'uploads/blog/', 'uploads/avatars/', 'uploads/platforms/', 'uploads/retro/', 'uploads/games/'];
         $s3Files = [];
@@ -774,7 +774,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ['table' => 'retro_games', 'column' => 'rom_path'],
             ['table' => 'retro_games', 'column' => 'thumbnail_url'],
             ['table' => 'retro_consoles', 'column' => 'thumbnail_url'],
-            ['table' => 'store_platforms', 'column' => 'logo_path'],
+            ['table' => 'platforms', 'column' => 'logo_path'],
         ];
         $prefixes = ['uploads/thumbnails/', 'uploads/banners/', 'uploads/blog/', 'uploads/avatars/', 'uploads/platforms/', 'uploads/retro/', 'uploads/games/'];
         $s3Files = [];

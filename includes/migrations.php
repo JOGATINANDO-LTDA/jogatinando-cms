@@ -1691,3 +1691,349 @@ function migration_038($db, $type) {
         }
     }
 }
+
+// ── Migration 040: Unify store_platforms and distribution_platforms ──
+function migration_040($db, $type) {
+    $pkType = $type === 'mysql' ? 'INT' : 'INTEGER';
+    $txt = $type === 'mysql' ? 'VARCHAR(255)' : 'TEXT';
+
+    // Disable FK enforcement for SQLite (we need to remap FKs)
+    if ($type === 'sqlite') {
+        $db->exec("PRAGMA foreign_keys = OFF");
+    }
+
+    // Create unified platforms table
+    $db->exec("CREATE TABLE IF NOT EXISTS platforms (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        name $txt NOT NULL,
+        slug $txt NOT NULL UNIQUE,
+        icon $txt NOT NULL DEFAULT '',
+        visibility $txt NOT NULL DEFAULT 'public',
+        active INTEGER NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        use_logo INTEGER NOT NULL DEFAULT 0,
+        logo_path TEXT NOT NULL DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    // Check if old tables exist and have data
+    $oldTables = ['store_platforms' => 0, 'distribution_platforms' => 0];
+    try {
+        $oldTables['store_platforms'] = (int)$db->query("SELECT COUNT(*) FROM store_platforms")->fetchColumn();
+    } catch (Exception $e) {}
+    try {
+        $oldTables['distribution_platforms'] = (int)$db->query("SELECT COUNT(*) FROM distribution_platforms")->fetchColumn();
+    } catch (Exception $e) {}
+
+    $totalOld = array_sum($oldTables);
+
+    // Check if platforms already has data (idempotency)
+    $platformCount = 0;
+    try {
+        $platformCount = (int)$db->query("SELECT COUNT(*) FROM platforms")->fetchColumn();
+    } catch (Exception $e) {}
+
+    if ($platformCount > 0) {
+        // Platforms table already populated — skip migration, just ensure old tables are dropped
+        if ($oldTables['store_platforms'] > 0 || $oldTables['distribution_platforms'] > 0) {
+            try { $db->exec("DROP TABLE IF EXISTS store_platforms"); } catch (Exception $e) {}
+            try { $db->exec("DROP TABLE IF EXISTS distribution_platforms"); } catch (Exception $e) {}
+        }
+        return;
+    }
+
+    if ($totalOld === 0) {
+        // Seed default unified platforms
+        $defaultPlatforms = [
+            ['Site Próprio', 'site', '🌐', 'internal', 1, 1],
+            ['Steam', 'steam', '🔥', 'both', 1, 2],
+            ['Epic Games', 'epic', '✨', 'both', 1, 3],
+             ['GOG', 'gog', '🧩', 'both', 1, 4],
+             ['itch.io', 'itchio', '🔴', 'public', 1, 5],
+             ['gd.games', 'gdgames', '🎮', 'public', 1, 6],
+             ['Google Play', 'googleplay', '📱', 'both', 1, 7],
+             ['App Store', 'appstore', '📱', 'both', 1, 8],
+             ['Nintendo eShop', 'nintendo', '🎹', 'public', 0, 9],
+             ['PlayStation Store', 'playstation', '🎮', 'public', 0, 10],
+             ['Xbox Store', 'xbox', '🎮', 'public', 0, 11],
+             ['Amazon', 'amazon', '📦', 'public', 0, 12],
+        ];
+        $stmt = $db->prepare("INSERT INTO platforms (name, slug, icon, visibility, active, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+        foreach ($defaultPlatforms as $p) {
+            $stmt->execute($p);
+        }
+    }
+
+    // Build ID maps for FK remapping
+    $idMap = ['store_platforms' => [], 'distribution_platforms' => []];
+    $slugToNewId = [];
+
+    // Canonical slug map: normalize distribution_platforms slugs to store_platforms slugs
+    // e.g. "play_store" → "googleplay", "app_store" → "appstore"
+    $slugAlias = [
+        'play_store' => 'googleplay',
+        'app_store' => 'appstore',
+    ];
+
+    // Collect all platforms from both tables, merged by slug
+    $platformMap = []; // canonical_slug => [name, icon, visibility, active, sort_order, use_logo, logo_path, store_id, dist_id]
+
+    // Query store_platforms
+    if ($oldTables['store_platforms'] > 0) {
+        $rows = $db->query("SELECT id, name, slug, icon, active, sort_order, use_logo, logo_path FROM store_platforms")->fetchAll();
+        foreach ($rows as $r) {
+            $slug = $r['slug'];
+            $platformMap[$slug] = [
+                'name' => $r['name'],
+                'icon' => $r['icon'],
+                'visibility' => 'public',
+                'active' => (int)$r['active'],
+                'sort_order' => (int)$r['sort_order'],
+                'use_logo' => (int)($r['use_logo'] ?? 0),
+                'logo_path' => $r['logo_path'] ?? '',
+                'store_id' => $r['id'],
+                'dist_id' => null,
+            ];
+        }
+    }
+
+    // Query distribution_platforms and merge
+    if ($oldTables['distribution_platforms'] > 0) {
+        $rows = $db->query("SELECT id, name, slug, icon, active, sort_order FROM distribution_platforms")->fetchAll();
+        foreach ($rows as $r) {
+            $slug = $slugAlias[$r['slug']] ?? $r['slug'];
+            if (isset($platformMap[$slug])) {
+                // Already exists from store_platforms → visibility = 'both'
+                $platformMap[$slug]['visibility'] = 'both';
+                $platformMap[$slug]['dist_id'] = $r['id'];
+                // Prefer store icon/logo if set, otherwise use dist icon
+                if (empty($platformMap[$slug]['icon']) && !empty($r['icon'])) {
+                    $platformMap[$slug]['icon'] = $r['icon'];
+                }
+                if (empty($platformMap[$slug]['active'])) {
+                    $platformMap[$slug]['active'] = (int)$r['active'];
+                }
+                if (empty($platformMap[$slug]['sort_order'])) {
+                    $platformMap[$slug]['sort_order'] = (int)$r['sort_order'];
+                }
+            } else {
+                // Only in distribution_platforms → visibility = 'internal'
+                $platformMap[$slug] = [
+                    'name' => $r['name'],
+                    'icon' => $r['icon'],
+                    'visibility' => 'internal',
+                    'active' => (int)$r['active'],
+                    'sort_order' => (int)$r['sort_order'],
+                    'use_logo' => 0,
+                    'logo_path' => '',
+                    'store_id' => null,
+                    'dist_id' => $r['id'],
+                ];
+            }
+        }
+    }
+
+    // Insert unified platforms and build ID mapping
+    $stmt = $db->prepare("INSERT INTO platforms (name, slug, icon, visibility, active, sort_order, use_logo, logo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    foreach ($platformMap as $slug => $data) {
+        try {
+            $stmt->execute([
+                $data['name'],
+                $slug,
+                $data['icon'],
+                $data['visibility'],
+                $data['active'],
+                $data['sort_order'],
+                $data['use_logo'],
+                $data['logo_path'],
+            ]);
+            $newId = (int)$db->lastInsertId();
+            $slugToNewId[$slug] = $newId;
+            if ($data['store_id']) $idMap['store_platforms'][$data['store_id']] = $newId;
+            if ($data['dist_id']) $idMap['distribution_platforms'][$data['dist_id']] = $newId;
+        } catch (Exception $e) {
+            // Duplicate slug — get existing
+            $stmt = $db->prepare("SELECT id FROM platforms WHERE slug = ?");
+            $stmt->execute([$slug]);
+            $existingId = $stmt->fetchColumn();
+            if ($existingId) {
+                $slugToNewId[$slug] = (int)$existingId;
+                if ($data['store_id']) $idMap['store_platforms'][$data['store_id']] = (int)$existingId;
+                if ($data['dist_id']) $idMap['distribution_platforms'][$data['dist_id']] = (int)$existingId;
+            }
+        }
+    }
+
+    // Update FKs in referencing tables
+    // game_links → platforms (from store_platforms)
+    foreach ($idMap['store_platforms'] as $oldId => $newId) {
+        $db->prepare("UPDATE game_links SET platform_id = ? WHERE platform_id = ?")->execute([$newId, $oldId]);
+    }
+
+    // distribution_game_links → platforms (from distribution_platforms)
+    foreach ($idMap['distribution_platforms'] as $oldId => $newId) {
+        $db->prepare("UPDATE distribution_game_links SET platform_id = ? WHERE platform_id = ?")->execute([$newId, $oldId]);
+    }
+
+    // distribution_integrations → platforms (from distribution_platforms)
+    foreach ($idMap['distribution_platforms'] as $oldId => $newId) {
+        $db->prepare("UPDATE distribution_integrations SET platform_id = ? WHERE platform_id = ?")->execute([$newId, $oldId]);
+    }
+
+    // campaigns → platforms (from distribution_platforms)
+    foreach ($idMap['distribution_platforms'] as $oldId => $newId) {
+        $db->prepare("UPDATE campaigns SET platform_id = ? WHERE platform_id = ?")->execute([$newId, $oldId]);
+    }
+
+    // game_distribution_stats → platforms (from distribution_platforms)
+    foreach ($idMap['distribution_platforms'] as $oldId => $newId) {
+        $db->prepare("UPDATE game_distribution_stats SET platform_id = ? WHERE platform_id = ?")->execute([$newId, $oldId]);
+    }
+
+    // Drop old tables (only if they had data)
+    // NOTE: We keep the tables as empty shells to avoid breaking FK constraints
+    // Migration 041 will fix the FKs by recreating tables that reference old platform tables
+    if ($oldTables['store_platforms'] > 0 || $oldTables['distribution_platforms'] > 0) {
+        try { $db->exec("DELETE FROM store_platforms"); } catch (Exception $e) {}
+        try { $db->exec("DELETE FROM distribution_platforms"); } catch (Exception $e) {}
+    }
+}
+
+// ── Migration 041: Fix FK constraints to reference unified platforms table ──
+function migration_041($db, $type) {
+    if ($type === 'sqlite') {
+        $db->exec("PRAGMA foreign_keys = OFF");
+    } else {
+        $db->exec("SET FOREIGN_KEY_CHECKS = 0");
+    }
+
+    // Tables that had FK to old platform tables, now need FK to platforms
+    $tablesToFix = [
+        'game_links' => [
+            'create' => "CREATE TABLE game_links_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER NOT NULL,
+                platform_id INTEGER NOT NULL,
+                url TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE CASCADE
+            )",
+            'oldFkTable' => 'store_platforms',
+        ],
+        'distribution_game_links' => [
+            'create' => "CREATE TABLE distribution_game_links_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER,
+                integration_id INTEGER,
+                platform_id INTEGER NOT NULL,
+                store_url TEXT,
+                store_package_id TEXT,
+                store_status VARCHAR(20) DEFAULT 'draft',
+                version_name VARCHAR(100),
+                last_sync_at DATETIME DEFAULT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (integration_id) REFERENCES distribution_integrations(id) ON DELETE SET NULL,
+                FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE CASCADE
+            )",
+            'oldFkTable' => 'distribution_platforms',
+        ],
+        'distribution_integrations' => [
+            'create' => "CREATE TABLE distribution_integrations_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform_id INTEGER NOT NULL,
+                name VARCHAR(150) NOT NULL,
+                integration_type VARCHAR(50) NOT NULL DEFAULT 'manual',
+                config_json TEXT,
+                active INTEGER NOT NULL DEFAULT 1,
+                last_sync_at DATETIME DEFAULT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE CASCADE
+            )",
+            'oldFkTable' => 'distribution_platforms',
+        ],
+        'campaigns' => [
+            'create' => "CREATE TABLE campaigns_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(150) NOT NULL,
+                game_id INTEGER DEFAULT NULL,
+                platform_id INTEGER DEFAULT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'draft',
+                budget DECIMAL(12,2) NOT NULL DEFAULT 0,
+                start_at DATETIME DEFAULT NULL,
+                end_at DATETIME DEFAULT NULL,
+                notes TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL,
+                FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE SET NULL
+            )",
+            'oldFkTable' => 'distribution_platforms',
+        ],
+        'game_distribution_stats' => [
+            'create' => "CREATE TABLE game_distribution_stats_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER NOT NULL,
+                platform_id INTEGER NOT NULL,
+                metric_key VARCHAR(50) NOT NULL,
+                metric_value DECIMAL(18,2) NOT NULL DEFAULT 0,
+                period_start DATE DEFAULT NULL,
+                period_end DATE DEFAULT NULL,
+                source VARCHAR(50) NOT NULL DEFAULT 'manual',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE CASCADE
+            )",
+            'oldFkTable' => 'distribution_platforms',
+        ],
+    ];
+
+    foreach ($tablesToFix as $table => $spec) {
+        try {
+            // Check if table exists
+            $exists = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetchColumn();
+            if (!$exists) continue;
+
+            // Check if FK already points to correct table (idempotency)
+            $fkInfo = $db->query("PRAGMA foreign_key_list('{$table}')")->fetchAll();
+            $needsFix = false;
+            foreach ($fkInfo as $fk) {
+                if ($fk['table'] === $spec['oldFkTable']) {
+                    $needsFix = true;
+                    break;
+                }
+            }
+            if (!$needsFix) continue;
+
+            // Create new table
+            $db->exec($spec['create']);
+
+            // Copy data
+            $db->exec("INSERT INTO {$table}_new SELECT * FROM {$table}");
+
+            // Drop old table and rename
+            $db->exec("DROP TABLE {$table}");
+            $db->exec("ALTER TABLE {$table}_new RENAME TO {$table}");
+        } catch (Exception $e) {
+            // Non-critical, skip
+        }
+    }
+
+    // Drop old empty platform tables
+    try { $db->exec("DROP TABLE IF EXISTS store_platforms"); } catch (Exception $e) {}
+    try { $db->exec("DROP TABLE IF EXISTS distribution_platforms"); } catch (Exception $e) {}
+
+    // Re-enable FK for SQLite
+    if ($type === 'sqlite') {
+        $db->exec("PRAGMA foreign_keys = ON");
+    } else {
+        $db->exec("SET FOREIGN_KEY_CHECKS = 1");
+    }
+}
+
+
