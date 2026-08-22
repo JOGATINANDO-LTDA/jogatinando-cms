@@ -344,8 +344,21 @@ $editGameLinkId = (int)($_GET['edit_game_link'] ?? 0);
 $editGameLink = $editGameLinkId ? dbQueryOne('SELECT * FROM distribution_game_links WHERE id = ?', [$editGameLinkId]) : null;
 $editCampaignId = (int)($_GET['edit_campaign'] ?? 0);
 $editCampaign = $editCampaignId ? dbQueryOne('SELECT * FROM campaigns WHERE id = ?', [$editCampaignId]) : null;
-$editMetricId = (int)($_GET['edit_metric'] ?? 0);
-$editMetric = $editMetricId ? dbQueryOne('SELECT * FROM campaign_metrics WHERE id = ?', [$editMetricId]) : null;
+$editMetricRaw = $_GET['edit_metric'] ?? '';
+$editMetricId = 0;
+$editMetricIsGameStat = false;
+if ($editMetricRaw !== '') {
+    if (str_ends_with($editMetricRaw, '_gs')) {
+        $editMetricId = (int)str_replace('_gs', '', $editMetricRaw);
+        $editMetricIsGameStat = true;
+        $editMetric = $editMetricId ? dbQueryOne('SELECT * FROM game_distribution_stats WHERE id = ?', [$editMetricId]) : null;
+    } else {
+        $editMetricId = (int)$editMetricRaw;
+        $editMetric = $editMetricId ? dbQueryOne('SELECT * FROM campaign_metrics WHERE id = ?', [$editMetricId]) : null;
+    }
+} else {
+    $editMetric = null;
+}
 $campaignOptions = $campaigns;
 $campaignStatuses = [
     'draft' => 'Rascunho',
@@ -944,13 +957,13 @@ $summaryCards = [
             <h3 class="form-section-title">Origem</h3>
             <div class="form-group">
                 <label for="metric_campaign_id">Campanha</label>
-                <select id="metric_campaign_id" name="campaign_id" required>
-                    <option value="0">— selecione —</option>
+                <select id="metric_campaign_id" name="campaign_id">
+                    <option value="0">— sem campanha —</option>
                     <?php foreach ($campaignOptions as $campaign): ?>
                         <option value="<?= (int)$campaign['id'] ?>" <?= !empty($editMetric['campaign_id']) && (int)$editMetric['campaign_id'] === (int)$campaign['id'] ? 'selected' : '' ?>><?= e($campaign['name']) ?></option>
                     <?php endforeach; ?>
                 </select>
-                <div class="field-hint">Vincule métricas de campanha aqui. Métricas por jogo/plataforma podem ser importadas futuramente de lojas.</div>
+                <div class="field-hint">Se uma campanha for selecionada, a métrica será salva em <strong>métricas de campanha</strong>. Caso contrário, será salva como <strong>métrica por jogo/plataforma</strong> (requer jogo e plataforma).</div>
             </div>
             <div class="form-row">
                 <div class="form-group">
@@ -1026,7 +1039,7 @@ $summaryCards = [
     </div>
     <div class="table-wrapper">
         <table>
-            <thead><tr><th><input type="checkbox" id="select-all-metrics" class="select-all" data-bulk-group="metrics"></th><th>Jogo</th><th>Plataforma</th><th>Métrica</th><th>Valor</th><th>Fonte</th></tr></thead>
+            <thead><tr><th><input type="checkbox" id="select-all-metrics" class="select-all" data-bulk-group="metrics"></th><th>Jogo</th><th>Plataforma</th><th>Métrica</th><th>Valor</th><th>Fonte</th><th>Ações</th></tr></thead>
             <tbody>
             <?php foreach ($stats as $row): ?>
                 <tr>
@@ -1036,10 +1049,20 @@ $summaryCards = [
                     <td><?= e($metricOptions[$row['metric_key']] ?? $row['metric_key']) ?></td>
                     <td><?= e((string)$row['metric_value']) ?></td>
                     <td><?= e($sourceOptions[$row['source']] ?? $row['source']) ?></td>
+                    <td class="actions">
+                        <a class="btn btn-outline btn-sm" href="?edit_metric=<?= (int)$row['id'] ?>_gs">Editar</a>
+                        <form method="POST" onsubmit="return confirm('Remover métrica?')" style="display:inline">
+                            <?= csrfField() ?>
+                            <input type="hidden" name="action" value="delete_metric">
+                            <input type="hidden" name="id" value="<?= (int)$row['id'] ?>">
+                            <input type="hidden" name="target" value="game_stat">
+                            <button class="btn btn-outline btn-sm" type="submit">Excluir</button>
+                        </form>
+                    </td>
                 </tr>
             <?php endforeach; ?>
             <?php if (empty($stats)): ?>
-                <tr><td colspan="6" class="text-muted">Nenhuma métrica cadastrada.</td></tr>
+                <tr><td colspan="7" class="text-muted">Nenhuma métrica cadastrada.</td></tr>
             <?php endif; ?>
             </tbody>
         </table>
