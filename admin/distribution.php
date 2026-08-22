@@ -384,10 +384,50 @@ $storeStatusOptions = [
     'rejected' => 'Rejeitado',
     'removed' => 'Removido',
 ];
+
+// Dashboard analytics data
+$dashboardData = [
+    'total_integrations' => 0,
+    'active_campaigns' => 0,
+    'total_game_links' => 0,
+    'published_links' => 0,
+    'total_revenue' => 0.0,
+    'campaigns_by_status' => [],
+    'metrics_by_period' => [],
+];
+
+try {
+    $dashboardData['total_integrations'] = (int)$db->query("SELECT COUNT(*) FROM distribution_integrations WHERE active = 1")->fetchColumn();
+    $dashboardData['active_campaigns'] = (int)$db->query("SELECT COUNT(*) FROM campaigns WHERE status = 'active'")->fetchColumn();
+    $dashboardData['total_game_links'] = (int)$db->query("SELECT COUNT(*) FROM distribution_game_links")->fetchColumn();
+    $dashboardData['published_links'] = (int)$db->query("SELECT COUNT(*) FROM distribution_game_links WHERE store_status = 'published'")->fetchColumn();
+    $dashboardData['total_revenue'] = (float)$db->query("SELECT COALESCE(SUM(metric_value), 0) FROM campaign_metrics WHERE metric_key = 'revenue'")->fetchColumn();
+
+    // Campaigns by status
+    $statusRows = $db->query("SELECT status, COUNT(*) as cnt FROM campaigns GROUP BY status ORDER BY cnt DESC")->fetchAll();
+    foreach ($campaignStatuses as $key => $label) {
+        $dashboardData['campaigns_by_status'][$key] = 0;
+    }
+    foreach ($statusRows as $row) {
+        $dashboardData['campaigns_by_status'][$row['status']] = (int)$row['cnt'];
+    }
+
+    // Metrics by period (last 7 days)
+    $periodStart = date('Y-m-d H:i:s', strtotime('-7 days'));
+    $metricRows = $db->query("SELECT metric_key, SUM(metric_value) as total FROM campaign_metrics WHERE created_at >= ? GROUP BY metric_key ORDER BY total DESC")->fetchAll();
+    $dashboardData['metrics_by_period'] = $metricRows ?: [];
+} catch (Exception $e) {
+    // Non-critical
+}
+
 $summaryCards = [
     ['label' => 'Jogos cadastrados', 'value' => count($games), 'icon' => 'gamepad'],
     ['label' => 'Plataformas', 'value' => count($platforms), 'icon' => 'store'],
     ['label' => 'Campanhas recentes', 'value' => count($campaigns), 'icon' => 'chart-line'],
+    ['label' => 'Integrações ativas', 'value' => $dashboardData['total_integrations'], 'icon' => 'link'],
+    ['label' => 'Campanhas ativas', 'value' => $dashboardData['active_campaigns'], 'icon' => 'activity'],
+    ['label' => 'Links publicados', 'value' => $dashboardData['published_links'], 'icon' => 'cloud'],
+    ['label' => 'Receita (R$)', 'value' => number_format($dashboardData['total_revenue'], 2, ',', '.'), 'icon' => 'dollar-sign'],
 ];
 ?>
 
@@ -408,13 +448,21 @@ $summaryCards = [
                         <path d="M6 12h.01M18 12h.01M7.5 16l1.5-2 1.5 2 1.5-2 1.5 2"/><path d="M4 12V9a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3"/><path d="M6 16h12v2a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2v-2Z"/>
                         <?php elseif ($card['icon'] === 'store'): ?>
                         <path d="M3 9l1.5-5h15L21 9"/><path d="M4 9h16v11H4z"/><path d="M9 20v-6h6v6"/>
+                        <?php elseif ($card['icon'] === 'link'): ?>
+                        <path d="M10 13a3 3 0 11-6 0 3 3 0 016 0z"/><path d="M14 13a3 3 0 11-6 0 3 3 0 016 0z"/>
+                        <?php elseif ($card['icon'] === 'activity'): ?>
+                        <path d="M1 12h3l3-7 4 11 3-5 3 5h3"/>
+                        <?php elseif ($card['icon'] === 'cloud'): ?>
+                        <path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.61 5.64 5.36 8.04 2.35 8.36 0 10.9 0 14c0 3.31 2.69 7 6 7h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.55-5.15-4.96z"/>
+                        <?php elseif ($card['icon'] === 'dollar-sign'): ?>
+                        <path d="M12 2v20M6 8h12M6 16h12"/>
                         <?php else: ?>
                         <path d="M3 3v18h18"/><path d="M18 17l-6-5 4-4-4 1-3-5"/>
                         <?php endif; ?>
                     </svg>
                 </div>
                 <div class="stat-info">
-                    <div class="stat-number"><?= (int)$card['value'] ?></div>
+                    <div class="stat-number"><?= is_numeric($card['value']) ? (int)$card['value'] : e($card['value']) ?></div>
                     <div class="stat-label"><?= e($card['label']) ?></div>
                 </div>
             </div>
@@ -422,6 +470,105 @@ $summaryCards = [
         </div>
     </div>
 </div>
+
+<div class="card">
+    <div class="card-header">
+        <h2 class="card-title">Visão Geral de Distribuição</h2>
+        <div class="card-actions">
+            <select id="periodFilter" class="form-input form-input-sm" style="width: auto;">
+                <option value="7">Últimos 7 dias</option>
+                <option value="30">Últimos 30 dias</option>
+                <option value="90">Últimos 90 dias</option>
+            </select>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="chart-grid">
+            <div class="chart-container">
+                <canvas id="campaignsChart" height="200"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="metricsChart" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<script>
+(function() {
+    // Campaigns by status (bar chart)
+    const statusData = <?= json_encode(array_values($dashboardData['campaigns_by_status'])) ?>;
+    const statusLabels = <?= json_encode(array_map(fn($k) => $campaignStatuses[$k] ?? $k, array_keys($dashboardData['campaigns_by_status']))) ?>;
+
+    const campaignsCtx = document.getElementById('campaignsChart').getContext('2d');
+    new Chart(campaignsCtx, {
+        type: 'bar',
+        data: {
+            labels: statusLabels,
+            datasets: [{
+                label: 'Campanhas por Status',
+                data: statusData,
+                backgroundColor: ['#6b7280', '#3b82f6', '#f59e0b', '#10b981', '#ef4444'],
+                borderWidth: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                legend: { display: false },
+                title: { display: true, text: 'Campanhas por Status' },
+            },
+            scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+        }
+    });
+
+    // Metrics (line chart)
+    const metricRows = <?= json_encode($dashboardData['metrics_by_period']) ?>;
+    const metricsCtx = document.getElementById('metricsChart').getContext('2d');
+
+    let metricsDatasets = [];
+    if (Array.isArray(metricRows) && metricRows.length > 0) {
+        const metricLabels = [...new Set(metricRows.map(r => r.metric_key))];
+        const colors = ['#3b82f6', '#ef4444', '#10b981', '#f59e0b', '#8b5cf6'];
+        metricLabels.forEach((key, i) => {
+            const row = metricRows.find(r => r.metric_key === key);
+            metricsDatasets.push({
+                label: key,
+                data: [parseFloat(row.total) || 0],
+                borderColor: colors[i % colors.length],
+                fill: false,
+                tension: 0.4,
+            });
+        });
+    }
+
+    new Chart(metricsCtx, {
+        type: 'line',
+        data: {
+            labels: ['Total'],
+            datasets: metricsDatasets,
+        },
+        options: {
+            responsive: true,
+            plugins: {
+                title: { display: true, text: 'Métricas Acumuladas' },
+                legend: { display: true },
+            },
+            scales: { y: { beginAtZero: true } },
+        }
+    });
+
+    // Period filter handler
+    document.getElementById('periodFilter').addEventListener('change', function() {
+        const days = this.value;
+        // Would refetch data — for now just reload with query param
+        const url = new URL(window.location);
+        url.searchParams.set('period', days);
+        window.location = url.toString();
+    });
+})();
+</script>
 
 <div class="card">
     <div class="card-header">
