@@ -322,21 +322,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $games = dbQuery('SELECT id, title FROM games ORDER BY title ASC');
 $platforms = getDistributionPlatforms(false);
 
-$integrationsPager = paginateQueryPrefix('page_integrations', 'SELECT COUNT(*) as c FROM distribution_integrations', 'SELECT i.*, p.name as platform_name, p.slug as platform_slug FROM distribution_integrations i LEFT JOIN distribution_platforms p ON p.id = i.platform_id ORDER BY i.id DESC');
+$integrationsPager = paginateQueryPrefix('page_integrations', 'SELECT COUNT(*) as c FROM distribution_integrations', 'SELECT i.*, p.name as platform_name, p.slug as platform_slug FROM distribution_integrations i LEFT JOIN platforms p ON p.id = i.platform_id ORDER BY i.id DESC');
 $integrations = $integrationsPager['items'];
 
-$gameLinksPager = paginateQueryPrefix('page_game_links', 'SELECT COUNT(*) as c FROM distribution_game_links', 'SELECT gl.*, g.title as game_title, i.name as integration_name, p.name as platform_name, p.slug as platform_slug FROM distribution_game_links gl LEFT JOIN games g ON g.id = gl.game_id LEFT JOIN distribution_integrations i ON i.id = gl.integration_id LEFT JOIN distribution_platforms p ON p.id = gl.platform_id ORDER BY gl.id DESC');
+$gameLinksPager = paginateQueryPrefix('page_game_links', 'SELECT COUNT(*) as c FROM distribution_game_links', 'SELECT gl.*, g.title as game_title, i.name as integration_name, p.name as platform_name, p.slug as platform_slug FROM distribution_game_links gl LEFT JOIN games g ON g.id = gl.game_id LEFT JOIN distribution_integrations i ON i.id = gl.integration_id LEFT JOIN platforms p ON p.id = gl.platform_id ORDER BY gl.id DESC');
 $gameLinks = $gameLinksPager['items'];
 
 $syncLogs = dbQuery('SELECT sl.*, i.name as integration_name FROM distribution_sync_logs sl LEFT JOIN distribution_integrations i ON i.id = sl.integration_id ORDER BY sl.id DESC LIMIT 20');
 
-$campaignsPager = paginateQueryPrefix('page_campaigns', 'SELECT COUNT(*) as c FROM campaigns', 'SELECT c.*, g.title as game_title, p.name as platform_name FROM campaigns c LEFT JOIN games g ON g.id = c.game_id LEFT JOIN distribution_platforms p ON p.id = c.platform_id ORDER BY c.id DESC');
+$campaignsPager = paginateQueryPrefix('page_campaigns', 'SELECT COUNT(*) as c FROM campaigns', 'SELECT c.*, g.title as game_title, p.name as platform_name FROM campaigns c LEFT JOIN games g ON g.id = c.game_id LEFT JOIN platforms p ON p.id = c.platform_id ORDER BY c.id DESC');
 $campaigns = $campaignsPager['items'];
 
 $metricsPager = paginateQueryPrefix('page_metrics', 'SELECT COUNT(*) as c FROM campaign_metrics', 'SELECT m.*, c.name as campaign_name FROM campaign_metrics m LEFT JOIN campaigns c ON c.id = m.campaign_id ORDER BY m.id DESC');
 $metrics = $metricsPager['items'];
 
-$statsPager = paginateQueryPrefix('page_stats', 'SELECT COUNT(*) as c FROM game_distribution_stats', 'SELECT s.*, g.title as game_title, p.name as platform_name FROM game_distribution_stats s LEFT JOIN games g ON g.id = s.game_id LEFT JOIN distribution_platforms p ON p.id = s.platform_id ORDER BY s.id DESC');
+$statsPager = paginateQueryPrefix('page_stats', 'SELECT COUNT(*) as c FROM game_distribution_stats', 'SELECT s.*, g.title as game_title, p.name as platform_name FROM game_distribution_stats s LEFT JOIN games g ON g.id = s.game_id LEFT JOIN platforms p ON p.id = s.platform_id ORDER BY s.id DESC');
 $stats = $statsPager['items'];
 $editIntegrationId = (int)($_GET['edit_integration'] ?? 0);
 $editIntegration = $editIntegrationId ? dbQueryOne('SELECT * FROM distribution_integrations WHERE id = ?', [$editIntegrationId]) : null;

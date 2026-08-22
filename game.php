@@ -28,7 +28,7 @@ if (!$game) {
 $isWebPlayable = !empty($game['is_web_playable']);
 $isExterno = ($game['game_type'] ?? '') === 'externo' && !empty($game['external_url']);
 $isUploadado = !$isExterno && !empty($game['game_path']);
-$gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM game_links gl INNER JOIN store_platforms p ON p.id = gl.platform_id WHERE gl.game_id = ? AND p.active = 1 ORDER BY gl.sort_order ASC, p.sort_order ASC, p.name ASC", [$game['id']]);
+$gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM game_links gl INNER JOIN platforms p ON p.id = gl.platform_id WHERE gl.game_id = ? AND p.active = 1 AND p.visibility IN ('public', 'both') ORDER BY gl.sort_order ASC, p.sort_order ASC, p.name ASC", [$game['id']]);
 
 // Toggle: tenta proxy (mesma origem) com fallback para URL direta
 $useProxy = false;

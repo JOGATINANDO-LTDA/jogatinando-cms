@@ -168,18 +168,6 @@ function getExpectedSchema() {
                 'updated_at' => 'DATETIME DEFAULT CURRENT_TIMESTAMP',
             ],
         ],
-        'distribution_platforms' => [
-            'columns' => [
-                'id' => 'INT AUTO_INCREMENT',
-                'name' => 'VARCHAR(100) NOT NULL',
-                'slug' => 'VARCHAR(100) NOT NULL',
-                'icon' => "VARCHAR(50) NOT NULL DEFAULT ''",
-                'active' => 'TINYINT(1) NOT NULL DEFAULT 1',
-                'sort_order' => 'INT NOT NULL DEFAULT 0',
-                'created_at' => 'DATETIME DEFAULT CURRENT_TIMESTAMP',
-                'updated_at' => 'DATETIME DEFAULT CURRENT_TIMESTAMP',
-            ],
-        ],
         'game_distribution_stats' => [
             'columns' => [
                 'id' => 'INT AUTO_INCREMENT',
@@ -242,17 +230,19 @@ function getExpectedSchema() {
                 'created_at' => 'DATETIME DEFAULT CURRENT_TIMESTAMP',
             ],
         ],
-        'store_platforms' => [
+        'platforms' => [
             'columns' => [
                 'id' => 'INT AUTO_INCREMENT',
                 'name' => 'VARCHAR(255) NOT NULL',
                 'slug' => 'VARCHAR(255) NOT NULL',
                 'icon' => 'VARCHAR(50) NOT NULL DEFAULT \'🛒\'',
-                'use_logo' => 'TINYINT(1) NOT NULL DEFAULT 0',
-                'logo_path' => 'VARCHAR(500) NOT NULL DEFAULT \'\'',
+                'visibility' => 'VARCHAR(20) NOT NULL DEFAULT \'public\'',
                 'active' => 'INT DEFAULT 1',
                 'sort_order' => 'INT DEFAULT 0',
+                'use_logo' => 'TINYINT(1) NOT NULL DEFAULT 0',
+                'logo_path' => 'VARCHAR(500) NOT NULL DEFAULT \'\'',
                 'created_at' => 'DATETIME DEFAULT CURRENT_TIMESTAMP',
+                'updated_at' => 'DATETIME DEFAULT CURRENT_TIMESTAMP',
             ],
         ],
         'game_links' => [
@@ -632,22 +622,13 @@ function getIntegrityChecks($db, $dbType) {
         $checks[] = ['label' => 'template_links → game_templates', 'orphaned' => 0, 'ok' => true, 'skip' => true];
     }
 
-    // template_links → store_platforms (platform_id)
+    // game_links → platforms (platform_id)
     try {
-        $stmt = $db->query("SELECT COUNT(*) FROM template_links tl LEFT JOIN store_platforms p ON tl.platform_id = p.id WHERE p.id IS NULL");
+        $stmt = $db->query("SELECT COUNT(*) FROM game_links gl LEFT JOIN platforms p ON gl.platform_id = p.id WHERE p.id IS NULL");
         $orphaned = (int)$stmt->fetchColumn();
-        $checks[] = ['label' => 'template_links → store_platforms', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
+        $checks[] = ['label' => 'game_links → platforms', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
     } catch (Exception $e) {
-        $checks[] = ['label' => 'template_links → store_platforms', 'orphaned' => 0, 'ok' => true, 'skip' => true];
-    }
-
-    // game_links → store_platforms (platform_id)
-    try {
-        $stmt = $db->query("SELECT COUNT(*) FROM game_links gl LEFT JOIN store_platforms p ON gl.platform_id = p.id WHERE p.id IS NULL");
-        $orphaned = (int)$stmt->fetchColumn();
-        $checks[] = ['label' => 'game_links → store_platforms', 'orphaned' => $orphaned, 'ok' => $orphaned === 0];
-    } catch (Exception $e) {
-        $checks[] = ['label' => 'game_links → store_platforms', 'orphaned' => 0, 'ok' => true, 'skip' => true];
+        $checks[] = ['label' => 'game_links → platforms', 'orphaned' => 0, 'ok' => true, 'skip' => true];
     }
 
     // users → roles (role_id)
@@ -1184,7 +1165,7 @@ if ($db && $dbType) {
         'SELECT COUNT(*) as c FROM faq_items' => 'faq_items (count)',
         'SELECT COUNT(*) as c FROM team_members' => 'team_members (count)',
         'SELECT COUNT(*) as c FROM engines' => 'engines (count)',
-        'SELECT COUNT(*) as c FROM store_platforms' => 'store_platforms (count)',
+        'SELECT COUNT(*) as c FROM platforms' => 'platforms (count)',
     ];
     foreach ($queries as $sql => $label) {
         try {

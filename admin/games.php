@@ -147,9 +147,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Save game links (distribution platforms)
             if ($id > 0) {
                 $db = getDB();
-                $db->prepare("DELETE FROM game_links WHERE game_id = ?")->execute([$id]);
-                if (isset($_POST['link_platform']) && is_array($_POST['link_platform'])) {
-                    $stmt = $db->prepare("INSERT INTO game_links (game_id, platform_id, url, sort_order) VALUES (?, ?, ?, ?)");
+            $db->prepare("DELETE FROM game_links WHERE game_id = ?")->execute([$id]);
+            if (isset($_POST['link_platform']) && is_array($_POST['link_platform'])) {
+                $stmt = $db->prepare("INSERT INTO game_links (game_id, platform_id, url, sort_order) VALUES (?, ?, ?, ?)");
                     $order = 0;
                     foreach ($_POST['link_platform'] as $i => $platformId) {
                         $url = trim($_POST['link_url'][$i] ?? '');
@@ -220,7 +220,7 @@ if ($action === 'new' || $action === 'edit') {
     $game = $id > 0 ? dbQueryOne("SELECT * FROM games WHERE id = ?", [$id]) : null;
     $gameLinks = [];
     if ($id > 0) {
-        $gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM game_links gl JOIN store_platforms p ON gl.platform_id = p.id WHERE gl.game_id = ? ORDER BY gl.sort_order", [$id]);
+        $gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM game_links gl JOIN platforms p ON gl.platform_id = p.id WHERE gl.game_id = ? ORDER BY gl.sort_order", [$id]);
     }
     if ($action === 'edit' && !$game) {
         flashMessage('error', 'Jogo não encontrado.');
@@ -439,7 +439,7 @@ if ($action === 'new' || $action === 'edit') {
                 </div>
                 <div id="gameLinksList">
                     <?php
-                    $platforms = dbQuery("SELECT id, name, icon, use_logo, logo_path FROM store_platforms WHERE active = 1 ORDER BY sort_order ASC, name ASC");
+                    $platforms = dbQuery("SELECT id, name, icon, use_logo, logo_path FROM platforms WHERE active = 1 AND visibility IN ('public', 'both') ORDER BY sort_order ASC, name ASC");
                     if (!empty($gameLinks)):
                         foreach ($gameLinks as $gl):
                     ?>

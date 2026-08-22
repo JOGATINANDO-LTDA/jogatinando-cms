@@ -106,7 +106,7 @@ function dbMigrate($db, $type = null) {
     // Detect existing DB without schema_version entries
     if ($currentVersion === 0) {
         $tables = getDbTables($db, $type);
-        $coreTables = ['games', 'banners', 'users', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings', 'social_links', 'ad_slots', 'distribution_platforms', 'game_distribution_stats', 'campaigns', 'campaign_metrics'];
+        $coreTables = ['games', 'banners', 'users', 'blog_posts', 'testimonials', 'faq_items', 'team_members', 'site_settings', 'social_links', 'ad_slots', 'platforms', 'game_distribution_stats', 'campaigns', 'campaign_metrics'];
         $hasExistingData = count(array_intersect($tables, $coreTables)) > 0;
 
         if ($hasExistingData) {
@@ -177,7 +177,9 @@ function getMigrationList() {
          35 => 'add_social_links_media_fields',
          36 => 'add_distribution_integration_hub',
          37 => 'drop_dead_tables_and_permissions',
-         38 => 'create_ai_system_tables',
+          38 => 'create_ai_system_tables',
+          40 => 'unify_store_and_distribution_platforms',
+          41 => 'fix_fk_constraints_to_platforms',
       ];
 }
 
@@ -263,7 +265,7 @@ function dbExec($sql, $params = []) {
 function dbDelete($table, $id) {
     $db = getDB();
     if (!$db) return false;
-    $allowed = ['banners','games','blog_posts','testimonials','faq_items','team_members','users','engines','store_platforms','game_links','retro_games','retro_consoles','levels','roles','site_settings','social_links','ad_slots','distribution_platforms','game_distribution_stats','campaigns','campaign_metrics'];
+    $allowed = ['banners','games','blog_posts','testimonials','faq_items','team_members','users','engines','platforms','game_links','retro_games','retro_consoles','levels','roles','site_settings','social_links','ad_slots','campaigns','campaign_metrics'];
     if (!in_array($table, $allowed)) return false;
     $stmt = $db->prepare("DELETE FROM `$table` WHERE id = ?");
     return $stmt->execute([$id]);
