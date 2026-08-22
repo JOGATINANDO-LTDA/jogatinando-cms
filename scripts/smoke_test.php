@@ -293,5 +293,97 @@ $status = request($distribution, 'POST', [
 if ($status < 300 || $status >= 400) fail('distribution não redirecionou após excluir campanha');
 ok('distribution removeu campanha');
 
+// CRUD distribution integration
+$intName = 'Integração Smoke ' . substr(md5((string)microtime(true) . 'int'), 0, 8);
+$post = [
+    'csrf_token' => $distCsrf,
+    'action' => 'save_integration',
+    'id' => 0,
+    'platform_id' => 1,
+    'name' => $intName,
+    'integration_type' => 'manual',
+    'config_json' => '{"api_key": "test123"}',
+    'active' => 1,
+];
+$status = request($distribution, 'POST', $post, $headers, $body, $cookieFile);
+if ($status < 300 || $status >= 400) fail('distribution não redirecionou após salvar integração');
+$status = request($distribution, 'GET', null, $headers, $body, $cookieFile);
+pageContains($body, $intName, 'integration CRUD');
+ok('distribution criou integração');
+if (!preg_match('/<tr>\s*<td><input[^>]*class="row-select"[^>]*><\/td>\s*<td>' . preg_quote($intName, '/') . '<\/td>[\s\S]*?<input type="hidden" name="id" value="(\d+)"/m', $body, $m)) {
+    fail('não foi possível localizar o ID da integração criada');
+}
+$intId = (int)$m[1];
+$status = request($distribution, 'POST', [
+    'csrf_token' => $distCsrf,
+    'action' => 'delete_integration',
+    'id' => $intId,
+], $headers, $body, $cookieFile);
+if ($status < 300 || $status >= 400) fail('distribution não redirecionou após excluir integração');
+ok('distribution removeu integração');
+
+// CRUD distribution game link
+$glName = 'GameLink Smoke ' . substr(md5((string)microtime(true) . 'gl'), 0, 8);
+$post = [
+    'csrf_token' => $distCsrf,
+    'action' => 'save_game_link',
+    'id' => 0,
+    'game_id' => 1,
+    'platform_id' => 1,
+    'integration_id' => 0,
+    'store_url' => 'https://store.steampowered.com/app/123456',
+    'store_package_id' => 'com.test.' . $glName,
+    'store_status' => 'published',
+    'version_name' => '1.0.0',
+];
+$status = request($distribution, 'POST', $post, $headers, $body, $cookieFile);
+if ($status < 300 || $status >= 400) fail('distribution não redirecionou após salvar game link');
+$status = request($distribution, 'GET', null, $headers, $body, $cookieFile);
+ok('distribution criou link de jogo');
+if (!preg_match('/delete_game_link.*?name="id" value="(\d+)"/ms', $body, $m)) {
+    fail('não foi possível localizar o ID do game link criado');
+}
+$glLinkId = (int)$m[1];
+$status = request($distribution, 'POST', [
+    'csrf_token' => $distCsrf,
+    'action' => 'delete_game_link',
+    'id' => $glLinkId,
+], $headers, $body, $cookieFile);
+if ($status < 300 || $status >= 400) fail('distribution não redirecionou após excluir game link');
+ok('distribution removeu link de jogo');
+
+// CRUD distribution metric (game_distribution_stats)
+$metricKey = 'views';
+$post = [
+    'csrf_token' => $distCsrf,
+    'action' => 'save_metric',
+    'id' => 0,
+    'campaign_id' => 0,
+    'game_id' => 1,
+    'platform_id' => 1,
+    'metric_key' => $metricKey,
+    'metric_value' => '42',
+    'period_start' => date('Y-m-d'),
+    'period_end' => date('Y-m-d'),
+    'source' => 'manual',
+];
+$status = request($distribution, 'POST', $post, $headers, $body, $cookieFile);
+if ($status < 300 || $status >= 400) fail('distribution não redirecionou após salvar métrica de jogo');
+$status = request($distribution, 'GET', null, $headers, $body, $cookieFile);
+pageContains($body, '42', 'game distribution stats metric CRUD');
+ok('distribution criou métrica de jogo');
+if (!preg_match('/<tr>\s*<td><input[^>]*class="row-select"[^>]*><\/td>\s*<td>[^<]*<\/td>\s*<td>[^<]*<\/td>\s*<td[^>]*>[^<]*Visualizações[^<]*<\/td>\s*<td>42<\/td>[\s\S]*?<input type="hidden" name="id" value="(\d+)"/m', $body, $m)) {
+    fail('não foi possível localizar o ID da métrica de jogo criada');
+}
+$metricId = (int)$m[1];
+$status = request($distribution, 'POST', [
+    'csrf_token' => $distCsrf,
+    'action' => 'delete_metric',
+    'target' => 'game_stat',
+    'id' => $metricId,
+], $headers, $body, $cookieFile);
+if ($status < 300 || $status >= 400) fail('distribution não redirecionou após excluir métrica de jogo');
+ok('distribution removeu métrica de jogo');
+
 @unlink($cookieFile);
 ok('smoke test concluído');
