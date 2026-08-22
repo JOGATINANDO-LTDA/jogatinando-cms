@@ -1430,6 +1430,55 @@ function dbSeed($db, $type) {
 
     // Seed banners, games, testimonials, FAQ, team
     seedDefaultData($db);
+
+    // Seed demo distribution campaigns and metrics
+    seedDemoDistributionData($db);
+}
+
+function seedDemoDistributionData($db) {
+    $existingCampaigns = $db->query("SELECT COUNT(*) FROM campaigns")->fetchColumn();
+    if ((int)$existingCampaigns > 0) return;
+
+    $games = $db->query("SELECT id FROM games ORDER BY id LIMIT 5")->fetchAll();
+    if (empty($games)) return;
+
+    $platformRows = $db->query("SELECT id FROM platforms ORDER BY id LIMIT 5")->fetchAll();
+    if (empty($platformRows)) return;
+
+    $demoCampaigns = [
+        ['name' => 'Lançamento Steam', 'platform_idx' => 0, 'status' => 'active', 'budget' => 5000.00, 'start' => '-3 days', 'end' => '+10 days'],
+        ['name' => 'Campanha Epic', 'platform_idx' => 1, 'status' => 'active', 'budget' => 3000.00, 'start' => '-1 day', 'end' => '+14 days'],
+        ['name' => 'Push itch.io', 'platform_idx' => 3, 'status' => 'finished', 'budget' => 500.00, 'start' => '-30 days', 'end' => '-7 days'],
+    ];
+
+    $insertedCampaigns = [];
+    foreach ($demoCampaigns as $i => $c) {
+        $gameId = $games[$i % count($games)]['id'];
+        $platformId = $platformRows[$c['platform_idx'] % count($platformRows)]['id'];
+        $stmt = $db->prepare("INSERT INTO campaigns (name, game_id, platform_id, status, budget, start_at, end_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
+        $stmt->execute([
+            $c['name'], $gameId, $platformId, $c['status'], $c['budget'],
+            date('Y-m-d', strtotime($c['start'])),
+            date('Y-m-d', strtotime($c['end'])),
+        ]);
+        $insertedCampaigns[] = $db->lastInsertId();
+    }
+
+    $metricKeys = ['views', 'clicks', 'installs', 'revenue'];
+    foreach ($insertedCampaigns as $cid) {
+        foreach ($metricKeys as $mk) {
+            $val = match($mk) {
+                'views' => rand(100, 5000),
+                'clicks' => rand(20, 300),
+                'installs' => rand(5, 80),
+                'revenue' => rand(500, 5000) / 100,
+                default => 0,
+            };
+            $period = date('Y-m-d', strtotime('-' . rand(1, 7) . ' days'));
+            $stmt = $db->prepare("INSERT INTO campaign_metrics (campaign_id, metric_key, metric_value, period_start, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)");
+            $stmt->execute([$cid, $mk, $val, $period]);
+        }
+    }
 }
 
 function seedDefaultData($db) {
@@ -2034,6 +2083,10 @@ function migration_041($db, $type) {
     } else {
         $db->exec("SET FOREIGN_KEY_CHECKS = 1");
     }
+}
+
+function migration_042($db, $type) {
+    // Seeding of demo campaigns/metrics moved to dbSeed to ensure games exist
 }
 
 

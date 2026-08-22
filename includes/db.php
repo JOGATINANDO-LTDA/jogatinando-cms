@@ -179,8 +179,9 @@ function getMigrationList() {
          37 => 'drop_dead_tables_and_permissions',
           38 => 'create_ai_system_tables',
           40 => 'unify_store_and_distribution_platforms',
-          41 => 'fix_fk_constraints_to_platforms',
-      ];
+           41 => 'fix_fk_constraints_to_platforms',
+           42 => 'seed_demo_distribution_data',
+       ];
 }
 
 function dbInit($dsn = null, $user = null, $pass = null, $type = null) {
