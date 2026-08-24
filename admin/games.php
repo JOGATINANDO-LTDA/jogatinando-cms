@@ -1,4 +1,48 @@
 <?php
+require_once __DIR__ . '/../config.php';
+requireLogin();
+
+// Handle AI content generation early (before header output)
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'ai_generate_description') {
+    header('Content-Type: application/json');
+    if (!verifyCSRF($_POST['csrf_token'] ?? '')) {
+        echo json_encode(['error' => 'Token inválido.']);
+        exit;
+    }
+    if (!can('perm_games')) {
+        echo json_encode(['error' => 'Permissão negada.']);
+        exit;
+    }
+
+    $gameTitle = trim($_POST['game_title'] ?? '');
+    $engine = trim($_POST['engine'] ?? '');
+    $genre = trim($_POST['genre'] ?? '');
+
+    if ($gameTitle === '') {
+        echo json_encode(['error' => 'Título do jogo é obrigatório para geração de descrição.']);
+        exit;
+    }
+
+    try {
+        require_once ROOT_PATH . '/includes/ai/client.php';
+        $client = AIClient::getInstance();
+        if (!$client->isAvailable()) {
+            echo json_encode(['error' => 'Nenhum provider de IA configurado. Configure uma configuração em Configurações de IA.']);
+            exit;
+        }
+
+        $prompt = "Escreva uma descrição de jogador de 3-4 frases para o jogo \"$gameTitle\" ($engine" . ($genre ? ", gênero: $genre" : "") . "). Destaque os elementos de jogabilagem e o apelo para o jogador. Use tom envolvente, estilo português do Brasil.";
+        $result = $client->chat([
+            ['role' => 'user', 'content' => $prompt],
+        ], ['feature' => 'game_description', 'max_tokens' => 500, 'temperature' => 0.8]);
+
+        echo json_encode(['description' => $result['content'] ?? '']);
+    } catch (Exception $e) {
+        echo json_encode(['error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 ob_start();
 $pageTitle = 'Jogos';
 $requiredPerm = 'perm_games';
@@ -302,7 +346,14 @@ if ($action === 'new' || $action === 'edit') {
 
             <div class="form-group">
                 <label for="description">Descrição</label>
-                <textarea id="description" name="description" rows="4"><?= e($game['description'] ?? '') ?></textarea>
+                <div style="display:flex; gap:8px; align-items:flex-start;">
+                    <textarea id="description" name="description" rows="4" style="flex:1;"><?= e($game['description'] ?? '') ?></textarea>
+                    <button type="button" id="aiGenBtn" class="btn btn-outline btn-sm" style="align-self:flex-end; flex-shrink:0;" title="Gerar descrição com IA">
+                        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2L2 7v10c0 4.5 8 8 8 8s8-3.5 8-8V7l-10-5z"/><path d="M8 12l2 2 4-4"/></svg>
+                        Gerar IA
+                    </button>
+                </div>
+                <div id="aiGenStatus" class="field-hint" style="display:none;"></div>
             </div>
 
             <h3 class="form-section-title">Tipo</h3>
@@ -488,6 +539,54 @@ if ($action === 'new' || $action === 'edit') {
     document.addEventListener('DOMContentLoaded', function() {
         // Markdown editor
         initMarkdownEditor('description');
+
+        // AI Description Generation
+        var aiBtn = document.getElementById('aiGenBtn');
+        var aiStatus = document.getElementById('aiGenStatus');
+        if (aiBtn) {
+            aiBtn.addEventListener('click', function() {
+                var title = document.getElementById('title').value.trim();
+                var engine = document.getElementById('engine').value.trim();
+                var genre = ''; // Could extract from tags or other field
+                if (!title) {
+                    aiStatus.textContent = 'Digite o título do jogo primeiro.';
+                    aiStatus.style.display = 'block';
+                    return;
+                }
+                aiStatus.textContent = 'Gerando descrição com IA...';
+                aiStatus.style.display = 'block';
+                aiBtn.disabled = true;
+                aiBtn.textContent = 'Gerando...';
+
+                var formData = new FormData();
+                formData.append('csrf_token', '<?= getCSRFToken() ?>');
+                formData.append('action', 'ai_generate_description');
+                formData.append('game_title', title);
+                formData.append('engine', engine);
+                formData.append('genre', genre);
+
+                fetch('<?= ADMIN_URL ?>/games', {
+                    method: 'POST',
+                    body: formData,
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.error) {
+                        aiStatus.textContent = 'Erro: ' + data.error;
+                    } else if (data.description) {
+                        document.getElementById('description').value = data.description;
+                        aiStatus.textContent = 'Descrição gerada! Revise e ajuste se necessário.';
+                    }
+                })
+                .catch(err => {
+                    aiStatus.textContent = 'Erro de rede: ' + err.message;
+                })
+                .finally(() => {
+                    aiBtn.disabled = false;
+                    aiBtn.textContent = 'Gerar IA';
+                });
+            });
+        }
 
         // File upload drag-and-drop
         var input = document.getElementById('gameArchiveInput');
