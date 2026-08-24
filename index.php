@@ -331,7 +331,7 @@ $siteSocialLinks = getSocialLinks('site', true);
                     </div>
                     <?php endif; ?>
                     <div class="blog-content">
-                        <h3><?= e($post['title']) ?></h3>
+                        <h3><?= e($post['title']) ?><?= $post['is_premium'] ?? false ? ' <span class="badge badge-gold" style="font-size:10px;">Premiun</span>' : '' ?></h3>
                         <p><?= e(truncateText(strip_tags(parseMarkdown($post['content'])), 150)) ?></p>
                         <time><?= date('d/m/Y', strtotime($post['published_at'])) ?></time>
                         <?php if ($post['external_url']): ?>

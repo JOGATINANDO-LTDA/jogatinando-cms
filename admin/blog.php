@@ -83,12 +83,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         if (empty($title)) { flashMessage('error', 'Título é obrigatório.'); ob_end_clean(); header('Location: ' . ADMIN_URL . '/blog?action=' . ($id > 0 ? "edit&id=$id" : 'new')); exit; }
 
+        $is_premium = isset($_POST['is_premium']) ? 1 : 0;
+
         if ($id > 0) {
             if (!$thumbnail_url) { $existing = dbQueryOne("SELECT thumbnail_url FROM blog_posts WHERE id = ?", [$id]); $thumbnail_url = $existing['thumbnail_url']; }
-            dbExec("UPDATE blog_posts SET title=?, slug=?, content=?, thumbnail_url=?, external_url=?, active=? WHERE id=?", [$title, $slug, $content, $thumbnail_url, $external_url, $active, $id]);
+            dbExec("UPDATE blog_posts SET title=?, slug=?, content=?, thumbnail_url=?, external_url=?, active=?, is_premium=? WHERE id=?", [$title, $slug, $content, $thumbnail_url, $external_url, $active, $is_premium, $id]);
             flashMessage('success', 'Post atualizado!');
         } else {
-            dbExec("INSERT INTO blog_posts (title, slug, content, thumbnail_url, external_url, active) VALUES (?, ?, ?, ?, ?, ?)", [$title, $slug, $content, $thumbnail_url, $external_url, $active]);
+            dbExec("INSERT INTO blog_posts (title, slug, content, thumbnail_url, external_url, active, is_premium) VALUES (?, ?, ?, ?, ?, ?, ?)", [$title, $slug, $content, $thumbnail_url, $external_url, $active, $is_premium]);
             flashMessage('success', 'Post criado!');
         }
         ob_end_clean();
@@ -173,6 +175,13 @@ if ($action === 'new' || $action === 'edit') {
 
             <h3 class="form-section-title">Publicação</h3>
 
+            <div class="form-group">
+                <div class="toggle-group">
+                    <input type="checkbox" id="is_premium" name="is_premium" <?= ($post['is_premium'] ?? 0) ? 'checked' : '' ?>>
+                    <label for="is_premium">Conteúdo Premium</label>
+                </div>
+                <div class="field-hint">Conteúdo bloqueado para assinantes pagos</div>
+            </div>
             <div class="form-group">
                 <div class="toggle-group">
                     <input type="checkbox" id="active" name="active" <?= ($post['active'] ?? 1) ? 'checked' : '' ?>>
