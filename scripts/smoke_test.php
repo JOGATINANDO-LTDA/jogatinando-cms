@@ -430,5 +430,25 @@ $decoded = json_decode($body, true);
 if ($decoded === null) fail('ai-generate-description deveria retornar JSON. Status: ' . $status . " Resposta: " . substr($body, 0, 300));
 ok('ai-generate-description responde');
 
+// AI blog content generation
+$blog = $base . '/admin/blog.php';
+$status = request($blog . '?action=new', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('blog new page deveria responder 200');
+$blogCsrf = extractCsrf($body);
+$status = request($blog, 'POST', [
+    'csrf_token' => $blogCsrf,
+    'action' => 'ai_generate_blog',
+    'title' => 'Notícia de Teste',
+    'excerpt' => '',
+], $headers, $body, $cookieFile);
+if ($status === 302) {
+    if (preg_match('/Location: ([^\r\n]+)/i', $headers, $loc)) {
+        fail('ai-generate-blog redirected (CSRF?): ' . trim($loc[1]));
+    }
+}
+$decoded = json_decode($body, true);
+if ($decoded === null) fail('ai-generate-blog deveria retornar JSON. Status: ' . $status . " Resposta: " . substr($body, 0, 300));
+ok('ai-generate-blog responde');
+
 @unlink($cookieFile);
 ok('smoke test concluído');
