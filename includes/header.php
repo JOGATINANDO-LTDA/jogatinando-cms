@@ -79,6 +79,8 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16V10"/><path d="M12 16V7"/><path d="M16 16v-4"/></svg></span>
                     <span class="nav-label">Distribuição</span>
                 </a>
+                
+                <div class="nav-section-label">Marketing</div>
                 <a href="<?= ADMIN_URL ?>/newsletter" class="nav-item <?= $currentPage === 'newsletter' ? 'active' : '' ?>">
                     <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20l20-6-20-6z"/><path d="M4 20l8-14 8 14"/></svg></span>
                     <span class="nav-label">Newsletter</span>
@@ -87,8 +89,10 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
                     <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H10L8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-4l-2-4z"/></svg></span>
                     <span class="nav-label">Campanhas</span>
                 </a>
-
-                <div class="nav-section-label">Conteúdo</div>
+                <a href="<?= ADMIN_URL ?>/donations" class="nav-item <?= $currentPage === 'donations' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7-5.5-4-5.5 4 2-7L2 9h7z"/></svg></span>
+                    <span class="nav-label">Doações</span>
+                </a>
                 <?php if (can('perm_testimonials')): ?>
                 <a href="<?= ADMIN_URL ?>/testimonials" class="nav-item <?= $currentPage === 'testimonials' ? 'active' : '' ?>">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>

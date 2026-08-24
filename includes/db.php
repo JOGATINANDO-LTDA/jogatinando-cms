@@ -183,6 +183,8 @@ function getMigrationList() {
            42 => 'seed_demo_distribution_data',
            43 => 'create_newsletter_subscribers',
            44 => 'create_newsletter_campaigns',
+           45 => 'add_is_premium_to_blog_posts',
+           46 => 'add_donation_settings',
        ];
 }
 

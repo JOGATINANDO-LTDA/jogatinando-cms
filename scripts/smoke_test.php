@@ -543,5 +543,33 @@ $status2 = request($campaigns, 'GET', null, $headers, $body, $cookieFile);
 pageContains($body, 'Test Campaign', 'campaign still listed after test send');
 ok('newsletter-campaigns test send responde');
 
+// Donations admin page
+$donations = $base . '/admin/donations.php';
+$status = request($donations, 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('donations admin page deveria responder 200');
+pageContains($body, 'Configurações de Doações', 'donations page title');
+ok('donations admin responde');
+
+// Save donation settings
+$donCsrf = extractCsrf($body);
+$status = request($donations, 'POST', [
+    'csrf_token' => $donCsrf,
+    'donation_enabled' => 1,
+    'pix_key' => 'test-pix-key-123',
+    'pix_description' => 'Test donation',
+    'paypal_url' => 'https://paypal.me/test',
+    'custom_html' => '<p>Teste apoio:</p>',
+], $headers, $body, $cookieFile);
+if ($status < 300 || $status >= 400) fail('donations save should redirect');
+$status = request($donations, 'GET', null, $headers, $body, $cookieFile);
+pageContains($body, 'test-pix-key-123', 'donations settings saved');
+ok('donations salva configurações');
+
+// Frontend donation banner visible
+$status = request($base, 'GET', null, $headers, $body, $cookieFile);
+pageContains($body, 'showPixModal', 'frontend donation banner JS');
+pageContains($body, 'Doação via PIX', 'frontend donation modal');
+ok('frontend donation banner visível');
+
 @unlink($cookieFile);
 ok('smoke test concluído');

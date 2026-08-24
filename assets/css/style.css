@@ -1932,15 +1932,53 @@ input, textarea, select { font-family: inherit; }
 
 .footer-col a:hover { color: var(--gold); }
 
-.footer-bottom {
-    text-align: center;
-    padding-top: 24px;
-    border-top: 1px solid var(--border);
-    font-size: 12px;
-    color: var(--muted);
-}
+ .footer-bottom {
+     text-align: center;
+     padding-top: 24px;
+     border-top: 1px solid var(--border);
+     font-size: 12px;
+     color: var(--muted);
+ }
 
-/* === Theater Mode (Game Player) === */
+ .donation-banner {
+     margin: 16px 0 0;
+     padding: 16px 20px;
+     background: linear-gradient(135deg, oklch(0.25 0.15 40), oklch(0.2 0.12 45));
+     border-radius: 10px;
+     text-align: center;
+ }
+ .donation-banner-inner {
+     display: flex;
+     flex-direction: column;
+     gap: 12px;
+     align-items: center;
+ }
+ .donation-text {
+     font-size: 13px;
+     color: oklch(0.9 0.05 50);
+ }
+ .donation-tiers {
+     display: flex;
+     gap: 10px;
+     flex-wrap: wrap;
+     justify-content: center;
+ }
+ .donation-tier-btn {
+     padding: 8px 16px;
+     border-radius: 6px;
+     border: 1px solid var(--gold);
+     background: var(--gold);
+     color: #000;
+     font-size: 13px;
+     font-weight: 600;
+     cursor: pointer;
+ }
+ .donation-tier-btn:hover {
+     background: oklch(0.8 0.15 55);
+     transform: translateY(-1px);
+ }
+
+ /* === Theater Mode (Game Player) === */
 .theater-back {
     margin-left: auto;
 }

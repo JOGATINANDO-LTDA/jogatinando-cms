@@ -35,8 +35,41 @@
                 </form>
                 <div id="newsletterMsg" style="display:none; margin-top:8px; font-size:12px; color:var(--muted);"></div>
             </div>
+            <?php $donConfig = json_decode(getSetting('donation_config', ''), true); ?>
+            <?php if (!empty($donConfig['enabled'])): ?>
+            <div class="footer-col">
+                <h4>Apoie</h4>
+                <?= !empty($donConfig['custom_html']) ? $donConfig['custom_html'] : '<p>Apoie nosso trabalho com uma doação:</p>' ?>
+                <div class="donation-tiers">
+                    <?php if (!empty($donConfig['pix_key'])): ?>
+                        <button type="button" class="donation-tier-btn" onclick="showPixModal('<?= e($donConfig['pix_key']) ?>', '<?= e($donConfig['pix_description']) ?>')">PIX R$5</button>
+                        <button type="button" class="donation-tier-btn" onclick="showPixModal('<?= e($donConfig['pix_key']) ?>', '<?= e($donConfig['pix_description']) ?>')">PIX R$15</button>
+                    <?php endif; ?>
+                    <?php if (!empty($donConfig['paypal_url'])): ?>
+                        <a href="<?= e($donConfig['paypal_url']) ?>" class="donation-tier-btn" target="_blank">PayPal</a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <?php endif; ?>
         </div>
         <script>
+        function showPixModal(key, desc) {
+            var existing = document.getElementById('pixModal');
+            if (existing) existing.remove();
+            var div = document.createElement('div');
+            div.id = 'pixModal';
+            div.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:9999;';
+            var html = '<div style="background:var(--bg-card);padding:32px;border-radius:12px;text-align:center;max-width:320px;">';
+            html += '<h3 style="margin-top:0;color:var(--gold);">Doação via PIX</h3>';
+            html += '<p style="margin-bottom:16px;">Chave PIX:</p>';
+            html += '<input type="text" value="' + key + '" readonly onclick="this.select()" style="width:100%;padding:8px;background:var(--bg);color:var(--text);border:1px solid var(--border);border-radius:4px;font-size:12px;margin-bottom:12px;">';
+            if (desc) html += '<p style="font-size:12px;color:var(--muted);margin-bottom:16px;">' + desc + '</p>';
+            html += '<button onclick="this.closest(\'#pixModal\').remove()" style="padding:8px 24px;border-radius:6px;border:1px solid var(--border);background:var(--border-light);cursor:pointer;">Fechar</button>';
+            html += '</div>';
+            div.innerHTML = html;
+            document.body.appendChild(div);
+        }
+
         document.getElementById('newsletterForm')?.addEventListener('submit', function(e) {
             e.preventDefault();
             var msg = document.getElementById('newsletterMsg');
@@ -79,8 +112,6 @@
             msg.style.display = 'block';
         });
         </script>
-    </div>
-        </div>
         <div class="footer-bottom">
             <p>&copy; <?= date('Y') ?> <?= e(getSetting('site_name', 'CMS de Jogos')) ?>. Todos os direitos reservados.</p>
         </div>

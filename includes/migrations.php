@@ -2137,6 +2137,46 @@ function migration_044($db, $type) {
         status $txt NOT NULL DEFAULT 'pending',
         sent_at DATETIME DEFAULT NULL
     )");
+
+    // Add is_premium to blog_posts if not exists (idempotent)
+    $hasColumn = false;
+    $cols = $db->query("PRAGMA table_info(blog_posts)")->fetchAll();
+    foreach ($cols as $col) {
+        if ($col['name'] === 'is_premium') { $hasColumn = true; break; }
+    }
+    if (!$hasColumn) {
+        $db->exec("ALTER TABLE blog_posts ADD COLUMN is_premium INTEGER NOT NULL DEFAULT 0");
+    }
+}
+
+// ── Migration 046: Add donation settings to site_settings ──
+function migration_046($db, $type) {
+    $check = $db->prepare("SELECT `key` FROM site_settings WHERE `key` = ?");
+    $check->execute(['donation_config']);
+    if (!$check->fetch()) {
+        $db->prepare("INSERT INTO site_settings (`key`, `value`) VALUES (?, ?)")->execute([
+            'donation_config',
+            json_encode([
+                'enabled' => false,
+                'pix_key' => '',
+                'pix_description' => 'Apoio ao Jogatinando',
+                'paypal_url' => '',
+                'custom_html' => '',
+            ])
+        ]);
+    }
+    $check->execute(['donation_tiers']);
+    if (!$check->fetch()) {
+        $db->prepare("INSERT INTO site_settings (`key`, `value`) VALUES (?, ?)")->execute([
+            'donation_tiers',
+            json_encode([
+                ['amount' => 5, 'label' => 'Café'],
+                ['amount' => 15, 'label' => 'Jogo Indie'],
+                ['amount' => 50, 'label' => 'Desenvolvimento'],
+                ['amount' => 100, 'label' => 'Patrocinador'],
+            ])
+        ]);
+    }
 }
 
 function migration_042($db, $type) {
