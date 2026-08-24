@@ -87,6 +87,7 @@ $social = $base . '/admin/social-links.php';
 $ads = $base . '/admin/ads.php';
 $distribution = $base . '/admin/distribution.php';
 $aiSettings = $base . '/admin/ai-settings.php';
+$games = $base . '/admin/games.php';
 
 $cookieFile = tempnam(sys_get_temp_dir(), 'jogatinando_smoke_');
 if ($cookieFile === false) {
@@ -404,6 +405,30 @@ $status = request($aiSettings, 'POST', [
 // Chat endpoint returns JSON with 200, or redirects if config changed
 if ($status !== 200) fail('ai-chat POST deveria responder 200, veio ' . $status);
 ok('ai-settings chat endpoint responde');
+
+// AI game description generation
+$status = request($games . '?action=edit&id=1', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('games edit page deveria responder 200, veio ' . $status);
+$gamesCsrf = extractCsrf($body);
+$status = request($games . '?action=edit&id=1', 'POST', [
+    'csrf_token' => $gamesCsrf,
+    'action' => 'ai_generate_description',
+    'game_title' => 'Jogo Teste',
+    'engine' => 'GDevelop',
+    'genre' => '',
+], $headers, $body, $cookieFile);
+// Debug: print status and body
+$bodyLen = strlen($body);
+if ($status === 302) {
+    // Redirect — likely CSRF failure. Check where it redirects.
+    if (preg_match('/Location: ([^\r\n]+)/i', $headers, $loc)) {
+        fail('ai-generate redirected (CSRF?): ' . trim($loc[1]) . " | body: " . substr($body, 0, 200));
+    }
+}
+// AI may be unavailable (no API key) — endpoint should still return JSON
+$decoded = json_decode($body, true);
+if ($decoded === null) fail('ai-generate-description deveria retornar JSON. Status: ' . $status . " Resposta: " . substr($body, 0, 300));
+ok('ai-generate-description responde');
 
 @unlink($cookieFile);
 ok('smoke test concluído');
