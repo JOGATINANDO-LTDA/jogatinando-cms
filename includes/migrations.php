@@ -2110,6 +2110,35 @@ function migration_041($db, $type) {
     }
 }
 
+// ── Migration 044: Newsletter campaigns table ──
+function migration_044($db, $type) {
+    $pkType = $type === 'mysql' ? 'INT' : 'INTEGER';
+    $txt = $type === 'mysql' ? 'VARCHAR(255)' : 'TEXT';
+
+    $db->exec("CREATE TABLE IF NOT EXISTS newsletter_campaigns (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        title $txt NOT NULL,
+        subject $txt NOT NULL,
+        content $txt NOT NULL,
+        status $txt NOT NULL DEFAULT 'draft',
+        sent_count INTEGER NOT NULL DEFAULT 0,
+        total_recipients INTEGER NOT NULL DEFAULT 0,
+        scheduled_at DATETIME DEFAULT NULL,
+        sent_at DATETIME DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT NULL,
+        sender_name $txt DEFAULT '',
+        sender_email $txt DEFAULT ''
+    )");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS newsletter_campaign_recipients (
+        campaign_id $pkType NOT NULL,
+        subscriber_id $pkType NOT NULL,
+        status $txt NOT NULL DEFAULT 'pending',
+        sent_at DATETIME DEFAULT NULL
+    )");
+}
+
 function migration_042($db, $type) {
     // Seeding of demo campaigns/metrics moved to dbSeed to ensure games exist
 }

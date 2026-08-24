@@ -83,6 +83,10 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
                     <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20l20-6-20-6z"/><path d="M4 20l8-14 8 14"/></svg></span>
                     <span class="nav-label">Newsletter</span>
                 </a>
+                <a href="<?= ADMIN_URL ?>/newsletter-campaigns" class="nav-item <?= $currentPage === 'newsletter-campaigns' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H10L8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-4l-2-4z"/></svg></span>
+                    <span class="nav-label">Campanhas</span>
+                </a>
 
                 <div class="nav-section-label">Conteúdo</div>
                 <?php if (can('perm_testimonials')): ?>

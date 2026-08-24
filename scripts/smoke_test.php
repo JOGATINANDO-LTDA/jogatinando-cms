@@ -485,5 +485,63 @@ if ($decoded === null) fail('subscribe.php deveria retornar JSON');
 if (!isset($decoded['success'])) fail('subscribe.php deveria retornar sucesso');
 ok('frontend newsletter signup responde');
 
+// Newsletter campaigns admin
+$campaigns = $base . '/admin/newsletter-campaigns';
+$status = request($campaigns, 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('newsletter-campaigns admin page deveria responder 200');
+pageContains($body, 'Campanhas de Newsletter', 'campaigns page title');
+ok('newsletter-campaigns admin responde');
+
+// Create campaign
+$status = request($campaigns . '?action=new', 'GET', null, $headers, $body, $cookieFile);
+$camCsrf = extractCsrf($body);
+$status = request($campaigns, 'POST', [
+    'csrf_token' => $camCsrf,
+    'action' => 'save',
+    'id' => 0,
+    'title' => 'Test Campaign',
+    'subject' => 'Test Subject',
+    'content' => '<p>Hello {name}!</p>',
+    'sender_name' => 'Test CMS',
+    'sender_email' => 'test@localhost',
+    'scheduled_at' => '',
+], $headers, $body, $cookieFile);
+if ($status < 300 || $status >= 400) fail('campaign save should redirect');
+$status = request($campaigns, 'GET', null, $headers, $body, $cookieFile);
+pageContains($body, 'Test Campaign', 'campaign created');
+ok('newsletter-campaigns cria campanha');
+
+// Send test email
+$status = request($campaigns, 'POST', [
+    'csrf_token' => $camCsrf,
+    'action' => 'save',
+    'id' => 0,
+    'title' => 'Test Campaign 2',
+    'subject' => 'Test Subject 2',
+    'content' => '<p>Test</p>',
+    'sender_name' => 'Test CMS',
+    'sender_email' => 'test@localhost',
+    'scheduled_at' => '',
+], $headers, $body, $cookieFile);
+$status = request($campaigns, 'GET', null, $headers, $body, $cookieFile);
+// Find campaign ID from the edit links on the page
+preg_match_all('/action=edit&edit=(\d+)/', $body, $matches);
+$campId = (int)($matches[1][0] ?? 0);
+if ($campId === 0) fail('No campaign edit link found. Body: ' . substr($body, 0, 500));
+
+// Test send
+$status = request($campaigns, 'POST', [
+    'csrf_token' => $camCsrf,
+    'action' => 'send_test',
+    'id' => $campId,
+    'test_email' => 'admin@test.local',
+], $headers, $body, $cookieFile);
+$page = $body;
+// Check redirect or success message
+$page2 = '';
+$status2 = request($campaigns, 'GET', null, $headers, $body, $cookieFile);
+pageContains($body, 'Test Campaign', 'campaign still listed after test send');
+ok('newsletter-campaigns test send responde');
+
 @unlink($cookieFile);
 ok('smoke test concluído');

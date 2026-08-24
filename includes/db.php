@@ -182,6 +182,7 @@ function getMigrationList() {
            41 => 'fix_fk_constraints_to_platforms',
            42 => 'seed_demo_distribution_data',
            43 => 'create_newsletter_subscribers',
+           44 => 'create_newsletter_campaigns',
        ];
 }
 
