@@ -1481,6 +1481,31 @@ function seedDemoDistributionData($db) {
     }
 }
 
+// ── Migration 043: Newsletter subscribers table ──
+function migration_043($db, $type) {
+    $pkType = $type === 'mysql' ? 'INT' : 'INTEGER';
+    $txt = $type === 'mysql' ? 'VARCHAR(255)' : 'TEXT';
+
+    $db->exec("CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        email $txt NOT NULL UNIQUE,
+        name $txt DEFAULT '',
+        source $txt NOT NULL DEFAULT 'site',
+        subscribed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        confirmed_at DATETIME DEFAULT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        unsubscribe_token $txt NOT NULL,
+        last_sent_at DATETIME DEFAULT NULL,
+        tags $txt DEFAULT ''
+    )");
+
+    if ($type === 'mysql') {
+        $db->exec("ALTER TABLE newsletter_subscribers ADD COLUMN preferences JSON DEFAULT NULL");
+    } else {
+        $db->exec("ALTER TABLE newsletter_subscribers ADD COLUMN preferences TEXT DEFAULT NULL");
+    }
+}
+
 function seedDefaultData($db) {
     $count = $db->query("SELECT COUNT(*) FROM banners")->fetchColumn();
     if ($count > 0) return;

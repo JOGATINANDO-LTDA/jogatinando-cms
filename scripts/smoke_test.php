@@ -450,5 +450,40 @@ $decoded = json_decode($body, true);
 if ($decoded === null) fail('ai-generate-blog deveria retornar JSON. Status: ' . $status . " Resposta: " . substr($body, 0, 300));
 ok('ai-generate-blog responde');
 
+// Newsletter admin page
+$newsletter = $base . '/admin/newsletter.php';
+$status = request($newsletter, 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('newsletter admin page deveria responder 200, veio ' . $status);
+pageContains($body, 'Newsletter', 'newsletter admin page');
+pageContains($body, 'Inscritos', 'newsletter subscribers section');
+ok('newsletter admin responde');
+
+// Create newsletter subscriber
+$nlCsrf = extractCsrf($body);
+$nlEmail = 'newsletter-' . substr(md5(microtime(true)), 0, 8) . '@test.com';
+$status = request($newsletter, 'POST', [
+    'csrf_token' => $nlCsrf,
+    'action' => 'edit',
+    'id' => 0,
+    'email' => $nlEmail,
+    'name' => 'Test Subscriber',
+    'tags' => 'smoke-test',
+], $headers, $body, $cookieFile);
+if ($status < 300 || $status >= 400) fail('newsletter não redirecionou após salvar');
+$status = request($newsletter, 'GET', null, $headers, $body, $cookieFile);
+pageContains($body, $nlEmail, 'newsletter CRUD');
+ok('newsletter criou inscrito');
+
+// Frontend newsletter signup
+$status = request($base . '/subscribe.php', 'POST', [
+    'email' => 'subscribe-' . substr(md5(microtime(true)), 0, 8) . '@test.com',
+    'name' => 'Frontend User',
+], $headers, $body, $cookieFile);
+if ($status !== 200) fail('subscribe.php deveria responder 200');
+$decoded = json_decode($body, true);
+if ($decoded === null) fail('subscribe.php deveria retornar JSON');
+if (!isset($decoded['success'])) fail('subscribe.php deveria retornar sucesso');
+ok('frontend newsletter signup responde');
+
 @unlink($cookieFile);
 ok('smoke test concluído');

@@ -79,6 +79,10 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16V10"/><path d="M12 16V7"/><path d="M16 16v-4"/></svg></span>
                     <span class="nav-label">Distribuição</span>
                 </a>
+                <a href="<?= ADMIN_URL ?>/newsletter" class="nav-item <?= $currentPage === 'newsletter' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20l20-6-20-6z"/><path d="M4 20l8-14 8 14"/></svg></span>
+                    <span class="nav-label">Newsletter</span>
+                </a>
 
                 <div class="nav-section-label">Conteúdo</div>
                 <?php if (can('perm_testimonials')): ?>
