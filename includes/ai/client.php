@@ -177,9 +177,10 @@ class AIClient {
      */
     private function logUsage(array $usage, int $latencyMs, string $feature): void {
         try {
+            $costCents = $this->estimateCost($usage);
             $stmt = $this->db->prepare("
-                INSERT INTO ai_usage (config_id, feature, prompt_tokens, completion_tokens, latency_ms)
-                VALUES (?, ?, ?, ?, ?)
+                INSERT INTO ai_usage (config_id, feature, prompt_tokens, completion_tokens, latency_ms, cost_cents)
+                VALUES (?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $this->config['id'] ?? 0,
@@ -187,9 +188,47 @@ class AIClient {
                 $usage['prompt_tokens'] ?? 0,
                 $usage['completion_tokens'] ?? 0,
                 $latencyMs,
+                $costCents,
             ]);
         } catch (Exception $e) {
             // Non-critical, ignore
         }
+    }
+
+    /**
+     * Estimate cost in cents based on provider/model heuristic.
+     * Uses approximate per-1K-token rates; actual cost varies by provider.
+     */
+    private function estimateCost(array $usage): int {
+        $promptTokens = (int)($usage['prompt_tokens'] ?? 0);
+        $completionTokens = (int)($usage['completion_tokens'] ?? 0);
+
+        $providerSlug = $this->config['slug'] ?? '';
+        $modelSlug = $this->config['model_slug'] ?? '';
+
+        // Approximate $/1K tokens (prompt, completion)
+        $rates = [
+            'zen' => [0.5, 2.0],       // mimo-v2.5-free is free tier — nominal
+            'ollama' => [0, 0],         // Local — no cost
+            'lmstudio' => [0, 0],       // Local — no cost
+        ];
+
+        $rate = $rates[$providerSlug] ?? [3.0, 6.0]; // Default: GPT-4o-like rates
+
+        // For openai-compatible, check model slug
+        if ($providerSlug === 'openai-compat' || !isset($rates[$providerSlug])) {
+            if (str_contains($modelSlug, 'gpt-4')) {
+                $rate = [3.0, 6.0];
+            } elseif (str_contains($modelSlug, 'gpt-3.5')) {
+                $rate = [0.5, 1.5];
+            } elseif (str_contains($modelSlug, 'llama')) {
+                $rate = [0.2, 0.6];
+            }
+        }
+
+        $promptCost = ($promptTokens / 1000) * $rate[0];
+        $completionCost = ($completionTokens / 1000) * $rate[1];
+
+        return (int)(($promptCost + $completionCost) * 100); // Convert to cents
     }
 }

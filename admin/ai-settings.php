@@ -82,6 +82,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Erro: ' . $e->getMessage();
             }
         }
+
+        // AI chat (quick test)
+        if ($action === 'ai_chat') {
+            header('Content-Type: application/json');
+            $prompt = trim($_POST['prompt'] ?? '');
+            if ($prompt === '') {
+                echo json_encode(['error' => 'Prompt não pode estar vazio.']);
+                exit;
+            }
+            try {
+                $client = AIClient::getInstance();
+                if (!$client->isAvailable()) {
+                    echo json_encode(['error' => 'Nenhum provider de IA configurado.']);
+                    exit;
+                }
+                $result = $client->chat([
+                    ['role' => 'user', 'content' => $prompt],
+                ], ['feature' => 'admin_chat_test']);
+                echo json_encode([
+                    'content' => $result['content'] ?? '',
+                    'provider' => $client->getProviderName(),
+                    'model' => $client->getModel(),
+                    'usage' => $result['usage'] ?? [],
+                ]);
+            } catch (Exception $e) {
+                echo json_encode(['error' => $e->getMessage()]);
+            }
+            exit;
+        }
     }
     header('Location: ' . ADMIN_URL . '/ai-settings' . ($success ? '?ok=1' : ''));
     exit;
@@ -292,11 +321,45 @@ $ok = isset($_GET['ok']);
 <div class="admin-card">
     <h3>Uso de IA</h3>
     <?php
+    $totalUsage = $db->query("
+        SELECT
+               COUNT(*) AS total_calls,
+               SUM(prompt_tokens) AS total_prompt,
+               SUM(completion_tokens) AS total_completion,
+               SUM(cost_cents) AS total_cost_cents,
+               ROUND(AVG(latency_ms), 0) AS avg_latency
+        FROM ai_usage
+    ")->fetch();
+    $totalCost = (float)($totalUsage['total_cost_cents'] ?? 0) / 100.0;
+    ?>
+    <?php if ($totalUsage && (int)$totalUsage['total_calls'] > 0): ?>
+    <div class="usage-summary-cards">
+        <div class="usage-summary-card">
+            <div class="usage-summary-value"><?= number_format((int)$totalUsage['total_calls']) ?></div>
+            <div class="usage-summary-label">Chamadas</div>
+        </div>
+        <div class="usage-summary-card">
+            <div class="usage-summary-value"><?= number_format((int)$totalUsage['total_prompt']) ?></div>
+            <div class="usage-summary-label">Tokens Prompt</div>
+        </div>
+        <div class="usage-summary-card">
+            <div class="usage-summary-value"><?= number_format((int)$totalUsage['total_completion']) ?></div>
+            <div class="usage-summary-label">Tokens Completion</div>
+        </div>
+        <div class="usage-summary-card">
+            <div class="usage-summary-value">$<?= number_format($totalCost, 4) ?></div>
+            <div class="usage-summary-label">Custo Total</div>
+        </div>
+    </div>
+    <?php endif; ?>
+
+    <?php
     $usage = $db->query("
         SELECT feature,
                COUNT(*) AS total_calls,
                SUM(prompt_tokens) AS total_prompt,
                SUM(completion_tokens) AS total_completion,
+               ROUND(SUM(cost_cents) / 100.0, 4) AS total_cost,
                ROUND(AVG(latency_ms), 0) AS avg_latency
         FROM ai_usage
         GROUP BY feature
@@ -308,29 +371,52 @@ $ok = isset($_GET['ok']);
     <?php else: ?>
     <div class="table-responsive">
         <table class="admin-table">
-            <thead>
-                <tr>
-                    <th>Feature</th>
-                    <th>Chamadas</th>
-                    <th>Tokens (Prompt)</th>
-                    <th>Tokens (Completion)</th>
-                    <th>Latência Média</th>
-                </tr>
-            </thead>
-            <tbody>
-                <?php foreach ($usage as $u): ?>
-                <tr>
-                    <td><?= e($u['feature']) ?></td>
-                    <td><?= (int)$u['total_calls'] ?></td>
-                    <td><?= number_format((int)$u['total_prompt']) ?></td>
-                    <td><?= number_format((int)$u['total_completion']) ?></td>
-                    <td><?= number_format((int)$u['avg_latency']) ?>ms</td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+        <thead>
+            <tr>
+                <th>Feature</th>
+                <th>Chamadas</th>
+                <th>Tokens (Prompt)</th>
+                <th>Tokens (Completion)</th>
+                <th>Custo</th>
+                <th>Latência Média</th>
+            </tr>
+        </thead>
+        <tbody>
+            <?php foreach ($usage as $u): ?>
+            <tr>
+                <td><?= e($u['feature']) ?></td>
+                <td><?= (int)$u['total_calls'] ?></td>
+                <td><?= number_format((int)$u['total_prompt']) ?></td>
+                <td><?= number_format((int)$u['total_completion']) ?></td>
+                <td>$<?= number_format((float)$u['total_cost'], 4) ?></td>
+                <td><?= number_format((int)$u['avg_latency']) ?>ms</td>
+            </tr>
+            <?php endforeach; ?>
+        </tbody>
+    </table>
     </div>
     <?php endif; ?>
+</div>
+
+<!-- Quick AI Test -->
+<div class="admin-card">
+    <h3>Teste Rápido de IA</h3>
+    <p class="text-muted" style="font-size:13px;">Envie um prompt de teste para verificar se a configuração padrão está funcionando.</p>
+    <div id="aiChatResult" style="display:none;" class="chat-result-box">
+        <div class="chat-result-meta"></div>
+        <div class="chat-result-content"></div>
+    </div>
+    <form id="aiChatForm" class="config-form">
+        <?= csrfField() ?>
+        <input type="hidden" name="action" value="ai_chat">
+        <div class="form-group">
+            <textarea name="prompt" id="aiChatPrompt" class="form-input form-textarea" rows="3" placeholder="Digite sua mensagem para testar a IA..." required></textarea>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary btn-sm">Enviar</button>
+            <button type="button" id="aiChatClear" class="btn btn-outline btn-sm">Limpar</button>
+        </div>
+    </form>
 </div>
 
 <script>
@@ -347,6 +433,59 @@ document.querySelectorAll('.test-btn').forEach(btn => {
         document.body.appendChild(form);
         form.submit();
     });
+});
+
+// Quick AI chat
+const aiChatForm = document.getElementById('aiChatForm');
+const aiChatResult = document.getElementById('aiChatResult');
+if (aiChatForm) {
+    aiChatForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const formData = new FormData(this);
+        const prompt = formData.get('prompt').trim();
+        if (!prompt) return;
+
+        const submitBtn = this.querySelector('button[type="submit"]');
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Enviando...';
+
+        fetch('<?= ADMIN_URL ?>/ai-settings', {
+            method: 'POST',
+            body: formData,
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                aiChatResult.querySelector('.chat-result-content').innerHTML =
+                    '<span style="color:oklch(80% 0.1 30);">Erro: ' + data.error + '</span>';
+                aiChatResult.querySelector('.chat-result-meta').textContent = '';
+            } else {
+                aiChatResult.querySelector('.chat-result-meta').innerHTML =
+                    'Provider: <strong>' + (data.provider || 'N/A') + '</strong> | Modelo: <strong>' + (data.model || 'N/A') + '</strong>';
+                if (data.usage && data.usage.total_tokens) {
+                    aiChatResult.querySelector('.chat-result-meta') +=
+                        ' | Tokens: <strong>' + data.usage.total_tokens + '</strong>';
+                }
+                const content = data.content.replace(/\n/g, '<br>');
+                aiChatResult.querySelector('.chat-result-content').innerHTML = content;
+            }
+            aiChatResult.style.display = 'block';
+        })
+        .catch(err => {
+            aiChatResult.querySelector('.chat-result-content').innerHTML =
+                '<span style="color:oklch(80% 0.1 30);">Erro de rede: ' + err.message + '</span>';
+            aiChatResult.querySelector('.chat-result-meta').textContent = '';
+            aiChatResult.style.display = 'block';
+        })
+        .finally(() => {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Enviar';
+        });
+    });
+}
+document.getElementById('aiChatClear').addEventListener('click', function() {
+    document.getElementById('aiChatPrompt').value = '';
+    aiChatResult.style.display = 'none';
 });
 </script>
 

@@ -86,6 +86,7 @@ $admin = $base . '/admin/index.php';
 $social = $base . '/admin/social-links.php';
 $ads = $base . '/admin/ads.php';
 $distribution = $base . '/admin/distribution.php';
+$aiSettings = $base . '/admin/ai-settings.php';
 
 $cookieFile = tempnam(sys_get_temp_dir(), 'jogatinando_smoke_');
 if ($cookieFile === false) {
@@ -384,6 +385,25 @@ $status = request($distribution, 'POST', [
 ], $headers, $body, $cookieFile);
 if ($status < 300 || $status >= 400) fail('distribution não redirecionou após excluir métrica de jogo');
 ok('distribution removeu métrica de jogo');
+
+// AI Settings page
+$status = request($aiSettings, 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('ai-settings deveria responder 200, veio ' . $status);
+pageContains($body, 'Configurações de IA', 'ai-settings page');
+pageContains($body, 'Uso de IA', 'ai-settings usage section');
+pageContains($body, 'Teste Rápido de IA', 'ai-settings chat widget');
+ok('ai-settings responde após login');
+
+// Test AI chat endpoint
+$aiChatCsrf = extractCsrf($body);
+$status = request($aiSettings, 'POST', [
+    'csrf_token' => $aiChatCsrf,
+    'action' => 'ai_chat',
+    'prompt' => 'Olá, tudo bem?',
+], $headers, $body, $cookieFile);
+// Chat endpoint returns JSON with 200, or redirects if config changed
+if ($status !== 200) fail('ai-chat POST deveria responder 200, veio ' . $status);
+ok('ai-settings chat endpoint responde');
 
 @unlink($cookieFile);
 ok('smoke test concluído');
