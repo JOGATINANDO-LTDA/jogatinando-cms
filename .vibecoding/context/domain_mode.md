@@ -87,6 +87,36 @@ Representa uma configuração persistente do site.
   - armazena valores globais do CMS
   - influencia comportamento e identidade visual
 
+### NewsletterSubscriber
+Representa um inscrito da newsletter do site.
+
+- Atributos típicos: e-mail, nome, tags, status (ativo/inativo), origem, token de descadastro
+- Relações:
+  - pode receber múltiplas campanhas
+  - é gerenciado no painel administrativo
+
+### NewsletterCampaign
+Representa uma campanha de e-mail enviada aos inscritos.
+
+- Atributos típicos: título, assunto, conteúdo HTML, status (rascunho/enviada), contadores de envio
+- Relações:
+  - possui destinatários com status individual de envio
+
+### DonationConfig
+Representa a configuração de monetização por doações.
+
+- Atributos típicos: habilitado, chave PIX, descrição PIX, URL PayPal, HTML personalizado, tiers de valor
+- Relações:
+  - armazenada em SiteSetting como JSON
+  - exibida no rodapé público quando habilitada
+
+### AiProvider / AiUsage
+Representa provedores de IA configurados pelo usuário (BYOK) e o registro de uso.
+
+- Atributos típicos: provider (openai-compat, ollama, lmstudio, zen), modelo, tokens, custo estimado
+- Relações:
+  - usado na geração de descrições de jogos e conteúdo de blog
+
 ## Relações de alto nível
 
 - Usuários administram conteúdo por meio do painel

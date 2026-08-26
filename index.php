@@ -336,13 +336,15 @@ $siteSocialLinks = getSocialLinks('site', true);
                         <time><?= date('d/m/Y', strtotime($post['published_at'])) ?></time>
                         <?php if ($post['external_url']): ?>
                         <a href="<?= e($post['external_url']) ?>" class="btn btn-outline btn-sm" style="margin-top:12px" target="_blank" rel="noopener">Ler mais</a>
+                        <?php else: ?>
+                        <a href="/blog/<?= e($post['slug']) ?>" class="btn btn-outline btn-sm" style="margin-top:12px">Ler mais</a>
                         <?php endif; ?>
                     </div>
                 </article>
                 <?php endforeach; ?>
             </div>
             <div class="section-footer">
-                <a href="/admin/blog" class="btn btn-outline" target="_blank" rel="noopener">Ver Blog Completo →</a>
+                <a href="/blog" class="btn btn-outline">Ver Blog Completo &rarr;</a>
             </div>
         </div>
     </section>

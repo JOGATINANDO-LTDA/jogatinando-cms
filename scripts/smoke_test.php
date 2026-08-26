@@ -571,5 +571,69 @@ pageContains($body, 'showPixModal', 'frontend donation banner JS');
 pageContains($body, 'Doação via PIX', 'frontend donation modal');
 ok('frontend donation banner visível');
 
+// ── Blog público + premium gating ──
+$uniq = substr(md5(microtime(true)), 0, 8);
+$normalSlug = 'post-publico-' . $uniq;
+$premiumSlug = 'post-premium-' . $uniq;
+
+$status = request($blog . '?action=new', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('blog new page deveria responder 200 para criar posts de teste');
+$blogCsrf = extractCsrf($body);
+
+// Post normal
+$status = request($blog, 'POST', [
+    'csrf_token' => $blogCsrf,
+    'action' => 'save',
+    'id' => 0,
+    'title' => 'Post Publico ' . $uniq,
+    'slug' => $normalSlug,
+    'content' => 'Conteudo completo publico ' . $uniq . ' com todos os detalhes do artigo.',
+    'external_url' => '',
+    'active' => 1,
+], $headers, $body, $cookieFile);
+if ($status < 300 || $status >= 400) fail('criar post publico deveria redirecionar');
+
+// Post premium
+$fillerWords = trim(str_repeat('palavra-preenchimento ', 120));
+$status = request($blog, 'POST', [
+    'csrf_token' => $blogCsrf,
+    'action' => 'save',
+    'id' => 0,
+    'title' => 'Post Premium ' . $uniq,
+    'slug' => $premiumSlug,
+    'content' => 'Teaser visivel do artigo premium. ' . $fillerWords . ' SEGREDO-PREMIUM-' . $uniq . ' conteudo que nao deve aparecer para visitantes.',
+    'external_url' => '',
+    'active' => 1,
+    'is_premium' => 1,
+], $headers, $body, $cookieFile);
+if ($status < 300 || $status >= 400) fail('criar post premium deveria redirecionar');
+
+// Listagem /blog
+$status = request($base . '/blog', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('/blog deveria responder 200, veio ' . $status);
+pageContains($body, $normalSlug, 'listagem blog contem post normal');
+pageContains($body, $premiumSlug, 'listagem blog contem post premium');
+ok('blog listagem responde');
+
+// Post normal completo
+$status = request($base . '/blog/' . $normalSlug, 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('/blog/{slug} deveria responder 200, veio ' . $status);
+pageContains($body, 'Conteudo completo publico ' . $uniq, 'post normal mostra conteudo integral');
+ok('blog post publico exibe conteudo');
+
+// Post premium com gate
+$status = request($base . '/blog/' . $premiumSlug, 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('/blog/{slug} premium deveria responder 200, veio ' . $status);
+pageContains($body, 'Conteúdo Premium', 'post premium mostra gate');
+if (strpos($body, 'SEGREDO-PREMIUM-' . $uniq) !== false) {
+    fail('conteudo premium vazou para visitante!');
+}
+ok('blog premium bloqueia conteudo');
+
+// Slug inexistente → 404
+$status = request($base . '/blog/slug-inexistente-' . $uniq, 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 404) fail('slug inexistente deveria responder 404, veio ' . $status);
+ok('blog 404 para slug invalido');
+
 @unlink($cookieFile);
 ok('smoke test concluído');

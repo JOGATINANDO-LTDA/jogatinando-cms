@@ -126,6 +126,18 @@ if ($uri === '/retro') {
     exit;
 }
 
+// ---- Blog Routes ----
+if ($uri === '/blog') {
+    require __DIR__ . '/blog.php';
+    exit;
+}
+
+if (preg_match('#^/blog/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
+    $_GET['slug'] = $matches[1];
+    require __DIR__ . '/blog.php';
+    exit;
+}
+
 if (preg_match('#^/retro/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
     $_GET['console'] = $matches[1];
     require __DIR__ . '/retro-console.php';
