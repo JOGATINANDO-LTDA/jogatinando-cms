@@ -635,5 +635,29 @@ $status = request($base . '/blog/slug-inexistente-' . $uniq, 'GET', null, $heade
 if ($status !== 404) fail('slug inexistente deveria responder 404, veio ' . $status);
 ok('blog 404 para slug invalido');
 
+// ── Descadastro de newsletter (unsubscribe) ──
+$unsubEmail = 'unsub-' . substr(md5(microtime(true)), 0, 8) . '@test.com';
+$status = request($base . '/subscribe.php', 'POST', [
+    'email' => $unsubEmail,
+    'name' => 'Unsub Test',
+], $headers, $body, $cookieFile);
+if ($status !== 200) fail('subscribe para teste de descadastro deveria responder 200');
+
+$sub = dbQueryOne("SELECT id, unsubscribe_token FROM newsletter_subscribers WHERE email = ?", [$unsubEmail]);
+if (!$sub) fail('inscrito de teste nao encontrado no banco');
+if (empty($sub['unsubscribe_token'])) fail('token de descadastro vazio');
+
+$status = request($base . '/unsubscribe?token=' . urlencode($sub['unsubscribe_token']), 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('/unsubscribe deveria responder 200, veio ' . $status);
+pageContains($body, 'Descadastro confirmado', 'pagina de descadastro');
+$after = dbQueryOne("SELECT is_active FROM newsletter_subscribers WHERE id = ?", [$sub['id']]);
+if ((int)$after['is_active'] !== 0) fail('inscrito ainda ativo apos descadastro');
+ok('descadastro desativa inscrito');
+
+// Token inválido não desativa ninguém
+$status = request($base . '/unsubscribe?token=token-invalido-xyz', 'GET', null, $headers, $body, $cookieFile);
+pageContains($body, 'Link inválido', 'token invalido rejeitado');
+ok('token invalido mostra erro');
+
 @unlink($cookieFile);
 ok('smoke test concluído');

@@ -51,11 +51,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (filter_var($test_email, FILTER_VALIDATE_EMAIL)) {
                 $campaign = $db->query("SELECT * FROM newsletter_campaigns WHERE id = $id")->fetch();
                 if ($campaign) {
-                    $mail = mail($test_email, $campaign['subject'], '', "From: " . ($campaign['sender_name'] ?: 'CMS') . " <" . ($campaign['sender_email'] ?: 'noreply@localhost') . ">", "");
-                    $body = $campaign['content'];
+                    $unsubUrl = SITE_URL . '/unsubscribe?token=EXEMPLO';
+                    $body = str_replace(
+                        ['{name}', '{unsubscribe_url}'],
+                        ['Leitor', $unsubUrl],
+                        $campaign['content']
+                    );
+                    if (strpos($body, '/unsubscribe') === false) {
+                        $body .= '<hr style="margin-top:32px;border:none;border-top:1px solid #ddd;"><p style="font-size:12px;color:#888;">Você recebe este e-mail porque se inscreveu na nossa newsletter. <a href="' . e($unsubUrl) . '" style="color:#888;">Descadastrar</a></p>';
+                    }
                     $headers = "From: " . ($campaign['sender_name'] ?: 'CMS') . " <" . ($campaign['sender_email'] ?: 'noreply@localhost') . ">\r\n";
                     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-                    $mail = mail($test_email, $campaign['subject'], $body, $headers);
+                    $mail = mail($test_email, '[TESTE] ' . $campaign['subject'], $body, $headers);
                     $success = $mail ? 'E-mail de teste enviado para ' . $test_email : 'Falha ao enviar e-mail de teste.';
                 }
             } else {
@@ -79,7 +86,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 while ($sub = $subs->fetch()) {
                     $total++;
-                    $mailBody = str_replace('{name}', $sub['name'] ?: '', $campaign['content']);
+                    $unsubUrl = SITE_URL . '/unsubscribe?token=' . urlencode($sub['unsubscribe_token']);
+                    $mailBody = str_replace(
+                        ['{name}', '{unsubscribe_url}'],
+                        [$sub['name'] ?: '', $unsubUrl],
+                        $campaign['content']
+                    );
+                    if (strpos($mailBody, '/unsubscribe') === false) {
+                        $mailBody .= '<hr style="margin-top:32px;border:none;border-top:1px solid #ddd;"><p style="font-size:12px;color:#888;">Você recebe este e-mail porque se inscreveu na nossa newsletter. <a href="' . e($unsubUrl) . '" style="color:#888;">Descadastrar</a></p>';
+                    }
                     $ok = mail($sub['email'], $campaign['subject'], $mailBody, $headers);
                     if ($ok) $sent++;
 
@@ -174,7 +189,7 @@ $err = isset($_GET['err']);
 
         <div class="form-group" style="grid-column: 1 / -1;">
             <label for="content">Conteúdo do E-mail (HTML)</label>
-            <div class="field-hint">Use {name} como placeholder para o nome do destinatário</div>
+            <div class="field-hint">Placeholders: {name} (nome do destinatário) e {unsubscribe_url} (link de descadastro). Se não usar {unsubscribe_url}, um rodapé de descadastro é adicionado automaticamente.</div>
             <textarea id="content" name="content" rows="20" style="font-family:monospace"><?= e($editItem['content'] ?? '') ?></textarea>
         </div>
 

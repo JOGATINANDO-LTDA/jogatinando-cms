@@ -138,6 +138,12 @@ if (preg_match('#^/blog/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
     exit;
 }
 
+// ---- Newsletter Unsubscribe ----
+if ($uri === '/unsubscribe') {
+    require __DIR__ . '/unsubscribe.php';
+    exit;
+}
+
 if (preg_match('#^/retro/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
     $_GET['console'] = $matches[1];
     require __DIR__ . '/retro-console.php';
