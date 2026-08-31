@@ -36,12 +36,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $error = 'Título, assunto e conteúdo são obrigatórios.';
             } else {
                 $now = date('Y-m-d H:i:s');
+                $newStatus = $scheduled_at !== '' ? 'scheduled' : 'draft';
                 if ($id > 0) {
-                    $db->prepare("UPDATE newsletter_campaigns SET title = ?, subject = ?, content = ?, sender_name = ?, sender_email = ?, scheduled_at = ?, updated_at = ? WHERE id = ?")->execute([$title, $subject, $content, $sender_name, $sender_email, $scheduled_at, $now, $id]);
+                    $cur = $db->query("SELECT status FROM newsletter_campaigns WHERE id = $id")->fetch();
+                    if ($cur && $cur['status'] === 'sent') {
+                        $newStatus = 'sent';
+                    }
+                    $db->prepare("UPDATE newsletter_campaigns SET title = ?, subject = ?, content = ?, sender_name = ?, sender_email = ?, scheduled_at = ?, status = ?, updated_at = ? WHERE id = ?")->execute([$title, $subject, $content, $sender_name, $sender_email, $scheduled_at, $newStatus, $now, $id]);
                 } else {
-                    $db->prepare("INSERT INTO newsletter_campaigns (title, subject, content, sender_name, sender_email, scheduled_at, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")->execute([$title, $subject, $content, $sender_name, $sender_email, $scheduled_at, $now, $now]);
+                    $db->prepare("INSERT INTO newsletter_campaigns (title, subject, content, sender_name, sender_email, scheduled_at, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")->execute([$title, $subject, $content, $sender_name, $sender_email, $scheduled_at, $newStatus, $now, $now]);
                 }
-                $success = 'Campanha salva.';
+                $success = $newStatus === 'scheduled' ? 'Campanha agendada.' : 'Campanha salva.';
             }
         }
 
@@ -52,14 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $campaign = $db->query("SELECT * FROM newsletter_campaigns WHERE id = $id")->fetch();
                 if ($campaign) {
                     $unsubUrl = SITE_URL . '/unsubscribe?token=EXEMPLO';
-                    $body = str_replace(
-                        ['{name}', '{unsubscribe_url}'],
-                        ['Leitor', $unsubUrl],
-                        $campaign['content']
-                    );
-                    if (strpos($body, '/unsubscribe') === false) {
-                        $body .= '<hr style="margin-top:32px;border:none;border-top:1px solid #ddd;"><p style="font-size:12px;color:#888;">Você recebe este e-mail porque se inscreveu na nossa newsletter. <a href="' . e($unsubUrl) . '" style="color:#888;">Descadastrar</a></p>';
-                    }
+                    $body = buildCampaignBody($campaign['content'], 'Leitor', $unsubUrl);
                     $headers = "From: " . ($campaign['sender_name'] ?: 'CMS') . " <" . ($campaign['sender_email'] ?: 'noreply@localhost') . ">\r\n";
                     $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
                     $mail = mail($test_email, '[TESTE] ' . $campaign['subject'], $body, $headers);
@@ -76,33 +74,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$campaign) {
                 $error = 'Campanha não encontrada.';
             } else {
-                // Get active subscribers who haven't received this campaign
-                $subs = $db->query("SELECT id, email, name FROM newsletter_subscribers WHERE is_active = 1 ORDER BY id ASC");
-
-                $sent = 0;
-                $total = 0;
-                $headers = "From: " . ($campaign['sender_name'] ?: 'CMS') . " <" . ($campaign['sender_email'] ?: 'admin@localhost') . ">\r\n";
-                $headers .= "Content-Type: text/html; charset=UTF-8\r\n";
-
-                while ($sub = $subs->fetch()) {
-                    $total++;
-                    $unsubUrl = SITE_URL . '/unsubscribe?token=' . urlencode($sub['unsubscribe_token']);
-                    $mailBody = str_replace(
-                        ['{name}', '{unsubscribe_url}'],
-                        [$sub['name'] ?: '', $unsubUrl],
-                        $campaign['content']
-                    );
-                    if (strpos($mailBody, '/unsubscribe') === false) {
-                        $mailBody .= '<hr style="margin-top:32px;border:none;border-top:1px solid #ddd;"><p style="font-size:12px;color:#888;">Você recebe este e-mail porque se inscreveu na nossa newsletter. <a href="' . e($unsubUrl) . '" style="color:#888;">Descadastrar</a></p>';
-                    }
-                    $ok = mail($sub['email'], $campaign['subject'], $mailBody, $headers);
-                    if ($ok) $sent++;
-
-                    $db->prepare("INSERT INTO newsletter_campaign_recipients (campaign_id, subscriber_id, status, sent_at) VALUES (?, ?, ?, ?)")->execute([$id, $sub['id'], $ok ? 'sent' : 'failed', date('Y-m-d H:i:s')]);
-                }
-
-                $db->prepare("UPDATE newsletter_campaigns SET status = 'sent', sent_count = ?, total_recipients = ?, sent_at = ? WHERE id = ?")->execute([$sent, $total, date('Y-m-d H:i:s'), $id]);
-                $success = "Campanha enviada para $sent/$total destinatários.";
+                $result = sendCampaign($id);
+                $success = "Campanha enviada para {$result['sent']}/{$result['total']} destinatários.";
             }
         }
 
@@ -184,7 +157,7 @@ $err = isset($_GET['err']);
         <div class="form-group">
             <label for="scheduled_at">Agendar envio</label>
             <input type="datetime-local" id="scheduled_at" name="scheduled_at" value="<?= e($editItem['scheduled_at'] ?? '') ?>">
-            <div class="field-hint">Deixe em branco para usar apenas quando salvar</div>
+            <div class="field-hint">Preencha para agendar o envio automático (status "Agendada"). Deixe em branco para salvar como rascunho.</div>
         </div>
 
         <div class="form-group" style="grid-column: 1 / -1;">
@@ -193,12 +166,16 @@ $err = isset($_GET['err']);
             <textarea id="content" name="content" rows="20" style="font-family:monospace"><?= e($editItem['content'] ?? '') ?></textarea>
         </div>
 
-        <?php if ($editItem && $editItem['status'] === 'draft'): ?>
+        <?php if ($editItem && ($editItem['status'] === 'draft' || $editItem['status'] === 'scheduled')): ?>
             <div class="form-group">
-                <label>Enviar teste</label><div style="display:flex; gap:8px; align-items:flex-start;">
-                    <input type="email" name="test_email" placeholder="seu@email.com" style="flex:1;">
-                    <button type="submit" name="test_send" value="1" class="btn btn-outline btn-sm" formaction="">Enviar teste</button>
-                </div>
+                <label>Enviar teste</label>
+                <form method="POST" style="display:flex; gap:8px; align-items:flex-start;">
+                    <?= csrfField() ?>
+                    <input type="hidden" name="action" value="send_test">
+                    <input type="hidden" name="id" value="<?= (int)($editItem['id'] ?? 0) ?>">
+                    <input type="email" name="test_email" placeholder="seu@email.com" style="flex:1;" required>
+                    <button type="submit" class="btn btn-outline btn-sm">Enviar teste</button>
+                </form>
             </div>
         <?php endif; ?>
 
@@ -226,6 +203,7 @@ $err = isset($_GET['err']);
                     <th>Título</th>
                     <th>Assunto</th>
                     <th>Status</th>
+                    <th>Agendado</th>
                     <th>Enviados</th>
                     <th>Criado em</th>
                     <th>Ações</th>
@@ -242,10 +220,11 @@ $err = isset($_GET['err']);
                             <?= e(ucfirst($c['status'])) ?>
                         </span>
                     </td>
+                    <td><?= $c['scheduled_at'] ? e($c['scheduled_at']) : '<span class="text-muted">—</span>' ?></td>
                     <td><?= (int)$c['sent_count'] ?>/<?= (int)$c['total_recipients'] ?: $activeSubs ?></td>
                     <td><?= e($c['created_at']) ?></td>
                     <td class="actions">
-                        <?php if ($c['status'] === 'draft'): ?>
+                        <?php if ($c['status'] === 'draft' || $c['status'] === 'scheduled'): ?>
                             <button class="btn btn-gold btn-sm" onclick="document.getElementById('send_campaign_id').value='<?= (int)$c['id'] ?>'; if(confirm('Enviar esta campanha para <?= $activeSubs ?> inscritos?')) document.getElementById('sendCampaignForm').submit();">Enviar</button>
                         <?php endif; ?>
                         <a class="btn btn-outline btn-sm" href="?action=edit&edit=<?= (int)$c['id'] ?>">Editar</a>

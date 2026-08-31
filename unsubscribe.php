@@ -10,8 +10,12 @@ if ($token !== '') {
     if ($db) {
         $sub = dbQueryOne("SELECT id, email, is_active FROM newsletter_subscribers WHERE unsubscribe_token = ?", [$token]);
         if ($sub) {
-            dbExec("UPDATE newsletter_subscribers SET is_active = 0 WHERE id = ?", [$sub['id']]);
-            $status = 'unsubscribed';
+            if ((int)$sub['is_active'] === 1) {
+                dbExec("UPDATE newsletter_subscribers SET is_active = 0 WHERE id = ?", [$sub['id']]);
+                $status = 'unsubscribed';
+            } else {
+                $status = 'already';
+            }
         }
     }
 }
@@ -35,6 +39,9 @@ if ($token !== '') {
             <?php if ($status === 'unsubscribed'): ?>
                 <h1 style="font-family:'Cinzel',serif;margin-bottom:16px;">Descadastro confirmado</h1>
                 <p style="color:var(--muted);margin-bottom:32px;">Você não receberá mais nossos e-mails. Sentiremos sua falta!</p>
+            <?php elseif ($status === 'already'): ?>
+                <h1 style="font-family:'Cinzel',serif;margin-bottom:16px;">Já está desativado</h1>
+                <p style="color:var(--muted);margin-bottom:32px;">Seu e-mail já estava fora da nossa lista. Fique tranquilo!</p>
             <?php else: ?>
                 <h1 style="font-family:'Cinzel',serif;margin-bottom:16px;">Link inválido</h1>
                 <p style="color:var(--muted);margin-bottom:32px;">Este link de descadastro é inválido ou expirou.</p>
