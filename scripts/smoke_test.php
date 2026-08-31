@@ -659,5 +659,31 @@ $status = request($base . '/unsubscribe?token=token-invalido-xyz', 'GET', null, 
 pageContains($body, 'Link inválido', 'token invalido rejeitado');
 ok('token invalido mostra erro');
 
+// ── SEO ──
+// robots.txt
+$status = request($base . '/robots.txt', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('robots.txt deveria responder 200, veio ' . $status);
+pageContains($body, 'Sitemap:', 'robots.txt contem sitemap');
+ok('robots.txt responde');
+
+// sitemap.xml
+$status = request($base . '/sitemap.xml', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('sitemap.xml deveria responder 200, veio ' . $status);
+pageContains($body, '<urlset', 'sitemap xml valido');
+pageContains($body, '<loc>', 'sitemap tem URLs');
+ok('sitemap.xml responde com XML valido');
+
+// Open Graph no homepage
+$status = request($base . '/', 'GET', null, $headers, $body, $cookieFile);
+pageContains($body, 'og:title', 'homepage tem og:title');
+pageContains($body, 'og:description', 'homepage tem og:description');
+pageContains($body, 'og:image', 'homepage tem og:image');
+ok('homepage tem meta tags Open Graph');
+
+// Open Graph em post do blog
+$status = request($base . '/blog', 'GET', null, $headers, $body, $cookieFile);
+pageContains($body, 'og:title', 'blog listing tem og:title');
+ok('blog listing tem Open Graph');
+
 @unlink($cookieFile);
 ok('smoke test concluído');

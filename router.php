@@ -144,6 +144,12 @@ if ($uri === '/unsubscribe') {
     exit;
 }
 
+// ---- Sitemap ----
+if ($uri === '/sitemap.xml') {
+    require __DIR__ . '/sitemap.php';
+    exit;
+}
+
 if (preg_match('#^/retro/([a-zA-Z0-9-]+)$#', $uri, $matches)) {
     $_GET['console'] = $matches[1];
     require __DIR__ . '/retro-console.php';

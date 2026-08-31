@@ -38,6 +38,19 @@ if (!isset($post)) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= isset($post) && $post ? e($post['title']) . ' — ' . e($siteName) : 'Blog — ' . e($siteName) ?></title>
     <meta name="description" content="<?= isset($post) && $post ? e(truncateText(strip_tags(parseMarkdown($post['content'])), 160)) : e(getSetting('footer_description', '')) ?>">
+    <?php if (isset($post) && $post): ?>
+    <meta property="og:title" content="<?= e($post['title']) ?> — <?= e($siteName) ?>">
+    <meta property="og:description" content="<?= e(truncateText(strip_tags(parseMarkdown($post['content'])), 200)) ?>">
+    <meta property="og:type" content="article">
+    <meta property="og:url" content="<?= e(SITE_URL . '/blog/' . $post['slug']) ?>">
+    <?php else: ?>
+    <meta property="og:title" content="Blog — <?= e($siteName) ?>">
+    <meta property="og:description" content="<?= e(getSetting('footer_description', '')) ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?= e(SITE_URL) ?>/blog">
+    <?php endif; ?>
+    <meta property="og:site_name" content="<?= e($siteName) ?>">
+    <meta property="og:image" content="<?= e(str_starts_with(siteLogoUrl(), 'http') ? siteLogoUrl() : SITE_URL . siteLogoUrl()) ?>">
     <link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

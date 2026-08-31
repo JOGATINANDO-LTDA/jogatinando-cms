@@ -94,6 +94,12 @@ $siteSocialLinks = getSocialLinks('site', true);
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($siteName) ?> — <?= e($siteTagline) ?></title>
     <meta name="description" content="<?= e($footerDescription) ?>">
+    <meta property="og:title" content="<?= e($siteName) ?> — <?= e($siteTagline) ?>">
+    <meta property="og:description" content="<?= e($footerDescription) ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?= e(SITE_URL) ?>/">
+    <meta property="og:site_name" content="<?= e($siteName) ?>">
+    <meta property="og:image" content="<?= e(str_starts_with(siteLogoUrl(), 'http') ? siteLogoUrl() : SITE_URL . siteLogoUrl()) ?>">
     <link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
