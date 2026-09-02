@@ -246,13 +246,13 @@ $ok = isset($_GET['ok']);
                 <div class="form-actions">
                     <button type="submit" class="btn btn-primary btn-sm">Salvar</button>
                     <button type="button" class="btn btn-outline btn-sm test-btn" data-config-id="<?= $c['id'] ?>">Testar Conexão</button>
-                    <form method="POST" style="display:inline" onsubmit="return confirm('Remover esta configuração?')">
-                        <?= csrfField() ?>
-                        <input type="hidden" name="action" value="delete_config">
-                        <input type="hidden" name="config_id" value="<?= $c['id'] ?>">
-                        <button type="submit" class="btn btn-danger btn-sm">Remover</button>
-                    </form>
                 </div>
+            </form>
+            <form method="POST" style="margin-top:8px;" onsubmit="return confirm('Remover esta configuração?')">
+                <?= csrfField() ?>
+                <input type="hidden" name="action" value="delete_config">
+                <input type="hidden" name="config_id" value="<?= $c['id'] ?>">
+                <button type="submit" class="btn btn-danger btn-sm">Remover</button>
             </form>
         </div>
         <?php endforeach; ?>

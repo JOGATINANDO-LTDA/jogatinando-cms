@@ -109,6 +109,10 @@ $campaigns = $db->query("SELECT * FROM newsletter_campaigns ORDER BY id DESC LIM
 $activeSubs = (int)$db->query("SELECT COUNT(*) FROM newsletter_subscribers WHERE is_active = 1")->fetchColumn();
 $ok = isset($_GET['ok']);
 $err = isset($_GET['err']);
+
+$pageTitle = 'Campanhas';
+$requiredPerm = 'perm_settings';
+require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="admin-page-header">
@@ -166,24 +170,22 @@ $err = isset($_GET['err']);
             <textarea id="content" name="content" rows="20" style="font-family:monospace"><?= e($editItem['content'] ?? '') ?></textarea>
         </div>
 
-        <?php if ($editItem && ($editItem['status'] === 'draft' || $editItem['status'] === 'scheduled')): ?>
-            <div class="form-group">
-                <label>Enviar teste</label>
-                <form method="POST" style="display:flex; gap:8px; align-items:flex-start;">
-                    <?= csrfField() ?>
-                    <input type="hidden" name="action" value="send_test">
-                    <input type="hidden" name="id" value="<?= (int)($editItem['id'] ?? 0) ?>">
-                    <input type="email" name="test_email" placeholder="seu@email.com" style="flex:1;" required>
-                    <button type="submit" class="btn btn-outline btn-sm">Enviar teste</button>
-                </form>
-            </div>
-        <?php endif; ?>
-
         <div class="form-actions">
             <button class="btn btn-gold" type="submit">Salvar Campanha</button>
             <a class="btn btn-outline" href="?">Cancelar</a>
         </div>
     </form>
+
+    <?php if ($editItem && ($editItem['status'] === 'draft' || $editItem['status'] === 'scheduled')): ?>
+    <form method="POST" style="display:flex; gap:8px; align-items:center; margin-top:16px; padding-top:16px; border-top:1px solid var(--border);">
+        <?= csrfField() ?>
+        <input type="hidden" name="action" value="send_test">
+        <input type="hidden" name="id" value="<?= (int)($editItem['id'] ?? 0) ?>">
+        <label style="white-space:nowrap;">Enviar teste:</label>
+        <input type="email" name="test_email" placeholder="seu@email.com" style="flex:1;" required>
+        <button type="submit" class="btn btn-outline btn-sm">Enviar</button>
+    </form>
+    <?php endif; ?>
 </div>
 <?php endif; ?>
 

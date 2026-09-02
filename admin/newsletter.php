@@ -108,6 +108,10 @@ $totalPages = (int)ceil($total / $limit);
 $subscribers = $db->query("SELECT * FROM newsletter_subscribers ORDER BY id DESC LIMIT $limit OFFSET $offset")->fetchAll();
 
 $ok = isset($_GET['ok']);
+
+$pageTitle = 'Newsletter';
+$requiredPerm = 'perm_settings';
+require_once __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="admin-page-header">
