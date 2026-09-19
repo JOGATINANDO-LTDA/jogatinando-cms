@@ -1,4 +1,5 @@
 <?php
+define('SKIP_INSTALL_CHECK', true);
 require_once __DIR__ . '/config.php';
 
 header('Content-Type: text/plain; charset=utf-8');
