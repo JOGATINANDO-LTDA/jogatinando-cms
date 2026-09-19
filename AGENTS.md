@@ -143,9 +143,23 @@ Site runs at **http://localhost:8080**. No npm, no build step, no test suite.
 ## Security gotchas
 
 - Admin password is a hardcoded hash in `config.php` — change via `ADMIN_PASSWORD_HASH` constant
-- `install.php` has a **reset** action that deletes the DB and reseeds — remove after setup
+- `install.php` **stays in the webroot** — guarded: no-arg access redirects to `/` when installed; `?reconfigure=1` is CEO-only (user id 1); recovery mode (no login) only when the DB is unreachable. The MySQL "install_fresh" path drops the database — CEO-only.
 - `SITE_URL` comes from `$_ENV['SITE_URL']`, defaults to `http://localhost` — set for production
 - Errors logged but not displayed (`display_errors=0`, `log_errors=1`)
+
+## Deploy (Hostinger / CI-CD)
+
+- **Branch model**: `main` = homologação (Docker local) · `master` = produção (Hostinger). Release = merge `main` → `master` + push + deploy no cPanel Git VC (`.cpanel.yml`).
+- **Config persistence**: installer writes `config.local.php` to `$HOME/config.local.php` (outside webroot, primary) and `public_html/data/config.local.php` (fallback). Deploy backs up/restores both. `config.php` load order: persistent → data/ → legacy root (auto-migrated).
+- **install.php stays in the webroot** (no `.disabled` rename — removed in favor of guards):
+  - No `?reconfigure=1` → redirects to `/` when installed
+  - `?reconfigure=1` → **CEO only** (user id 1); form pre-filled, blank password keeps current
+  - **Recovery mode**: DB unreachable + no CEO session → reconfigure allowed without login (warning banner + `error_log` with IP)
+- **health.php**: public basic diagnostics (config source, DB, schema, maintenance, writability, `.git` exposure). Detailed with `?key=<cron_key>`, JSON with `?format=json`.
+- **robots.php**: dynamic (Sitemap uses `SITE_URL`); route `/robots.txt` in router.php. Static robots.txt was removed.
+- **`.cpanel.yml` caveat**: `cp` does not delete removed files — when deleting a repo file, add `rm -f $DEPLOYPATH/<file>` to the deploy tasks. Deploy also removes `.git/` from the webroot (security).
+- **Rollback**: cPanel deploy of a previous commit or `git revert` on master. Config/data unaffected.
+- **Version prompt**: when `CMS_VERSION` changes, the site asks "Usar config atual e migrar dados" vs "Nova instalação" — click the first after a version-bump deploy.
 
 ## Production checklist
 

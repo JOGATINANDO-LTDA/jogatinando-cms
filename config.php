@@ -254,7 +254,7 @@ if (php_sapi_name() !== 'cli') {
     require_once ROOT_PATH . '/includes/maintenance.php';
     if (isMaintenanceActive()) {
         $uri = $_SERVER['REQUEST_URI'] ?? '';
-        if (!str_starts_with($uri, '/admin/') && !str_starts_with($uri, '/install')) {
+        if (!str_starts_with($uri, '/admin/') && !str_starts_with($uri, '/install') && !str_starts_with($uri, '/health')) {
             if (empty($_SESSION['admin_logged_in'])) {
                 renderMaintenancePage();
             }

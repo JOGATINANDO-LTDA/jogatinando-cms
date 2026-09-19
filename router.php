@@ -22,6 +22,23 @@ if ($uri === '/install') {
             exit;
         }
     }
+    if (!file_exists(__DIR__ . '/install.php')) {
+        if ($isReconfigure) {
+            http_response_code(503);
+            header('Content-Type: text/html; charset=utf-8');
+            echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Instalador indisponível</title></head><body style="font-family:sans-serif;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">'
+                . '<div style="max-width:520px;padding:32px;border:1px solid #333;border-radius:12px;text-align:center">'
+                . '<h1 style="font-size:20px;margin-bottom:12px">Instalador indisponível</h1>'
+                . '<p style="color:#999;line-height:1.6">O arquivo <code>install.php</code> não está presente neste servidor. '
+                . 'Para reconfigurar, faça um novo deploy via CI/CD (o instalador é restaurado automaticamente) '
+                . 'ou acesse o Diagnóstico no painel admin.</p>'
+                . '<p><a href="/admin/repair" style="color:#d4af37">Ir para o Diagnóstico</a></p>'
+                . '</div></body></html>';
+            exit;
+        }
+        header('Location: /');
+        exit;
+    }
     $_SERVER['PHP_SELF'] = '/install.php';
     require __DIR__ . '/install.php';
     exit;
@@ -147,6 +164,12 @@ if ($uri === '/unsubscribe') {
 // ---- Sitemap ----
 if ($uri === '/sitemap.xml') {
     require __DIR__ . '/sitemap.php';
+    exit;
+}
+
+// ---- Robots ----
+if ($uri === '/robots.txt') {
+    require __DIR__ . '/robots.php';
     exit;
 }
 

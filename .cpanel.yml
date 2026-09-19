@@ -4,24 +4,34 @@ deployment:
     - export DEPLOYPATH=/home/SEU_USUARIO/public_html/
     #
     # 1. Backup persistent data antes do deploy
-    #    (banco SQLite, uploads, config.local.php)
+    #    (banco SQLite, uploads, config.local.php em data/ e fora do webroot)
     #
     - /bin/mkdir -p $HOME/deploy_backup
     - test -d $DEPLOYPATH/data && /bin/cp -r $DEPLOYPATH/data $HOME/deploy_backup/ || true
     - test -d $DEPLOYPATH/uploads && /bin/cp -r $DEPLOYPATH/uploads $HOME/deploy_backup/ || true
     - test -f $DEPLOYPATH/config.local.php && /bin/cp $DEPLOYPATH/config.local.php $HOME/deploy_backup/ || true
+    - test -f $HOME/config.local.php && /bin/cp $HOME/config.local.php $HOME/deploy_backup/config.local.php.persistent || true
     #
-    # 2. Deploy todo o código novo
+    # 2. Deploy todo o codigo novo
     #
     - /bin/cp -r . $DEPLOYPATH
     #
-    # 3. Restaura os dados persistentes
-    #    (sobrescreve .gitkeep e afins, mantém DB + uploads + secrets)
+    # 3. Limpeza: artefatos que NAO devem ficar no webroot
+    #    (.git expoe o repositorio; .disabled/robots.txt sao legados)
+    #
+    - /bin/rm -rf $DEPLOYPATH/.git
+    - /bin/rm -f $DEPLOYPATH/install.php.disabled
+    - /bin/rm -f $DEPLOYPATH/robots.txt
+    #
+    # 4. Restaura os dados persistentes
+    #    (sobrescreve .gitkeep e afins, mantem DB + uploads + secrets)
     #
     - test -d $HOME/deploy_backup/data && /bin/cp -r $HOME/deploy_backup/data/. $DEPLOYPATH/data/ || true
     - test -d $HOME/deploy_backup/uploads && /bin/cp -r $HOME/deploy_backup/uploads/. $DEPLOYPATH/uploads/ || true
     - test -f $HOME/deploy_backup/config.local.php && /bin/cp $HOME/deploy_backup/config.local.php $DEPLOYPATH/config.local.php || true
+    - test -f $HOME/deploy_backup/config.local.php.persistent && /bin/cp $HOME/deploy_backup/config.local.php.persistent $HOME/config.local.php || true
     #
-    # 4. Limpeza
+    # 5. Verificacao + limpeza
     #
+    - if [ -f $DEPLOYPATH/data/config.local.php ] || [ -f $HOME/config.local.php ]; then echo "OK: config.local.php presente"; else echo "AVISO: config.local.php AUSENTE - acesse /install.php apos o deploy"; fi
     - /bin/rm -rf $HOME/deploy_backup

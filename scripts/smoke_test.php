@@ -685,5 +685,46 @@ $status = request($base . '/blog', 'GET', null, $headers, $body, $cookieFile);
 pageContains($body, 'og:title', 'blog listing tem og:title');
 ok('blog listing tem Open Graph');
 
+// ── Install / reconfigure guards ──
+// /install com sistema instalado → redireciona para /
+$status = request($base . '/install', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 302) fail('/install com sistema instalado deveria responder 302, veio ' . $status);
+if (strpos($headers, 'Location: /') === false) fail('/install deveria redirecionar para /');
+ok('/install redireciona quando instalado');
+
+// /install?reconfigure=1 sem sessão → redireciona para login
+$freshCookie = tempnam(sys_get_temp_dir(), 'jogatinando_fresh_');
+$status = request($base . '/install?reconfigure=1', 'GET', null, $headers, $body, $freshCookie);
+if ($status !== 302) fail('/install?reconfigure=1 sem login deveria responder 302, veio ' . $status);
+if (strpos($headers, '/admin/login') === false) fail('/install?reconfigure=1 sem login deveria redirecionar para /admin/login');
+ok('/install?reconfigure=1 sem login exige autenticacao');
+
+// /install?reconfigure=1 com sessão CEO → 200 (formulário)
+$status = request($base . '/install?reconfigure=1', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('/install?reconfigure=1 com CEO deveria responder 200, veio ' . $status);
+pageContains($body, 'install-card', 'pagina de reconfigure');
+ok('/install?reconfigure=1 com CEO responde');
+
+// ── Health check ──
+$status = request($base . '/health.php', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('/health.php deveria responder 200, veio ' . $status);
+pageContains($body, 'Diagn', 'pagina de diagnostico');
+pageContains($body, 'Banco de dados', 'health checa banco');
+ok('/health.php responde com diagnostico');
+
+// ── Robots dinâmico ──
+$status = request($base . '/robots.txt', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('/robots.txt deveria responder 200, veio ' . $status);
+pageContains($body, 'Sitemap: ' . SITE_URL . '/sitemap.xml', 'robots com sitemap dinamico');
+pageContains($body, 'Disallow: /admin/', 'robots disallow admin');
+pageContains($body, 'Disallow: /health.php', 'robots disallow health');
+ok('/robots.txt dinamico responde');
+
+// ── .git bloqueado ──
+$status = request($base . '/.git/HEAD', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 403 && $status !== 404) fail('/.git/HEAD deveria ser bloqueado (403/404), veio ' . $status);
+ok('.git bloqueado no webroot');
+
+@unlink($freshCookie);
 @unlink($cookieFile);
 ok('smoke test concluído');

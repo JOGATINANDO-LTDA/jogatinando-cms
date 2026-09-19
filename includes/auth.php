@@ -202,20 +202,29 @@ function redirectOrError($msg, $detail) {
         header('Location: /install');
         exit;
     }
+    // Visitantes não-logados veem mensagem discreta; admins veem o detalhe técnico
+    $isAdmin = function_exists('isLoggedIn') && isLoggedIn();
+    $siteName = defined('SITE_NAME') ? SITE_NAME : 'Site';
     http_response_code(500);
-    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>CMS — Erro</title><link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">';
+    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>' . e($siteName) . '</title><link rel="icon" href="' . e(siteFaviconUrl()) . '" type="image/svg+xml">';
     echo '<style>body{font-family:sans-serif;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px}';
     echo '.card{background:#1a1a2e;border:1px solid #c9a84c;border-radius:12px;padding:40px;max-width:520px;text-align:center}';
     echo 'h1{font-family:Georgia,serif;color:#c9a84c;margin-bottom:12px}';
     echo 'p{color:#999;line-height:1.6;margin-bottom:16px}</style>';
-    echo '</head><body><div class="card"><h1>CMS de Jogos</h1>';
-    echo '<p>' . e($msg) . '</p>';
-    echo '<p style="font-size:13px">' . e($detail) . '</p>';
+    echo '</head><body><div class="card"><h1>' . e($siteName) . '</h1>';
+    if ($isAdmin) {
+        echo '<p>' . e($msg) . '</p>';
+        echo '<p style="font-size:13px">' . e($detail) . '</p>';
+    } else {
+        echo '<p>Estamos em manutenção técnica.</p>';
+        echo '<p style="font-size:13px">Voltamos em breve. Obrigado pela paciência.</p>';
+    }
     echo '</div></body></html>';
     exit;
 }
 
 function requireInstalled() {
+    if (defined('SKIP_INSTALL_CHECK') && SKIP_INSTALL_CHECK) return;
     $self = $_SERVER['PHP_SELF'] ?? '';
     $script = $_SERVER['SCRIPT_FILENAME'] ?? '';
     $isInstallPage = (strpos($self, 'install.php') !== false) || (strpos($script, 'install.php') !== false);
