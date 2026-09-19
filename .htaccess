@@ -89,6 +89,9 @@ FileETag None
 # Redirect /favicon.ico to SVG (avoids 404 on browser auto-request)
 RewriteRule ^favicon\.ico$ /assets/svg/logo.svg [L]
 
+# URL amigável do health check (/health.php → /health)
+RewriteRule ^health\.php$ /health [R=302,L]
+
 # Bloqueia arquivos sensíveis (git metadata, instalador desabilitado, backups)
 RedirectMatch 404 (^|/)\.git(/|$)
 RedirectMatch 404 \.(disabled|renamed|bak|swp)$

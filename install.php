@@ -36,12 +36,17 @@ if ($isReconfigure) {
     $isCeo = isLoggedIn() && (($_SESSION['admin_user_id'] ?? 0) === 1);
     if (!$isCeo) {
         $dbReachable = false;
+        $hasUsers = false;
         try {
-            $dbReachable = (getDB() !== null);
+            $db = getDB();
+            $dbReachable = ($db !== null);
+            if ($dbReachable) {
+                $hasUsers = ((int)$db->query("SELECT COUNT(*) FROM users")->fetchColumn() > 0);
+            }
         } catch (Throwable $e) {
             $dbReachable = false;
         }
-        if ($dbReachable) {
+        if ($dbReachable && $hasUsers) {
             if (isLoggedIn()) {
                 http_response_code(403);
                 header('Content-Type: text/html; charset=utf-8');
@@ -57,9 +62,9 @@ if ($isReconfigure) {
             header('Location: ' . ADMIN_URL . '/login');
             exit;
         }
-        // Database unreachable → recovery mode
+        // DB inacessível OU banco vazio (sem usuários) → modo recuperação
         $recoveryMode = true;
-        error_log('Install recovery mode: DB unreachable; reconfigure allowed without login. IP=' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
+        error_log('Install recovery mode: ' . ($dbReachable ? 'DB empty (no users)' : 'DB unreachable') . '; reconfigure allowed without login. IP=' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
     }
     // CEO logado ou modo recuperação: pode acessar mesmo em manutenção
 } else {
@@ -83,6 +88,9 @@ if (!$isReconfigure) {
         exit;
     }
 }
+
+// Preserva ?reconfigure=1 na navegação entre steps do instalador
+$rcQs = $isReconfigure ? 'reconfigure=1&' : '';
 
 $message = '';
 $step = isset($_GET['step']) ? (int)$_GET['step'] : 1;
@@ -357,7 +365,7 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
                 <div class="step">2</div>
             </div>
             <p>Escolha o tipo de banco de dados para instalação.</p>
-            <form method="POST" action="?step=1">
+            <form method="POST" action="?<?= $rcQs ?>step=1">
                 <input type="hidden" name="action" value="sqlite">
                 <input type="hidden" name="install_csrf" value="<?= $_SESSION['install_csrf'] ?>">
                 <button type="submit" class="btn btn-gold">SQLite (Simples)</button>
@@ -365,7 +373,7 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
             <p style="font-size: 13px; color: oklch(50% 0.02 250); margin-top: -12px; margin-bottom: 16px; text-align: center;">
                 Recomendado — nenhuma configuração necessária
             </p>
-            <a href="?step=2" class="btn btn-outline">MySQL / MariaDB</a>
+            <a href="?<?= $rcQs ?>step=2" class="btn btn-outline">MySQL / MariaDB</a>
             <p style="font-size: 13px; color: oklch(50% 0.02 250); margin-top: -12px; text-align: center;">
                 Para produção com múltiplos acessos simultâneos
             </p>
@@ -384,7 +392,7 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
                 <div class="step active">2</div>
             </div>
             <p>Configure a conexão com o banco MySQL / MariaDB.</p>
-            <form method="POST" action="?step=2">
+            <form method="POST" action="?<?= $rcQs ?>step=2">
                 <input type="hidden" name="install_csrf" value="<?= $_SESSION['install_csrf'] ?>">
 
                 <h3 style="color: oklch(68% 0.16 220); font-size: 14px; margin-bottom: 12px;">Conexão MySQL</h3>
@@ -495,12 +503,12 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
                     <button type="submit" name="action" value="mysql" class="btn btn-gold" disabled style="opacity:0.5;">Instalar com MySQL</button>
                 <?php endif; ?>
 
-                <a href="?step=1" class="btn btn-outline">Voltar</a>
+                <a href="?<?= $rcQs ?>step=1" class="btn btn-outline">Voltar</a>
             </form>
 
         <?php else: ?>
             <p>Instalação do CMS. Escolha o tipo de banco para começar.</p>
-            <a href="?step=1" class="btn btn-gold">Iniciar Instalação</a>
+            <a href="?<?= $rcQs ?>step=1" class="btn btn-gold">Iniciar Instalação</a>
         <?php endif; ?>
         <?php endif; ?>
     </div>

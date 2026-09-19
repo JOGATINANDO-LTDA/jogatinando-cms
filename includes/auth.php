@@ -218,6 +218,7 @@ function redirectOrError($msg, $detail) {
     } else {
         echo '<p>Estamos em manutenção técnica.</p>';
         echo '<p style="font-size:13px">Voltamos em breve. Obrigado pela paciência.</p>';
+        echo '<p style="font-size:12px;margin-top:20px;margin-bottom:0"><a href="/health" style="color:#555;text-decoration:none">Diagnóstico</a></p>';
     }
     echo '</div></body></html>';
     exit;

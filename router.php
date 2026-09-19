@@ -6,6 +6,18 @@ $uri = $uri ?: '/';
 
 // ---- Public routes (before install check) ----
 
+// Health check — precisa funcionar mesmo com o sistema quebrado/sem DB
+if ($uri === '/health') {
+    require __DIR__ . '/health.php';
+    exit;
+}
+
+// Robots — precisa funcionar mesmo com o sistema quebrado
+if ($uri === '/robots.txt') {
+    require __DIR__ . '/robots.php';
+    exit;
+}
+
 if ($uri === '/admin/setup-password') {
     require __DIR__ . '/admin/setup-password.php';
     exit;
@@ -164,12 +176,6 @@ if ($uri === '/unsubscribe') {
 // ---- Sitemap ----
 if ($uri === '/sitemap.xml') {
     require __DIR__ . '/sitemap.php';
-    exit;
-}
-
-// ---- Robots ----
-if ($uri === '/robots.txt') {
-    require __DIR__ . '/robots.php';
     exit;
 }
 

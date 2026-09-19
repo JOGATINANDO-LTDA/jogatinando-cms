@@ -703,14 +703,21 @@ ok('/install?reconfigure=1 sem login exige autenticacao');
 $status = request($base . '/install?reconfigure=1', 'GET', null, $headers, $body, $cookieFile);
 if ($status !== 200) fail('/install?reconfigure=1 com CEO deveria responder 200, veio ' . $status);
 pageContains($body, 'install-card', 'pagina de reconfigure');
+pageContains($body, 'action="?reconfigure=1&step=1"', 'form preserva reconfigure');
 ok('/install?reconfigure=1 com CEO responde');
 
-// ── Health check ──
-$status = request($base . '/health.php', 'GET', null, $headers, $body, $cookieFile);
-if ($status !== 200) fail('/health.php deveria responder 200, veio ' . $status);
+// ── Health check (URL amigável) ──
+$status = request($base . '/health', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 200) fail('/health deveria responder 200, veio ' . $status);
 pageContains($body, 'Diagn', 'pagina de diagnostico');
 pageContains($body, 'Banco de dados', 'health checa banco');
-ok('/health.php responde com diagnostico');
+ok('/health responde com diagnostico');
+
+// /health.php redireciona para /health
+$status = request($base . '/health.php', 'GET', null, $headers, $body, $cookieFile);
+if ($status !== 302) fail('/health.php deveria redirecionar (302), veio ' . $status);
+if (strpos($headers, '/health') === false) fail('/health.php deveria redirecionar para /health');
+ok('/health.php redireciona para /health');
 
 // ── Robots dinâmico ──
 $status = request($base . '/robots.txt', 'GET', null, $headers, $body, $cookieFile);
