@@ -1,5 +1,9 @@
 RewriteEngine On
 
+# Bloqueia .git e arquivos sensíveis (fallback via mod_rewrite)
+RewriteRule (^|/)\.git(/|$) - [F,L]
+RewriteRule \.(disabled|renamed|bak|swp)$ - [F,L]
+
 # Catch browser-cached 301 redirects com path do servidor (mod_dir errado)
 RewriteCond %{REQUEST_URI} ^/var/www/html/(.*)$ [NC]
 RewriteRule ^ /%1 [R=302,L]
@@ -84,6 +88,10 @@ FileETag None
 
 # Redirect /favicon.ico to SVG (avoids 404 on browser auto-request)
 RewriteRule ^favicon\.ico$ /assets/svg/logo.svg [L]
+
+# Bloqueia arquivos sensíveis (git metadata, instalador desabilitado, backups)
+RedirectMatch 404 (^|/)\.git(/|$)
+RedirectMatch 404 \.(disabled|renamed|bak|swp)$
 
 # Força trailing slash pro /admin com 302 (mod_dir usa 301 que navegador cacheia)
 RewriteRule ^admin$ /admin/ [R=302,L]

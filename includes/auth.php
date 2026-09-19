@@ -55,7 +55,7 @@ function login($username, $password) {
                l.perm_banners, l.perm_games, l.perm_blog, l.perm_testimonials,
                l.perm_faq, l.perm_team, l.perm_users, l.perm_roles,
                l.perm_engines, l.perm_platforms, l.perm_consoles,
-               l.perm_retro_games, l.perm_templates, l.perm_optimizer,
+               l.perm_retro_games,
                l.perm_settings
         FROM users u
         LEFT JOIN roles r ON u.role_id = r.id
@@ -104,7 +104,7 @@ function loadSessionPermissions() {
     if (!isLoggedIn()) return;
     $db = getDB();
     if (!$db) return;
-    $stmt = $db->prepare("SELECT l.perm_banners, l.perm_games, l.perm_blog, l.perm_testimonials, l.perm_faq, l.perm_team, l.perm_users, l.perm_roles, l.perm_engines, l.perm_platforms, l.perm_consoles, l.perm_retro_games, l.perm_templates, l.perm_optimizer, l.perm_settings FROM levels l JOIN roles r ON r.level_id = l.id JOIN users u ON u.role_id = r.id WHERE u.id = ?");
+    $stmt = $db->prepare("SELECT l.perm_banners, l.perm_games, l.perm_blog, l.perm_testimonials, l.perm_faq, l.perm_team, l.perm_users, l.perm_roles, l.perm_engines, l.perm_platforms, l.perm_consoles, l.perm_retro_games, l.perm_settings FROM levels l JOIN roles r ON r.level_id = l.id JOIN users u ON u.role_id = r.id WHERE u.id = ?");
     $stmt->execute([$_SESSION['admin_user_id']]);
     $level = $stmt->fetch(PDO::FETCH_ASSOC);
     $_SESSION['admin_permissions'] = [];
@@ -124,7 +124,7 @@ function getSessionRank() {
 function getLevelRank($levelId) {
     if (!$levelId) return 0;
     $db = getDB();
-    $stmt = $db->prepare("SELECT perm_banners, perm_games, perm_blog, perm_testimonials, perm_faq, perm_team, perm_users, perm_roles, perm_engines, perm_platforms, perm_consoles, perm_retro_games, perm_templates, perm_optimizer, perm_settings FROM levels WHERE id = ?");
+    $stmt = $db->prepare("SELECT perm_banners, perm_games, perm_blog, perm_testimonials, perm_faq, perm_team, perm_users, perm_roles, perm_engines, perm_platforms, perm_consoles, perm_retro_games, perm_settings FROM levels WHERE id = ?");
     $stmt->execute([$levelId]);
     $level = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$level) return 0;
@@ -135,7 +135,7 @@ function requireRole($minLevel) {
     requireLogin();
     $rank = getSessionRank();
     $db = getDB();
-    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_templates + perm_optimizer + perm_settings) as r FROM levels WHERE slug = ?");
+    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_settings) as r FROM levels WHERE slug = ?");
     $stmt->execute([$minLevel]);
     $required = (int)$stmt->fetchColumn();
     if ($required === 0) $required = 10;
@@ -151,14 +151,14 @@ function getAssignableRoles($db) {
         return $db->query("SELECT r.id, r.name, l.name AS level_name, l.slug AS level_slug, r.description FROM roles r LEFT JOIN levels l ON r.level_id = l.id WHERE r.id != 1 ORDER BY r.id")->fetchAll();
     }
     $currentRank = getSessionRank();
-    $stmt = $db->prepare("SELECT r.id, r.name, l.name AS level_name, l.slug AS level_slug, r.description FROM roles r LEFT JOIN levels l ON r.level_id = l.id WHERE r.id != 1 AND (l.perm_banners + l.perm_games + l.perm_blog + l.perm_testimonials + l.perm_faq + l.perm_team + l.perm_users + l.perm_roles + l.perm_engines + l.perm_platforms + l.perm_consoles + l.perm_retro_games + l.perm_templates + l.perm_optimizer + l.perm_settings) < ? ORDER BY r.id");
+    $stmt = $db->prepare("SELECT r.id, r.name, l.name AS level_name, l.slug AS level_slug, r.description FROM roles r LEFT JOIN levels l ON r.level_id = l.id WHERE r.id != 1 AND (l.perm_banners + l.perm_games + l.perm_blog + l.perm_testimonials + l.perm_faq + l.perm_team + l.perm_users + l.perm_roles + l.perm_engines + l.perm_platforms + l.perm_consoles + l.perm_retro_games + l.perm_settings) < ? ORDER BY r.id");
     $stmt->execute([$currentRank]);
     return $stmt->fetchAll();
 }
 
 function getRoleLevelRank($level) {
     $db = getDB();
-    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_templates + perm_optimizer + perm_settings) as r FROM levels WHERE slug = ?");
+    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_settings) as r FROM levels WHERE slug = ?");
     $stmt->execute([$level]);
     $rank = (int)$stmt->fetchColumn();
     return $rank > 0 ? $rank : -1;
@@ -172,7 +172,7 @@ function canManageRole($targetLevel) {
     if (($_SESSION['admin_user_id'] ?? 0) === 1) return true;
     $currentRank = getSessionRank();
     $db = getDB();
-    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_templates + perm_optimizer + perm_settings) as r FROM levels WHERE slug = ?");
+    $stmt = $db->prepare("SELECT (perm_banners + perm_games + perm_blog + perm_testimonials + perm_faq + perm_team + perm_users + perm_roles + perm_engines + perm_platforms + perm_consoles + perm_retro_games + perm_settings) as r FROM levels WHERE slug = ?");
     $stmt->execute([$targetLevel]);
     $targetRank = (int)$stmt->fetchColumn();
     return $currentRank > $targetRank;
@@ -202,20 +202,29 @@ function redirectOrError($msg, $detail) {
         header('Location: /install');
         exit;
     }
+    // Visitantes não-logados veem mensagem discreta; admins veem o detalhe técnico
+    $isAdmin = function_exists('isLoggedIn') && isLoggedIn();
+    $siteName = defined('SITE_NAME') ? SITE_NAME : 'Site';
     http_response_code(500);
-    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>CMS — Erro</title><link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">';
+    echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>' . e($siteName) . '</title><link rel="icon" href="' . e(siteFaviconUrl()) . '" type="image/svg+xml">';
     echo '<style>body{font-family:sans-serif;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:24px}';
     echo '.card{background:#1a1a2e;border:1px solid #c9a84c;border-radius:12px;padding:40px;max-width:520px;text-align:center}';
     echo 'h1{font-family:Georgia,serif;color:#c9a84c;margin-bottom:12px}';
     echo 'p{color:#999;line-height:1.6;margin-bottom:16px}</style>';
-    echo '</head><body><div class="card"><h1>CMS de Jogos</h1>';
-    echo '<p>' . e($msg) . '</p>';
-    echo '<p style="font-size:13px">' . e($detail) . '</p>';
+    echo '</head><body><div class="card"><h1>' . e($siteName) . '</h1>';
+    if ($isAdmin) {
+        echo '<p>' . e($msg) . '</p>';
+        echo '<p style="font-size:13px">' . e($detail) . '</p>';
+    } else {
+        echo '<p>Estamos em manutenção técnica.</p>';
+        echo '<p style="font-size:13px">Voltamos em breve. Obrigado pela paciência.</p>';
+    }
     echo '</div></body></html>';
     exit;
 }
 
 function requireInstalled() {
+    if (defined('SKIP_INSTALL_CHECK') && SKIP_INSTALL_CHECK) return;
     $self = $_SERVER['PHP_SELF'] ?? '';
     $script = $_SERVER['SCRIPT_FILENAME'] ?? '';
     $isInstallPage = (strpos($self, 'install.php') !== false) || (strpos($script, 'install.php') !== false);

@@ -1430,6 +1430,80 @@ function dbSeed($db, $type) {
 
     // Seed banners, games, testimonials, FAQ, team
     seedDefaultData($db);
+
+    // Seed demo distribution campaigns and metrics
+    seedDemoDistributionData($db);
+}
+
+function seedDemoDistributionData($db) {
+    $existingCampaigns = $db->query("SELECT COUNT(*) FROM campaigns")->fetchColumn();
+    if ((int)$existingCampaigns > 0) return;
+
+    $games = $db->query("SELECT id FROM games ORDER BY id LIMIT 5")->fetchAll();
+    if (empty($games)) return;
+
+    $platformRows = $db->query("SELECT id FROM platforms ORDER BY id LIMIT 5")->fetchAll();
+    if (empty($platformRows)) return;
+
+    $demoCampaigns = [
+        ['name' => 'Lançamento Steam', 'platform_idx' => 0, 'status' => 'active', 'budget' => 5000.00, 'start' => '-3 days', 'end' => '+10 days'],
+        ['name' => 'Campanha Epic', 'platform_idx' => 1, 'status' => 'active', 'budget' => 3000.00, 'start' => '-1 day', 'end' => '+14 days'],
+        ['name' => 'Push itch.io', 'platform_idx' => 3, 'status' => 'finished', 'budget' => 500.00, 'start' => '-30 days', 'end' => '-7 days'],
+    ];
+
+    $insertedCampaigns = [];
+    foreach ($demoCampaigns as $i => $c) {
+        $gameId = $games[$i % count($games)]['id'];
+        $platformId = $platformRows[$c['platform_idx'] % count($platformRows)]['id'];
+        $stmt = $db->prepare("INSERT INTO campaigns (name, game_id, platform_id, status, budget, start_at, end_at, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)");
+        $stmt->execute([
+            $c['name'], $gameId, $platformId, $c['status'], $c['budget'],
+            date('Y-m-d', strtotime($c['start'])),
+            date('Y-m-d', strtotime($c['end'])),
+        ]);
+        $insertedCampaigns[] = $db->lastInsertId();
+    }
+
+    $metricKeys = ['views', 'clicks', 'installs', 'revenue'];
+    foreach ($insertedCampaigns as $cid) {
+        foreach ($metricKeys as $mk) {
+            $val = match($mk) {
+                'views' => rand(100, 5000),
+                'clicks' => rand(20, 300),
+                'installs' => rand(5, 80),
+                'revenue' => rand(500, 5000) / 100,
+                default => 0,
+            };
+            $period = date('Y-m-d', strtotime('-' . rand(1, 7) . ' days'));
+            $stmt = $db->prepare("INSERT INTO campaign_metrics (campaign_id, metric_key, metric_value, period_start, created_at) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)");
+            $stmt->execute([$cid, $mk, $val, $period]);
+        }
+    }
+}
+
+// ── Migration 043: Newsletter subscribers table ──
+function migration_043($db, $type) {
+    $pkType = $type === 'mysql' ? 'INT' : 'INTEGER';
+    $txt = $type === 'mysql' ? 'VARCHAR(255)' : 'TEXT';
+
+    $db->exec("CREATE TABLE IF NOT EXISTS newsletter_subscribers (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        email $txt NOT NULL UNIQUE,
+        name $txt DEFAULT '',
+        source $txt NOT NULL DEFAULT 'site',
+        subscribed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        confirmed_at DATETIME DEFAULT NULL,
+        is_active INTEGER NOT NULL DEFAULT 1,
+        unsubscribe_token $txt NOT NULL,
+        last_sent_at DATETIME DEFAULT NULL,
+        tags $txt DEFAULT ''
+    )");
+
+    if ($type === 'mysql') {
+        $db->exec("ALTER TABLE newsletter_subscribers ADD COLUMN preferences JSON DEFAULT NULL");
+    } else {
+        $db->exec("ALTER TABLE newsletter_subscribers ADD COLUMN preferences TEXT DEFAULT NULL");
+    }
 }
 
 function seedDefaultData($db) {
@@ -1560,10 +1634,10 @@ function migration_031($db, $type) {
                 $pos = strpos($url, '/uploads/');
                 if ($pos !== false) {
                     $u->execute([substr($url, $pos), $row['id']]);
-                }
             }
-        } catch (Exception $e) {}
-    }
+        }
+    } catch (Exception $e) {}
+}
 
     // Normalize site_logo_url and site_favicon_url
     try {
@@ -1581,3 +1655,532 @@ function migration_031($db, $type) {
         }
     } catch (Exception $e) {}
 }
+
+// ── Migration 037: Drop dead tables and permissions ──
+function migration_037($db, $type) {
+
+    // Drop template_links table (foreign key first)
+    try {
+        $db->exec("DROP TABLE IF EXISTS template_links");
+    } catch (Exception $e) {}
+
+    // Drop game_templates table
+    try {
+        $db->exec("DROP TABLE IF EXISTS game_templates");
+    } catch (Exception $e) {}
+
+    // Remove perm_templates column from levels (if exists)
+    try {
+        if ($type === 'mysql') {
+            $cols = $db->query("SHOW COLUMNS FROM levels LIKE 'perm_templates'")->fetch();
+            if ($cols) $db->exec("ALTER TABLE levels DROP COLUMN perm_templates");
+        } else {
+            $cols = $db->query("PRAGMA table_info(levels)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (in_array('perm_templates', $cols)) {
+                $db->exec("ALTER TABLE levels DROP COLUMN perm_templates");
+            }
+        }
+    } catch (Exception $e) {}
+
+    // Remove perm_optimizer column from levels (if exists)
+    try {
+        if ($type === 'mysql') {
+            $cols = $db->query("SHOW COLUMNS FROM levels LIKE 'perm_optimizer'")->fetch();
+            if ($cols) $db->exec("ALTER TABLE levels DROP COLUMN perm_optimizer");
+        } else {
+            $cols = $db->query("PRAGMA table_info(levels)")->fetchAll(PDO::FETCH_COLUMN, 1);
+            if (in_array('perm_optimizer', $cols)) {
+                $db->exec("ALTER TABLE levels DROP COLUMN perm_optimizer");
+            }
+        }
+    } catch (Exception $e) {}
+}
+
+// ── Migration 038: Create AI system tables ──
+function migration_038($db, $type) {
+    $pkType = $type === 'mysql' ? 'INT' : 'INTEGER';
+
+    $db->exec("CREATE TABLE IF NOT EXISTS ai_providers (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        slug TEXT UNIQUE NOT NULL,
+        name TEXT NOT NULL,
+        base_url TEXT NOT NULL,
+        auth_type TEXT DEFAULT 'bearer',
+        models_endpoint TEXT DEFAULT '/v1/models',
+        chat_endpoint TEXT DEFAULT '/v1/chat/completions',
+        supports_streaming INTEGER DEFAULT 1,
+        active INTEGER DEFAULT 1,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS ai_configs (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        provider_id $pkType NOT NULL,
+        user_id $pkType,
+        api_key TEXT,
+        model_slug TEXT,
+        max_tokens INTEGER DEFAULT 4096,
+        temperature REAL DEFAULT 0.7,
+        system_prompt TEXT,
+        is_default INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (provider_id) REFERENCES ai_providers(id) ON DELETE CASCADE
+    )");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS ai_usage (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        config_id $pkType NOT NULL,
+        feature TEXT NOT NULL,
+        prompt_tokens INTEGER DEFAULT 0,
+        completion_tokens INTEGER DEFAULT 0,
+        cost_cents INTEGER DEFAULT 0,
+        latency_ms INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (config_id) REFERENCES ai_configs(id) ON DELETE CASCADE
+    )");
+
+    // Seed default providers
+    $providers = [
+        ['zen', 'OpenCode Zen', 'https://opencode.ai/zen/v1', 'bearer', '/v1/models', '/v1/chat/completions', 1],
+        ['ollama', 'Ollama (Local)', 'http://localhost:11434/v1', 'bearer', '/v1/models', '/v1/chat/completions', 1],
+        ['lmstudio', 'LM Studio (Local)', 'http://localhost:1234/v1', 'bearer', '/v1/models', '/v1/chat/completions', 1],
+        ['openai-compat', 'OpenAI Compatible', 'https://api.openai.com/v1', 'bearer', '/v1/models', '/v1/chat/completions', 1],
+    ];
+
+    $stmt = $db->prepare("INSERT OR IGNORE INTO ai_providers (slug, name, base_url, auth_type, models_endpoint, chat_endpoint, supports_streaming) VALUES (?, ?, ?, ?, ?, ?, ?)");
+    foreach ($providers as $p) {
+        $stmt->execute($p);
+    }
+
+    // Set Zen as default
+    $db->exec("UPDATE ai_providers SET active = 1 WHERE slug = 'zen'");
+
+    // Seed default Zen config (free tier, no API key needed)
+    $zenId = $db->query("SELECT id FROM ai_providers WHERE slug = 'zen'")->fetchColumn();
+    if ($zenId) {
+        $exists = $db->query("SELECT COUNT(*) FROM ai_configs WHERE provider_id = {$zenId}")->fetchColumn();
+        if (!$exists) {
+            $db->exec("INSERT INTO ai_configs (provider_id, model_slug, max_tokens, temperature, system_prompt, is_default)
+                       VALUES ({$zenId}, 'mimo-v2.5-free', 4096, 0.7, 'Você é um assistente útil.', 1)");
+        }
+    }
+}
+
+// ── Migration 040: Unify store_platforms and distribution_platforms ──
+function migration_040($db, $type) {
+    $pkType = $type === 'mysql' ? 'INT' : 'INTEGER';
+    $txt = $type === 'mysql' ? 'VARCHAR(255)' : 'TEXT';
+
+    // Disable FK enforcement for SQLite (we need to remap FKs)
+    if ($type === 'sqlite') {
+        $db->exec("PRAGMA foreign_keys = OFF");
+    }
+
+    // Create unified platforms table
+    $db->exec("CREATE TABLE IF NOT EXISTS platforms (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        name $txt NOT NULL,
+        slug $txt NOT NULL UNIQUE,
+        icon $txt NOT NULL DEFAULT '',
+        visibility $txt NOT NULL DEFAULT 'public',
+        active INTEGER NOT NULL DEFAULT 1,
+        sort_order INTEGER NOT NULL DEFAULT 0,
+        use_logo INTEGER NOT NULL DEFAULT 0,
+        logo_path TEXT NOT NULL DEFAULT '',
+        created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    )");
+
+    // Check if old tables exist and have data
+    $oldTables = ['store_platforms' => 0, 'distribution_platforms' => 0];
+    try {
+        $oldTables['store_platforms'] = (int)$db->query("SELECT COUNT(*) FROM store_platforms")->fetchColumn();
+    } catch (Exception $e) {}
+    try {
+        $oldTables['distribution_platforms'] = (int)$db->query("SELECT COUNT(*) FROM distribution_platforms")->fetchColumn();
+    } catch (Exception $e) {}
+
+    $totalOld = array_sum($oldTables);
+
+    // Check if platforms already has data (idempotency)
+    $platformCount = 0;
+    try {
+        $platformCount = (int)$db->query("SELECT COUNT(*) FROM platforms")->fetchColumn();
+    } catch (Exception $e) {}
+
+    if ($platformCount > 0) {
+        // Platforms table already populated — skip migration, just ensure old tables are dropped
+        if ($oldTables['store_platforms'] > 0 || $oldTables['distribution_platforms'] > 0) {
+            try { $db->exec("DROP TABLE IF EXISTS store_platforms"); } catch (Exception $e) {}
+            try { $db->exec("DROP TABLE IF EXISTS distribution_platforms"); } catch (Exception $e) {}
+        }
+        return;
+    }
+
+    if ($totalOld === 0) {
+        // Seed default unified platforms
+        $defaultPlatforms = [
+            ['Site Próprio', 'site', '🌐', 'internal', 1, 1],
+            ['Steam', 'steam', '🔥', 'both', 1, 2],
+            ['Epic Games', 'epic', '✨', 'both', 1, 3],
+             ['GOG', 'gog', '🧩', 'both', 1, 4],
+             ['itch.io', 'itchio', '🔴', 'public', 1, 5],
+             ['gd.games', 'gdgames', '🎮', 'public', 1, 6],
+             ['Google Play', 'googleplay', '📱', 'both', 1, 7],
+             ['App Store', 'appstore', '📱', 'both', 1, 8],
+             ['Nintendo eShop', 'nintendo', '🎹', 'public', 0, 9],
+             ['PlayStation Store', 'playstation', '🎮', 'public', 0, 10],
+             ['Xbox Store', 'xbox', '🎮', 'public', 0, 11],
+             ['Amazon', 'amazon', '📦', 'public', 0, 12],
+        ];
+        $stmt = $db->prepare("INSERT INTO platforms (name, slug, icon, visibility, active, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+        foreach ($defaultPlatforms as $p) {
+            $stmt->execute($p);
+        }
+    }
+
+    // Build ID maps for FK remapping
+    $idMap = ['store_platforms' => [], 'distribution_platforms' => []];
+    $slugToNewId = [];
+
+    // Canonical slug map: normalize distribution_platforms slugs to store_platforms slugs
+    // e.g. "play_store" → "googleplay", "app_store" → "appstore"
+    $slugAlias = [
+        'play_store' => 'googleplay',
+        'app_store' => 'appstore',
+    ];
+
+    // Collect all platforms from both tables, merged by slug
+    $platformMap = []; // canonical_slug => [name, icon, visibility, active, sort_order, use_logo, logo_path, store_id, dist_id]
+
+    // Query store_platforms
+    if ($oldTables['store_platforms'] > 0) {
+        $rows = $db->query("SELECT id, name, slug, icon, active, sort_order, use_logo, logo_path FROM store_platforms")->fetchAll();
+        foreach ($rows as $r) {
+            $slug = $r['slug'];
+            $platformMap[$slug] = [
+                'name' => $r['name'],
+                'icon' => $r['icon'],
+                'visibility' => 'public',
+                'active' => (int)$r['active'],
+                'sort_order' => (int)$r['sort_order'],
+                'use_logo' => (int)($r['use_logo'] ?? 0),
+                'logo_path' => $r['logo_path'] ?? '',
+                'store_id' => $r['id'],
+                'dist_id' => null,
+            ];
+        }
+    }
+
+    // Query distribution_platforms and merge
+    if ($oldTables['distribution_platforms'] > 0) {
+        $rows = $db->query("SELECT id, name, slug, icon, active, sort_order FROM distribution_platforms")->fetchAll();
+        foreach ($rows as $r) {
+            $slug = $slugAlias[$r['slug']] ?? $r['slug'];
+            if (isset($platformMap[$slug])) {
+                // Already exists from store_platforms → visibility = 'both'
+                $platformMap[$slug]['visibility'] = 'both';
+                $platformMap[$slug]['dist_id'] = $r['id'];
+                // Prefer store icon/logo if set, otherwise use dist icon
+                if (empty($platformMap[$slug]['icon']) && !empty($r['icon'])) {
+                    $platformMap[$slug]['icon'] = $r['icon'];
+                }
+                if (empty($platformMap[$slug]['active'])) {
+                    $platformMap[$slug]['active'] = (int)$r['active'];
+                }
+                if (empty($platformMap[$slug]['sort_order'])) {
+                    $platformMap[$slug]['sort_order'] = (int)$r['sort_order'];
+                }
+            } else {
+                // Only in distribution_platforms → visibility = 'internal'
+                $platformMap[$slug] = [
+                    'name' => $r['name'],
+                    'icon' => $r['icon'],
+                    'visibility' => 'internal',
+                    'active' => (int)$r['active'],
+                    'sort_order' => (int)$r['sort_order'],
+                    'use_logo' => 0,
+                    'logo_path' => '',
+                    'store_id' => null,
+                    'dist_id' => $r['id'],
+                ];
+            }
+        }
+    }
+
+    // Insert unified platforms and build ID mapping
+    $stmt = $db->prepare("INSERT INTO platforms (name, slug, icon, visibility, active, sort_order, use_logo, logo_path) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    foreach ($platformMap as $slug => $data) {
+        try {
+            $stmt->execute([
+                $data['name'],
+                $slug,
+                $data['icon'],
+                $data['visibility'],
+                $data['active'],
+                $data['sort_order'],
+                $data['use_logo'],
+                $data['logo_path'],
+            ]);
+            $newId = (int)$db->lastInsertId();
+            $slugToNewId[$slug] = $newId;
+            if ($data['store_id']) $idMap['store_platforms'][$data['store_id']] = $newId;
+            if ($data['dist_id']) $idMap['distribution_platforms'][$data['dist_id']] = $newId;
+        } catch (Exception $e) {
+            // Duplicate slug — get existing
+            $stmt = $db->prepare("SELECT id FROM platforms WHERE slug = ?");
+            $stmt->execute([$slug]);
+            $existingId = $stmt->fetchColumn();
+            if ($existingId) {
+                $slugToNewId[$slug] = (int)$existingId;
+                if ($data['store_id']) $idMap['store_platforms'][$data['store_id']] = (int)$existingId;
+                if ($data['dist_id']) $idMap['distribution_platforms'][$data['dist_id']] = (int)$existingId;
+            }
+        }
+    }
+
+    // Update FKs in referencing tables
+    // game_links → platforms (from store_platforms)
+    foreach ($idMap['store_platforms'] as $oldId => $newId) {
+        $db->prepare("UPDATE game_links SET platform_id = ? WHERE platform_id = ?")->execute([$newId, $oldId]);
+    }
+
+    // distribution_game_links → platforms (from distribution_platforms)
+    foreach ($idMap['distribution_platforms'] as $oldId => $newId) {
+        $db->prepare("UPDATE distribution_game_links SET platform_id = ? WHERE platform_id = ?")->execute([$newId, $oldId]);
+    }
+
+    // distribution_integrations → platforms (from distribution_platforms)
+    foreach ($idMap['distribution_platforms'] as $oldId => $newId) {
+        $db->prepare("UPDATE distribution_integrations SET platform_id = ? WHERE platform_id = ?")->execute([$newId, $oldId]);
+    }
+
+    // campaigns → platforms (from distribution_platforms)
+    foreach ($idMap['distribution_platforms'] as $oldId => $newId) {
+        $db->prepare("UPDATE campaigns SET platform_id = ? WHERE platform_id = ?")->execute([$newId, $oldId]);
+    }
+
+    // game_distribution_stats → platforms (from distribution_platforms)
+    foreach ($idMap['distribution_platforms'] as $oldId => $newId) {
+        $db->prepare("UPDATE game_distribution_stats SET platform_id = ? WHERE platform_id = ?")->execute([$newId, $oldId]);
+    }
+
+    // Drop old tables (only if they had data)
+    // NOTE: We keep the tables as empty shells to avoid breaking FK constraints
+    // Migration 041 will fix the FKs by recreating tables that reference old platform tables
+    if ($oldTables['store_platforms'] > 0 || $oldTables['distribution_platforms'] > 0) {
+        try { $db->exec("DELETE FROM store_platforms"); } catch (Exception $e) {}
+        try { $db->exec("DELETE FROM distribution_platforms"); } catch (Exception $e) {}
+    }
+}
+
+// ── Migration 041: Fix FK constraints to reference unified platforms table ──
+function migration_041($db, $type) {
+    if ($type === 'sqlite') {
+        $db->exec("PRAGMA foreign_keys = OFF");
+    } else {
+        $db->exec("SET FOREIGN_KEY_CHECKS = 0");
+    }
+
+    // Tables that had FK to old platform tables, now need FK to platforms
+    $tablesToFix = [
+        'game_links' => [
+            'create' => "CREATE TABLE game_links_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER NOT NULL,
+                platform_id INTEGER NOT NULL,
+                url TEXT NOT NULL,
+                sort_order INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE CASCADE
+            )",
+            'oldFkTable' => 'store_platforms',
+        ],
+        'distribution_game_links' => [
+            'create' => "CREATE TABLE distribution_game_links_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER,
+                integration_id INTEGER,
+                platform_id INTEGER NOT NULL,
+                store_url TEXT,
+                store_package_id TEXT,
+                store_status VARCHAR(20) DEFAULT 'draft',
+                version_name VARCHAR(100),
+                last_sync_at DATETIME DEFAULT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (integration_id) REFERENCES distribution_integrations(id) ON DELETE SET NULL,
+                FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE CASCADE
+            )",
+            'oldFkTable' => 'distribution_platforms',
+        ],
+        'distribution_integrations' => [
+            'create' => "CREATE TABLE distribution_integrations_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                platform_id INTEGER NOT NULL,
+                name VARCHAR(150) NOT NULL,
+                integration_type VARCHAR(50) NOT NULL DEFAULT 'manual',
+                config_json TEXT,
+                active INTEGER NOT NULL DEFAULT 1,
+                last_sync_at DATETIME DEFAULT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE CASCADE
+            )",
+            'oldFkTable' => 'distribution_platforms',
+        ],
+        'campaigns' => [
+            'create' => "CREATE TABLE campaigns_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(150) NOT NULL,
+                game_id INTEGER DEFAULT NULL,
+                platform_id INTEGER DEFAULT NULL,
+                status VARCHAR(20) NOT NULL DEFAULT 'draft',
+                budget DECIMAL(12,2) NOT NULL DEFAULT 0,
+                start_at DATETIME DEFAULT NULL,
+                end_at DATETIME DEFAULT NULL,
+                notes TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE SET NULL,
+                FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE SET NULL
+            )",
+            'oldFkTable' => 'distribution_platforms',
+        ],
+        'game_distribution_stats' => [
+            'create' => "CREATE TABLE game_distribution_stats_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id INTEGER NOT NULL,
+                platform_id INTEGER NOT NULL,
+                metric_key VARCHAR(50) NOT NULL,
+                metric_value DECIMAL(18,2) NOT NULL DEFAULT 0,
+                period_start DATE DEFAULT NULL,
+                period_end DATE DEFAULT NULL,
+                source VARCHAR(50) NOT NULL DEFAULT 'manual',
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (game_id) REFERENCES games(id) ON DELETE CASCADE,
+                FOREIGN KEY (platform_id) REFERENCES platforms(id) ON DELETE CASCADE
+            )",
+            'oldFkTable' => 'distribution_platforms',
+        ],
+    ];
+
+    foreach ($tablesToFix as $table => $spec) {
+        try {
+            // Check if table exists
+            $exists = $db->query("SELECT name FROM sqlite_master WHERE type='table' AND name='{$table}'")->fetchColumn();
+            if (!$exists) continue;
+
+            // Check if FK already points to correct table (idempotency)
+            $fkInfo = $db->query("PRAGMA foreign_key_list('{$table}')")->fetchAll();
+            $needsFix = false;
+            foreach ($fkInfo as $fk) {
+                if ($fk['table'] === $spec['oldFkTable']) {
+                    $needsFix = true;
+                    break;
+                }
+            }
+            if (!$needsFix) continue;
+
+            // Create new table
+            $db->exec($spec['create']);
+
+            // Copy data
+            $db->exec("INSERT INTO {$table}_new SELECT * FROM {$table}");
+
+            // Drop old table and rename
+            $db->exec("DROP TABLE {$table}");
+            $db->exec("ALTER TABLE {$table}_new RENAME TO {$table}");
+        } catch (Exception $e) {
+            // Non-critical, skip
+        }
+    }
+
+    // Drop old empty platform tables
+    try { $db->exec("DROP TABLE IF EXISTS store_platforms"); } catch (Exception $e) {}
+    try { $db->exec("DROP TABLE IF EXISTS distribution_platforms"); } catch (Exception $e) {}
+
+    // Re-enable FK for SQLite
+    if ($type === 'sqlite') {
+        $db->exec("PRAGMA foreign_keys = ON");
+    } else {
+        $db->exec("SET FOREIGN_KEY_CHECKS = 1");
+    }
+}
+
+// ── Migration 044: Newsletter campaigns table ──
+function migration_044($db, $type) {
+    $pkType = $type === 'mysql' ? 'INT' : 'INTEGER';
+    $txt = $type === 'mysql' ? 'VARCHAR(255)' : 'TEXT';
+
+    $db->exec("CREATE TABLE IF NOT EXISTS newsletter_campaigns (
+        id $pkType PRIMARY KEY AUTOINCREMENT,
+        title $txt NOT NULL,
+        subject $txt NOT NULL,
+        content $txt NOT NULL,
+        status $txt NOT NULL DEFAULT 'draft',
+        sent_count INTEGER NOT NULL DEFAULT 0,
+        total_recipients INTEGER NOT NULL DEFAULT 0,
+        scheduled_at DATETIME DEFAULT NULL,
+        sent_at DATETIME DEFAULT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT NULL,
+        sender_name $txt DEFAULT '',
+        sender_email $txt DEFAULT ''
+    )");
+
+    $db->exec("CREATE TABLE IF NOT EXISTS newsletter_campaign_recipients (
+        campaign_id $pkType NOT NULL,
+        subscriber_id $pkType NOT NULL,
+        status $txt NOT NULL DEFAULT 'pending',
+        sent_at DATETIME DEFAULT NULL
+    )");
+
+    // Add is_premium to blog_posts if not exists (idempotent)
+    $hasColumn = false;
+    $cols = $db->query("PRAGMA table_info(blog_posts)")->fetchAll();
+    foreach ($cols as $col) {
+        if ($col['name'] === 'is_premium') { $hasColumn = true; break; }
+    }
+    if (!$hasColumn) {
+        $db->exec("ALTER TABLE blog_posts ADD COLUMN is_premium INTEGER NOT NULL DEFAULT 0");
+    }
+}
+
+// ── Migration 046: Add donation settings to site_settings ──
+function migration_046($db, $type) {
+    $check = $db->prepare("SELECT `key` FROM site_settings WHERE `key` = ?");
+    $check->execute(['donation_config']);
+    if (!$check->fetch()) {
+        $db->prepare("INSERT INTO site_settings (`key`, `value`) VALUES (?, ?)")->execute([
+            'donation_config',
+            json_encode([
+                'enabled' => false,
+                'pix_key' => '',
+                'pix_description' => 'Apoio ao Jogatinando',
+                'paypal_url' => '',
+                'custom_html' => '',
+            ])
+        ]);
+    }
+    $check->execute(['donation_tiers']);
+    if (!$check->fetch()) {
+        $db->prepare("INSERT INTO site_settings (`key`, `value`) VALUES (?, ?)")->execute([
+            'donation_tiers',
+            json_encode([
+                ['amount' => 5, 'label' => 'Café'],
+                ['amount' => 15, 'label' => 'Jogo Indie'],
+                ['amount' => 50, 'label' => 'Desenvolvimento'],
+                ['amount' => 100, 'label' => 'Patrocinador'],
+            ])
+        ]);
+    }
+}
+
+function migration_042($db, $type) {
+    // Seeding of demo campaigns/metrics moved to dbSeed to ensure games exist
+}
+
+

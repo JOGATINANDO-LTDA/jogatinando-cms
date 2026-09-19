@@ -28,7 +28,7 @@ if (!$game) {
 $isWebPlayable = !empty($game['is_web_playable']);
 $isExterno = ($game['game_type'] ?? '') === 'externo' && !empty($game['external_url']);
 $isUploadado = !$isExterno && !empty($game['game_path']);
-$gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM game_links gl INNER JOIN store_platforms p ON p.id = gl.platform_id WHERE gl.game_id = ? AND p.active = 1 ORDER BY gl.sort_order ASC, p.sort_order ASC, p.name ASC", [$game['id']]);
+$gameLinks = dbQuery("SELECT gl.*, p.name as platform_name, p.icon as platform_icon, p.use_logo, p.logo_path FROM game_links gl INNER JOIN platforms p ON p.id = gl.platform_id WHERE gl.game_id = ? AND p.active = 1 AND p.visibility IN ('public', 'both') ORDER BY gl.sort_order ASC, p.sort_order ASC, p.name ASC", [$game['id']]);
 
 // Toggle: tenta proxy (mesma origem) com fallback para URL direta
 $useProxy = false;
@@ -106,6 +106,16 @@ $gameAdBottom = renderAdSlot('game_after_player', 'game', 'all');
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= e($game['title']) ?> — <?= e(getSetting('site_name', 'CMS de Jogos')) ?></title>
     <meta name="description" content="<?= e(truncateText($game['description'], 160)) ?>">
+    <meta property="og:title" content="<?= e($game['title']) ?> — <?= e(getSetting('site_name', 'CMS de Jogos')) ?>">
+    <meta property="og:description" content="<?= e(truncateText($game['description'], 200)) ?>">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="<?= e(SITE_URL . '/' . $engineSlug . '/' . $game['slug']) ?>">
+    <meta property="og:site_name" content="<?= e(getSetting('site_name', 'CMS de Jogos')) ?>">
+    <?php if (!empty($game['thumbnail_path'])): ?>
+    <meta property="og:image" content="<?= e(str_starts_with(UPLOAD_URL, 'http') ? UPLOAD_URL . '/thumbnails/' . $game['thumbnail_path'] : SITE_URL . UPLOAD_URL . '/thumbnails/' . $game['thumbnail_path']) ?>">
+    <?php else: ?>
+    <meta property="og:image" content="<?= e(str_starts_with(siteLogoUrl(), 'http') ? siteLogoUrl() : SITE_URL . siteLogoUrl()) ?>">
+    <?php endif; ?>
     <link rel="icon" href="<?= siteFaviconUrl() ?>" type="image/svg+xml">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>

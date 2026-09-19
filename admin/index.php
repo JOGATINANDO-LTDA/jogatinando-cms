@@ -124,15 +124,6 @@ $recentGames = dbQuery("SELECT * FROM games ORDER BY created_at DESC LIMIT 5");
                     <p>Adicionar membro da equipe</p>
                 </div>
             </a>
-            <a href="optimize" class="quick-link">
-                <div class="quick-link-icon">
-                    <svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg>
-                </div>
-                <div class="quick-link-text">
-                    <h3>Otimizar Jogos</h3>
-                    <p>Minificar e comprimir jogos HTML5</p>
-                </div>
-            </a>
         </div>
     </div>
 </div>

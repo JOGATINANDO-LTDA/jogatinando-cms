@@ -27,15 +27,41 @@ if (empty($_SESSION['install_csrf'])) {
     $_SESSION['install_csrf'] = bin2hex(random_bytes(32));
 }
 
-// Reconfigure requires admin login — check BEFORE maintenance block
+// Reconfigure requires CEO login (user id 1) — check BEFORE maintenance block.
+// Recovery mode: when the database is unreachable and no CEO session exists,
+// reconfigure is allowed without login (site is already down; logged for audit).
+$recoveryMode = false;
 if ($isReconfigure) {
     require_once __DIR__ . '/includes/auth.php';
-    if (!isLoggedIn()) {
-        $_SESSION['install_redirect'] = $_SERVER['REQUEST_URI'];
-        header('Location: ' . ADMIN_URL . '/login');
-        exit;
+    $isCeo = isLoggedIn() && (($_SESSION['admin_user_id'] ?? 0) === 1);
+    if (!$isCeo) {
+        $dbReachable = false;
+        try {
+            $dbReachable = (getDB() !== null);
+        } catch (Throwable $e) {
+            $dbReachable = false;
+        }
+        if ($dbReachable) {
+            if (isLoggedIn()) {
+                http_response_code(403);
+                header('Content-Type: text/html; charset=utf-8');
+                echo '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><title>Acesso restrito</title></head><body style="font-family:sans-serif;background:#111;color:#eee;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0">'
+                    . '<div style="max-width:480px;padding:32px;border:1px solid #333;border-radius:12px;text-align:center">'
+                    . '<h1 style="font-size:20px;margin-bottom:12px">Acesso restrito</h1>'
+                    . '<p style="color:#999;line-height:1.6">A reconfiguração do sistema é permitida apenas para a conta principal (CEO).</p>'
+                    . '<p><a href="/admin/dashboard" style="color:#d4af37">Voltar ao painel</a></p>'
+                    . '</div></body></html>';
+                exit;
+            }
+            $_SESSION['install_redirect'] = $_SERVER['REQUEST_URI'];
+            header('Location: ' . ADMIN_URL . '/login');
+            exit;
+        }
+        // Database unreachable → recovery mode
+        $recoveryMode = true;
+        error_log('Install recovery mode: DB unreachable; reconfigure allowed without login. IP=' . ($_SERVER['REMOTE_ADDR'] ?? 'unknown'));
     }
-    // Admin logado pode acessar mesmo em manutenção
+    // CEO logado ou modo recuperação: pode acessar mesmo em manutenção
 } else {
     // Block if maintenance mode is active (only for non-reconfigure)
     $dataPath = defined('DATA_PATH') ? DATA_PATH : __DIR__ . '/data';
@@ -85,7 +111,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $message = 'success';
             if (!$isReconfigure) {
                 session_destroy();
-                disableInstallFile();
             }
         } catch (Exception $ex) {
             error_log('Install SQLite error: ' . $ex->getMessage());
@@ -98,6 +123,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $tName = $_POST['db_name'] ?? 'cms_db';
             $tUser = $_POST['db_user'] ?? 'root';
             $tPass = $_POST['db_pass'] ?? '';
+            if ($tPass === '' && $isReconfigure && defined('DB_PASS') && DB_PASS !== '') {
+                $tPass = DB_PASS;
+            }
 
             $dsnNoDb = "mysql:host=$tHost;port=$tPort;charset=utf8mb4";
             $pdo = new PDO($dsnNoDb, $tUser, $tPass, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
@@ -161,6 +189,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $name = $_POST['db_name'] ?? 'cms_db';
             $dbUser = $_POST['db_user'] ?? 'root';
             $dbPass = $_POST['db_pass'] ?? '';
+            if ($dbPass === '' && $isReconfigure && defined('DB_PASS') && DB_PASS !== '') {
+                $dbPass = DB_PASS;
+            }
             $siteName = trim($_POST['site_name'] ?? 'CMS de Jogos');
             if ($siteName === '') $siteName = 'CMS de Jogos';
 
@@ -235,7 +266,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 session_destroy();
             }
             writeLocalConfig('mysql', $host, $port, $name, $dbUser, $dbPass);
-            disableInstallFile();
         } catch (Exception $ex) {
             error_log('Install MySQL error: ' . $ex->getMessage());
             $message = 'error:Erro ao configurar MySQL. Verifique as credenciais e tente novamente.';
@@ -260,22 +290,6 @@ function writeLocalConfig($type, $host = null, $port = null, $name = null, $user
     file_put_contents(DATA_PATH . '/config.local.php', $content);
     $persistentDir = dirname(ROOT_PATH);
     file_put_contents($persistentDir . '/config.local.php', $content);
-}
-
-function shouldRemoveInstall() {
-    if (file_exists('/.dockerenv')) return false;
-    $host = $_SERVER['HTTP_HOST'] ?? '';
-    if ($host === 'localhost' || $host === '127.0.0.1' || str_starts_with($host, 'localhost:') || str_starts_with($host, '127.0.0.1:')) return false;
-    return true;
-}
-
-function disableInstallFile() {
-    if (!shouldRemoveInstall()) return;
-    $path = ROOT_PATH . '/install.php';
-    if (!file_exists($path)) return;
-    $disabled = $path . '.disabled';
-    if (@rename($path, $disabled)) return;
-    @chmod($path, 0000);
 }
 ?>
 <!DOCTYPE html>
@@ -316,6 +330,14 @@ function disableInstallFile() {
     <div class="install-card">
         <h1>CMS de Jogos</h1>
 
+        <?php if ($recoveryMode): ?>
+            <div class="status error" style="text-align:left;">
+                <strong>Modo recuperação:</strong> o banco de dados atual está inacessível.
+                A reconfiguração foi liberada sem login — este acesso foi registrado no log do servidor.
+                Corrija as credenciais abaixo com atenção.
+            </div>
+        <?php endif; ?>
+
         <?php if ($message === 'success'): ?>
             <div class="status success">Banco de dados inicializado com sucesso!</div>
             <p>Dados padrão inseridos: banners, jogos, depoimentos, FAQ e equipe.</p>
@@ -351,6 +373,11 @@ function disableInstallFile() {
         <?php elseif ($step === 2):
             $result = $_SESSION['mysql_test'] ?? null;
             $s = $result ? $result['status'] : null;
+            // Reconfigure: pré-preenche com as credenciais atuais
+            $curHost = ($isReconfigure && defined('DB_HOST')) ? DB_HOST : '127.0.0.1';
+            $curPort = ($isReconfigure && defined('DB_PORT')) ? DB_PORT : '3306';
+            $curName = ($isReconfigure && defined('DB_NAME')) ? DB_NAME : 'cms_db';
+            $curUser = ($isReconfigure && defined('DB_USER')) ? DB_USER : 'root';
         ?>
             <div class="steps">
                 <div class="step done">1</div>
@@ -364,21 +391,21 @@ function disableInstallFile() {
                 <div class="form-row">
                     <div class="form-group">
                         <label for="db_host">Host</label>
-                        <input type="text" id="db_host" name="db_host" value="<?= e($result['host'] ?? '127.0.0.1') ?>" required>
+                        <input type="text" id="db_host" name="db_host" value="<?= e($result['host'] ?? $curHost) ?>" required>
                     </div>
                     <div class="form-group">
                         <label for="db_port">Porta</label>
-                        <input type="text" id="db_port" name="db_port" value="<?= e($result['port'] ?? '3306') ?>" required>
+                        <input type="text" id="db_port" name="db_port" value="<?= e($result['port'] ?? $curPort) ?>" required>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="db_name">Database</label>
-                    <input type="text" id="db_name" name="db_name" value="<?= e($result['name'] ?? 'cms_db') ?>" required>
+                    <input type="text" id="db_name" name="db_name" value="<?= e($result['name'] ?? $curName) ?>" required>
                 </div>
                 <div class="form-row">
                     <div class="form-group">
                         <label for="db_user">Usuário</label>
-                        <input type="text" id="db_user" name="db_user" value="<?= e($result['user'] ?? 'root') ?>" required>
+                        <input type="text" id="db_user" name="db_user" value="<?= e($result['user'] ?? $curUser) ?>" required>
                     </div>
                     <div class="form-group">
                         <label for="db_pass">Senha</label>

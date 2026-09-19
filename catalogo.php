@@ -73,7 +73,6 @@ $routeEngineSlug = function ($value) {
             <ul class="navbar-menu">
                 <li><a href="/">Início</a></li>
                 <li><a href="/catalogo" class="active">Catálogo</a></li>
-                <li><a href="/templates">Templates</a></li>
                 <li><a href="/#contact">Contato</a></li>
             </ul>
             <button class="navbar-toggle" id="mobileToggle" aria-label="Menu">
@@ -88,7 +87,6 @@ $routeEngineSlug = function ($value) {
         </button>
         <a href="/" class="mobile-link">Início</a>
         <a href="/catalogo" class="mobile-link">Catálogo</a>
-        <a href="/templates" class="mobile-link">Templates</a>
         <a href="/#contact" class="btn btn-gold mobile-link">Contato</a>
     </div>
 

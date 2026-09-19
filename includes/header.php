@@ -79,8 +79,22 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 20V4"/><path d="M4 20h16"/><path d="M8 16V10"/><path d="M12 16V7"/><path d="M16 16v-4"/></svg></span>
                     <span class="nav-label">Distribuição</span>
                 </a>
-
-                <div class="nav-section-label">Conteúdo</div>
+                
+                <div class="nav-section-label">Marketing</div>
+                <?php if (can('perm_settings')): ?>
+                <a href="<?= ADMIN_URL ?>/newsletter" class="nav-item <?= $currentPage === 'newsletter' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20l20-6-20-6z"/><path d="M4 20l8-14 8 14"/></svg></span>
+                    <span class="nav-label">Newsletter</span>
+                </a>
+                <a href="<?= ADMIN_URL ?>/newsletter-campaigns" class="nav-item <?= $currentPage === 'newsletter-campaigns' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H10L8 6H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V10a2 2 0 0 0-2-2h-4l-2-4z"/></svg></span>
+                    <span class="nav-label">Campanhas</span>
+                </a>
+                <a href="<?= ADMIN_URL ?>/donations" class="nav-item <?= $currentPage === 'donations' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3 7h7l-5.5 4 2 7-5.5-4-5.5 4 2-7L2 9h7z"/></svg></span>
+                    <span class="nav-label">Doações</span>
+                </a>
+                <?php endif; ?>
                 <?php if (can('perm_testimonials')): ?>
                 <a href="<?= ADMIN_URL ?>/testimonials" class="nav-item <?= $currentPage === 'testimonials' ? 'active' : '' ?>">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg></span>
@@ -141,32 +155,20 @@ if (isset($requiredPerm) && !can($requiredPerm)) {
                     <span class="nav-label">Jogos Retro</span>
                 </a>
                 <?php endif; ?>
-                <?php if (can('perm_templates')): ?>
-                <a href="<?= ADMIN_URL ?>/templates" class="nav-item <?= $currentPage === 'templates' ? 'active' : '' ?>">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg></span>
-                    <span class="nav-label">Templates</span>
-                </a>
-                <?php endif; ?>
-                <?php if (can('perm_optimizer')): ?>
-                <a href="<?= ADMIN_URL ?>/optimize" class="nav-item <?= $currentPage === 'optimize' ? 'active' : '' ?>">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></span>
-                    <span class="nav-label">Otimizador</span>
-                </a>
-                <?php endif; ?>
                 <?php if (can('perm_settings')): ?>
                 <a href="<?= ADMIN_URL ?>/settings" class="nav-item <?= $currentPage === 'settings' ? 'active' : '' ?>">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg></span>
                     <span class="nav-label">Configurações</span>
                 </a>
+                <a href="<?= ADMIN_URL ?>/ai-settings" class="nav-item <?= $currentPage === 'ai-settings' ? 'active' : '' ?>">
+                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20 10 10 0 000-20z"/><path d="M12 6v6l4 2"/></svg></span>
+                    <span class="nav-label">IA</span>
+                </a>
                 <?php endif; ?>
                 <?php if (($_SESSION['admin_user_id'] ?? 0) === 1): ?>
                 <a href="<?= ADMIN_URL ?>/repair" class="nav-item <?= $currentPage === 'repair' ? 'active' : '' ?>">
                     <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M14.7 6.3a1 1 0 000 1.4l1.6 1.6a1 1 0 001.4 0l3.77-3.77a6 6 0 01-7.94 7.94l-6.91 6.91a2.12 2.12 0 01-3-3l6.91-6.91a6 6 0 017.94-7.94l-3.76 3.76z"/></svg></span>
-                    <span class="nav-label">Reparo</span>
-                </a>
-                <a href="<?= ADMIN_URL ?>/diagnostics" class="nav-item <?= $currentPage === 'diagnostics' ? 'active' : '' ?>">
-                    <span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M12 20V10"/><path d="M18 20V4"/><path d="M6 20v-4"/></svg></span>
-                    <span class="nav-label">Diag. Servidor</span>
+                    <span class="nav-label">Diagnóstico</span>
                 </a>
                 <?php endif; ?>
             </nav>

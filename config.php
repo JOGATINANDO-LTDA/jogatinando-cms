@@ -244,6 +244,7 @@ require_once ROOT_PATH . '/includes/auth.php';
 require_once ROOT_PATH . '/includes/functions.php';
 require_once ROOT_PATH . '/includes/storage.php';
 require_once ROOT_PATH . '/includes/markdown.php';
+require_once ROOT_PATH . '/includes/newsletter.php';
 
 // Redirect to install if not set up yet
 requireInstalled();
@@ -253,7 +254,7 @@ if (php_sapi_name() !== 'cli') {
     require_once ROOT_PATH . '/includes/maintenance.php';
     if (isMaintenanceActive()) {
         $uri = $_SERVER['REQUEST_URI'] ?? '';
-        if (!str_starts_with($uri, '/admin/') && !str_starts_with($uri, '/install')) {
+        if (!str_starts_with($uri, '/admin/') && !str_starts_with($uri, '/install') && !str_starts_with($uri, '/health')) {
             if (empty($_SESSION['admin_logged_in'])) {
                 renderMaintenancePage();
             }
