@@ -46,7 +46,8 @@
    - **Headless (padrão)**: sem janela, tudo automático, sem interação humana. NUNCA espere interação humana neste modo.
    - **`--headed`**: janela visível, mas ainda automático. Só ative se o usuário pedir explicitamente (ex: "quero ver a janela do navegador", "desligue o headless"). O usuário pode apenas querer visualizar testes autônomos rodando.
    - **Interativo**: desative headless E espere comandos do usuário. Só ative se o usuário disser explicitamente que quer interagir (ex: "quero que os testes sejam interativos", "quero interagir com o browser").
-   - Resumo: headless é o padrão. Todas as ações são automáticas. Só mude o modo quando o usuário pedir explicitamente.
+    - Resumo: headless é o padrão. Todas as ações são automáticas. Só mude o modo quando o usuário pedir explicitamente.
+10. **Browser testing — sem diálogo pendente**: Após qualquer comando `agent-browser click`, `fill`, `press` ou `select`, a próxima ação DEVE ser `agent-browser dialog status`. Se houver diálogo pendente, resolva (`dialog accept` para confirmar, `dialog dismiss` para cancelar) antes de continuar. Páginas do admin usam `confirm()` em exclusões — sem esse tratamento a página trava e o teste para. Verifique também abas (`agent-browser tab`) e feche as inesperadas.
 
 ## Project
 
