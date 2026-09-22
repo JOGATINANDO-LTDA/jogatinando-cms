@@ -1,0 +1,21 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "agent": {
+    "plan": {
+      "permission": {
+        "task": {
+          "*": "ask",
+          "general": "deny",
+          "mercado": "allow",
+          "mercado-cms": "allow",
+          "spec": "allow",
+          "dev": "allow",
+          "qa": "allow",
+          "qa-painel": "allow",
+          "bugfix": "allow",
+          "supervisor": "allow"
+        }
+      }
+    }
+  }
+}
